@@ -1,0 +1,83 @@
+<Window x:Class="RufusMapEditor.App.PublishLangRemoteWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Publicar LANG"
+        Width="560" Height="640"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource WindowBackground}"
+        Foreground="{DynamicResource TextPrimary}">
+  <Grid Margin="16">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+
+    <Border Background="{DynamicResource DialogHeaderBackground}" CornerRadius="6"
+            BorderBrush="{DynamicResource Border}" BorderThickness="1" Padding="12,10" Margin="0,0,0,12">
+      <StackPanel>
+        <StackPanel Orientation="Horizontal">
+          <Border Width="3" Height="16" CornerRadius="1.5" Background="{DynamicResource BrandAccent}" Margin="0,0,10,0"/>
+          <TextBlock Text="PUBLICAR LANG · remoto seguro (11B.2)" FontWeight="SemiBold" VerticalAlignment="Center"/>
+        </StackPanel>
+        <TextBlock Text="Orden fijo: sync → backup → generar N+1 → validar → concurrencia → upload → hash → versions_es → verificar. No toca BD."
+                   TextWrapping="Wrap" Margin="13,6,0,0" Foreground="{DynamicResource TextSecondary}" FontSize="11"/>
+      </StackPanel>
+    </Border>
+
+    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+      <StackPanel>
+        <TextBlock x:Name="SummaryBox" FontFamily="Consolas" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,12"/>
+
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="140"/>
+            <ColumnDefinition Width="*"/>
+          </Grid.ColumnDefinitions>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+          </Grid.RowDefinitions>
+
+          <TextBlock Grid.Row="0" Text="Map ID" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondary}"/>
+          <TextBox x:Name="MapIdBox" Grid.Row="0" Grid.Column="1" Margin="0,0,0,8" FontFamily="Consolas" IsReadOnly="True"/>
+
+          <TextBlock Grid.Row="1" Text="X / Y" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondary}"/>
+          <DockPanel Grid.Row="1" Grid.Column="1" Margin="0,0,0,8">
+            <TextBox x:Name="XBox" Width="100" FontFamily="Consolas" Margin="0,0,8,0"/>
+            <TextBox x:Name="YBox" Width="100" FontFamily="Consolas"/>
+          </DockPanel>
+
+          <TextBlock Grid.Row="2" Text="SubArea (sa)" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondary}"/>
+          <TextBox x:Name="SubAreaBox" Grid.Row="2" Grid.Column="1" Margin="0,0,0,8" FontFamily="Consolas"/>
+
+          <TextBlock Grid.Row="3" Text="EP" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondary}"/>
+          <StackPanel Grid.Row="3" Grid.Column="1" Margin="0,0,0,8">
+            <TextBox x:Name="EpBox" FontFamily="Consolas"
+                     ToolTip="Predeterminado del proyecto: 2 (editable)"/>
+            <TextBlock Text="Predeterminado = 2 (como el resto de mapas)." FontSize="11"
+                       Foreground="{DynamicResource TextMuted}" Margin="0,4,0,0"/>
+          </StackPanel>
+
+          <CheckBox x:Name="EpConfirmBox" Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2"
+                    Margin="0,4,0,8"
+                    Content="Confirmo el valor EP (predeterminado 2 — editable)"/>
+        </Grid>
+
+        <TextBlock x:Name="StatusText" TextWrapping="Wrap" Margin="0,8,0,0"
+                   Foreground="{DynamicResource TextSecondary}" MinHeight="40"/>
+      </StackPanel>
+    </ScrollViewer>
+
+    <ProgressBar x:Name="BusyBar" Grid.Row="2" Height="4" Margin="0,8,0,8"
+                 IsIndeterminate="True" Visibility="Collapsed"/>
+
+    <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
+      <Button x:Name="PublishButton" Content="Publicar LANG" Padding="12,4" Margin="0,0,8,0"
+              Style="{StaticResource PrimaryButton}" Click="Publish_Click"/>
+      <Button Content="Cancelar" Padding="12,4" IsCancel="True"/>
+    </StackPanel>
+  </Grid>
+</Window>

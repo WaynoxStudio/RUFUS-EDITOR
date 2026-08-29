@@ -1,0 +1,251 @@
+<Window x:Class="RufusMapEditor.App.ContentNpcEditorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:RufusMapEditor.App.ViewModels"
+        xmlns:ctrl="clr-namespace:RufusMapEditor.App.Controls"
+        xmlns:content="clr-namespace:RufusMapEditor.LegacyCompatibility.Content;assembly=RufusMapEditor.LegacyCompatibility"
+        Title="Contenido · NPC"
+        Width="980" Height="640"
+        MinWidth="820" MinHeight="520"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource WindowBackground}"
+        Foreground="{DynamicResource TextPrimary}"
+        FontFamily="{DynamicResource AppFontFamily}">
+  <Window.Resources>
+    <Style x:Key="SectionHeader" TargetType="TextBlock">
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="Margin" Value="0,0,0,8"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+    </Style>
+    <Style x:Key="FieldLabel" TargetType="TextBlock">
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondary}"/>
+      <Setter Property="Margin" Value="0,0,0,0"/>
+    </Style>
+  </Window.Resources>
+
+  <Grid Margin="16">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+
+    <!-- Header -->
+    <Border Grid.Row="0" Background="{DynamicResource DialogHeaderBackground}" CornerRadius="6"
+            BorderBrush="{DynamicResource Border}" BorderThickness="1" Padding="12,10" Margin="0,0,0,12">
+      <DockPanel>
+        <Border Width="3" Height="16" CornerRadius="1.5" Background="{DynamicResource BrandAccent}"
+                Margin="0,0,10,0" VerticalAlignment="Center"/>
+        <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
+          <Button Content="Reloj MAX" Command="{Binding RefreshMaxCommand}" Padding="10,4" Margin="0,0,8,0"
+                  ToolTip="SELECT MAX(id) FROM npcs_modelo (solo lectura)"/>
+          <Button Content="Cerrar" IsCancel="True" Padding="10,4" Click="Close_Click"/>
+        </StackPanel>
+        <StackPanel>
+          <TextBlock Text="Contenido → NPC" FontWeight="SemiBold" FontSize="15"/>
+          <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="{DynamicResource TextSecondary}"
+                     TextWrapping="Wrap" Margin="0,2,0,0"/>
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <Grid Grid.Row="1">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="280"/>
+        <ColumnDefinition Width="12"/>
+        <ColumnDefinition Width="*"/>
+      </Grid.ColumnDefinitions>
+
+      <!-- Left list -->
+      <Border Grid.Column="0" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource Border}"
+              BorderThickness="1" CornerRadius="8" Padding="10">
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+          </Grid.RowDefinitions>
+          <DockPanel Margin="0,0,0,8">
+            <Button DockPanel.Dock="Right" Content="+ Nuevo NPC" Command="{Binding NewNpcCommand}"
+                    Padding="10,5" FontWeight="SemiBold"/>
+            <TextBlock Text="Borradores" FontWeight="SemiBold" VerticalAlignment="Center"/>
+          </DockPanel>
+          <ListBox Grid.Row="1" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}"
+                   BorderThickness="0" Background="Transparent">
+            <ListBox.ItemTemplate>
+              <DataTemplate DataType="{x:Type vm:NpcDraftItemViewModel}">
+                <StackPanel Margin="2,4">
+                  <TextBlock FontWeight="SemiBold">
+                    <Run Text="#"/><Run Text="{Binding Id, Mode=OneWay}"/>
+                    <Run Text="  "/><Run Text="{Binding Nombre, Mode=OneWay}"/>
+                  </TextBlock>
+                  <TextBlock Text="{Binding Status}" FontSize="11" Foreground="{DynamicResource TextSecondary}"/>
+                </StackPanel>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+          <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
+            <Button Content="Duplicar" Command="{Binding DuplicateCommand}" Padding="10,4" Margin="0,0,8,0"/>
+            <Button Content="Eliminar" Command="{Binding DeleteCommand}" Padding="10,4"/>
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <!-- Right editor -->
+      <Border Grid.Column="2" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource Border}"
+              BorderThickness="1" CornerRadius="8" Padding="16"
+              IsEnabled="{Binding EditorEnabled}">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" DataContext="{Binding Selected}">
+          <StackPanel>
+            <TextBlock Text="IDENTIDAD" Style="{StaticResource SectionHeader}"/>
+            <Grid Margin="0,0,0,16">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="130"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+              </Grid.RowDefinitions>
+
+              <TextBlock Grid.Row="0" Text="ID (provisional)" Style="{StaticResource FieldLabel}"/>
+              <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Id, Mode=OneWay}"
+                       IsReadOnly="True" Margin="0,0,0,8" FontFamily="Consolas"
+                       ToolTip="ID provisional del lote. Solo lectura."/>
+
+              <TextBlock Grid.Row="1" Text="Nombre" Style="{StaticResource FieldLabel}"/>
+              <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Nombre, UpdateSourceTrigger=PropertyChanged}"
+                       Margin="0,0,0,8"/>
+
+              <TextBlock Grid.Row="2" Text="GFX ID" Style="{StaticResource FieldLabel}"/>
+              <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding GfxId, UpdateSourceTrigger=PropertyChanged}"
+                       Margin="0,0,0,8" FontFamily="Consolas"/>
+
+              <TextBlock Grid.Row="3" Text="Sexo" Style="{StaticResource FieldLabel}"/>
+              <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Sexo, UpdateSourceTrigger=PropertyChanged}"
+                       Margin="0,0,0,8" FontFamily="Consolas"
+                       ToolTip="0 o 1 (tinyint sexo de npcs_modelo)"/>
+            </Grid>
+
+            <TextBlock Text="APARIENCIA" Style="{StaticResource SectionHeader}"/>
+            <Grid Margin="0,0,0,16">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="130"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+              </Grid.RowDefinitions>
+
+              <TextBlock Grid.Row="0" Text="Scale X" Style="{StaticResource FieldLabel}"/>
+              <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding ScaleX, UpdateSourceTrigger=PropertyChanged}"
+                       Margin="0,0,0,8" FontFamily="Consolas"/>
+              <TextBlock Grid.Row="1" Text="Scale Y" Style="{StaticResource FieldLabel}"/>
+              <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ScaleY, UpdateSourceTrigger=PropertyChanged}"
+                       Margin="0,0,0,8" FontFamily="Consolas"/>
+              <TextBlock Grid.Row="2" Text="Color 1" Style="{StaticResource FieldLabel}"/>
+              <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Color1, UpdateSourceTrigger=PropertyChanged}"
+                       Margin="0,0,0,8" FontFamily="Consolas"/>
+              <TextBlock Grid.Row="3" Text="Color 2" Style="{StaticResource FieldLabel}"/>
+              <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Color2, UpdateSourceTrigger=PropertyChanged}"
+                       Margin="0,0,0,8" FontFamily="Consolas"/>
+              <TextBlock Grid.Row="4" Text="Color 3" Style="{StaticResource FieldLabel}"/>
+              <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Color3, UpdateSourceTrigger=PropertyChanged}"
+                       Margin="0,0,0,8" FontFamily="Consolas"/>
+              <TextBlock Grid.Row="5" Text="Accesorios" Style="{StaticResource FieldLabel}"/>
+              <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding Accesorios, UpdateSourceTrigger=PropertyChanged}"
+                       Margin="0,0,0,8" FontFamily="Consolas"/>
+              <TextBlock Grid.Row="6" Text="Foto" Style="{StaticResource FieldLabel}"/>
+              <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding Foto, UpdateSourceTrigger=PropertyChanged}"
+                       Margin="0,0,0,8" FontFamily="Consolas"/>
+            </Grid>
+
+            <TextBlock Text="CONFIGURACIÓN" Style="{StaticResource SectionHeader}"/>
+            <Grid Margin="0,0,0,16">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="130"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+              </Grid.RowDefinitions>
+              <TextBlock Grid.Row="0" Text="Pregunta" Style="{StaticResource FieldLabel}"/>
+              <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Pregunta, UpdateSourceTrigger=PropertyChanged}"
+                       Margin="0,0,0,8" FontFamily="Consolas"/>
+              <TextBlock Grid.Row="1" Text="Ventas" Style="{StaticResource FieldLabel}"/>
+              <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Ventas, UpdateSourceTrigger=PropertyChanged}"
+                       Margin="0,0,0,8" FontFamily="Consolas"
+                       ToolTip="CSV de object model IDs (npcs_modelo.ventas)"/>
+              <TextBlock Grid.Row="2" Text="ObjetoCompra" Style="{StaticResource FieldLabel}"/>
+              <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ObjetoCompra, UpdateSourceTrigger=PropertyChanged}"
+                       FontFamily="Consolas"/>
+            </Grid>
+
+            <DockPanel Margin="0,0,0,8">
+              <Button DockPanel.Dock="Right"
+                      Content="+ Añadir ubicación"
+                      Command="{Binding DataContext.AddLocationCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                      Padding="10,5"/>
+              <TextBlock Text="UBICACIONES" Style="{StaticResource SectionHeader}" Margin="0"/>
+            </DockPanel>
+            <TextBlock FontSize="11" Foreground="{DynamicResource TextMuted}" Margin="0,0,0,8" TextWrapping="Wrap"
+                       Text="npc se enlaza al ID provisional del NPC. Map/Celda los introduces tú (no se inventan)."/>
+            <ItemsControl ItemsSource="{Binding Locations}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="{x:Type content:NpcLocationDraft}">
+                  <Border BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="6"
+                          Padding="10" Margin="0,0,0,8" Background="{DynamicResource DialogHeaderBackground}">
+                    <Grid>
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                      </Grid.ColumnDefinitions>
+                      <Grid>
+                        <Grid.ColumnDefinitions>
+                          <ColumnDefinition Width="100"/>
+                          <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                          <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                          <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Text="Mapa ID" Style="{StaticResource FieldLabel}"/>
+                        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding MapId, UpdateSourceTrigger=PropertyChanged}"
+                                 Margin="0,0,0,6" FontFamily="Consolas" TextChanged="LocationField_Changed"/>
+                        <TextBlock Grid.Row="1" Text="Celda" Style="{StaticResource FieldLabel}"/>
+                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding CellId, UpdateSourceTrigger=PropertyChanged}"
+                                 Margin="0,0,0,6" FontFamily="Consolas" TextChanged="LocationField_Changed"/>
+                        <TextBlock Grid.Row="2" Text="Orientación" Style="{StaticResource FieldLabel}"
+                                   VerticalAlignment="Top" Margin="0,8,0,0"/>
+                        <ctrl:NpcOrientationPicker Grid.Row="2" Grid.Column="1" Margin="0,0,0,8"
+                                                     Orientation="{Binding Orientation, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                     OrientationEdited="OrientationPicker_Edited"/>
+                        <TextBlock Grid.Row="3" Text="Condición" Style="{StaticResource FieldLabel}"/>
+                        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Condition, UpdateSourceTrigger=PropertyChanged}"
+                                 FontFamily="Consolas" TextChanged="LocationField_Changed"/>
+                      </Grid>
+                      <Button Grid.Column="1" Content="Eliminar" VerticalAlignment="Top" Margin="8,0,0,0"
+                              Padding="8,4" Tag="{Binding}" Click="RemoveLocation_Click"/>
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <TextBlock Margin="0,8,0,0" FontSize="11" Foreground="{DynamicResource TextMuted}"
+                       TextWrapping="Wrap"
+                       Text="Borrador local. npcs_ubicacion.nombre = nombre del NPC al publicar (CONT.5). Sin INSERT ahora."/>
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+    </Grid>
+
+    <TextBlock Grid.Row="2" Margin="0,10,0,0" FontSize="11" Foreground="{DynamicResource TextMuted}"
+               Text="Escrituras BD: 0 · Escrituras SFTP: 0 · Tablas: npcs_modelo + npcs_ubicacion (borrador) · IDs provisionales del lote"/>
+  </Grid>
+</Window>

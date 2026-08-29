@@ -1,0 +1,28 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\RufusMapEditor.Domain\RufusMapEditor.Domain.csproj" />
+    <ProjectReference Include="..\RufusMapEditor.Licensing\RufusMapEditor.Licensing.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Cont6aAudit" />
+    <InternalsVisibleTo Include="Cont7aAudit" />
+    <InternalsVisibleTo Include="RufusMapEditor.LegacyCompatibility.Tests" />
+    <InternalsVisibleTo Include="SpriteDebug" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MySqlConnector" Version="2.4.0" />
+    <PackageReference Include="SSH.NET" Version="2026.0.0" />
+    <PackageReference Include="System.Drawing.Common" Version="10.0.11" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.0" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <NoWarn>$(NoWarn);SYSLIB0011;CA1416</NoWarn>
+  </PropertyGroup>
+
+</Project>

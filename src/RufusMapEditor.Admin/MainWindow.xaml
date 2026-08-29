@@ -1,0 +1,124 @@
+<Window x:Class="RufusMapEditor.Admin.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="RUFUS ADMIN"
+        Height="780" Width="1280"
+        MinHeight="720" MinWidth="1100"
+        Background="{DynamicResource Bg}"
+        WindowStartupLocation="CenterScreen"
+        Loaded="MainWindow_Loaded">
+  <Grid>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="220"/>
+      <ColumnDefinition Width="*"/>
+    </Grid.ColumnDefinitions>
+
+    <!-- Sidebar -->
+    <Border Grid.Column="0" Background="{DynamicResource SidebarBg}" Padding="0,0,0,12"
+            BorderBrush="{DynamicResource SidebarBorder}" BorderThickness="0,0,1,0">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Top" Margin="16,20,16,8">
+          <TextBlock Text="RUFUS ADMIN" FontSize="17" FontWeight="SemiBold"
+                     Style="{StaticResource ShellTextBlock}"/>
+          <TextBlock Text="Centro de control" Style="{StaticResource ShellMutedText}"
+                     FontSize="12" Margin="0,4,0,0"/>
+        </StackPanel>
+
+        <StackPanel DockPanel.Dock="Bottom" Margin="0,0,0,0"
+                    TextElement.Foreground="{DynamicResource ShellText}">
+          <Border Style="{StaticResource SidebarConnectionPanel}">
+            <StackPanel>
+              <TextBlock Text="CONEXIONES" Style="{StaticResource SidebarConnectionTitle}"/>
+
+              <Grid Margin="0,0,0,3">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="Auto"/>
+                  <ColumnDefinition Width="Auto"/>
+                  <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Ellipse x:Name="BackendDot" Grid.Column="0" Width="7" Height="7"
+                         Margin="0,0,6,0" Fill="{StaticResource ShellMuted}" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Text="Backend" Style="{StaticResource SidebarConnectionName}"/>
+                <TextBlock x:Name="BackendLabel" Grid.Column="2" Text="Sin conexión"
+                           Style="{StaticResource SidebarConnectionStatus}"/>
+              </Grid>
+
+              <Grid Margin="0,0,0,3"
+                    ToolTip="{Binding ElementName=DbDetail, Path=Text}">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="Auto"/>
+                  <ColumnDefinition Width="Auto"/>
+                  <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Ellipse x:Name="DbDot" Grid.Column="0" Width="7" Height="7"
+                         Margin="0,0,6,0" Fill="{StaticResource ShellMuted}" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Text="BD" Style="{StaticResource SidebarConnectionName}"/>
+                <TextBlock x:Name="DbLabel" Grid.Column="2" Text="Sin comprobar"
+                           Style="{StaticResource SidebarConnectionStatus}"/>
+                <TextBlock x:Name="DbDetail" Visibility="Collapsed"/>
+              </Grid>
+
+              <Grid Margin="0,0,0,2"
+                    ToolTip="{Binding ElementName=SftpDetail, Path=Text}">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="Auto"/>
+                  <ColumnDefinition Width="Auto"/>
+                  <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Ellipse x:Name="SftpDot" Grid.Column="0" Width="7" Height="7"
+                         Margin="0,0,6,0" Fill="{StaticResource ShellMuted}" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Text="SFTP" Style="{StaticResource SidebarConnectionName}"/>
+                <TextBlock x:Name="SftpLabel" Grid.Column="2" Text="Sin comprobar"
+                           Style="{StaticResource SidebarConnectionStatus}"/>
+                <TextBlock x:Name="SftpDetail" Visibility="Collapsed"/>
+              </Grid>
+
+              <TextBlock x:Name="HostLabel" Style="{StaticResource SidebarConnectionHost}"/>
+
+              <Button Content="Comprobar conexiones" Style="{StaticResource SidebarCheckButton}"
+                      Click="CheckConnections_Click"
+                      ToolTip="Comprueba Backend, BD y SFTP (misma config que Mapas/Contenido · solo lectura)"/>
+            </StackPanel>
+          </Border>
+
+        </StackPanel>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto" TextElement.Foreground="{DynamicResource ShellText}">
+          <StackPanel>
+            <TextBlock Text="MAPAS" Style="{StaticResource NavGroupLabel}"/>
+            <RadioButton Content="Mapas" Style="{StaticResource NavButton}"
+                         Checked="Nav_Checked" Tag="Maps"/>
+
+            <TextBlock Text="CONTENIDO" Style="{StaticResource NavGroupLabel}"/>
+            <RadioButton Content="NPC y diálogos" Style="{StaticResource NavButton}"
+                         Checked="Nav_Checked" Tag="Content"/>
+            <RadioButton Content="Misiones" Style="{StaticResource NavButton}"
+                         Checked="Nav_Checked" Tag="Missions" Visibility="Collapsed"/>
+
+            <TextBlock Text="GESTIÓN" Style="{StaticResource NavGroupLabel}"/>
+            <RadioButton x:Name="NavLicenses" Content="Licencias" Style="{StaticResource NavButton}"
+                         IsChecked="True" Checked="Nav_Checked" Tag="Licenses"/>
+            <RadioButton Content="Uso IA" Style="{StaticResource NavButton}"
+                         Checked="Nav_Checked" Tag="AiUsage"/>
+
+            <TextBlock Text="SISTEMA" Style="{StaticResource NavGroupLabel}"/>
+            <RadioButton x:Name="NavSettings" Content="Ajustes" Style="{StaticResource NavButton}"
+                         Checked="Nav_Checked" Tag="Settings"/>
+          </StackPanel>
+        </ScrollViewer>
+      </DockPanel>
+    </Border>
+
+    <!-- Main content (full height) -->
+    <Grid Grid.Column="1">
+      <Border Background="{DynamicResource Panel}">
+        <ContentControl x:Name="ContentHost" Margin="28" Foreground="{StaticResource Text}"/>
+      </Border>
+
+      <Grid Visibility="Collapsed" Width="0" Height="0" IsHitTestVisible="False">
+        <ContentControl x:Name="MapsPreloadHost"/>
+        <ContentControl x:Name="ContentPreloadHost"/>
+      </Grid>
+    </Grid>
+  </Grid>
+</Window>

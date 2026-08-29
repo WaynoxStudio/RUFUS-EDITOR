@@ -1,0 +1,12 @@
+<Project>
+  <!-- LIC.7 — RufusEdition: User (dist) | Development (dotnet run). Admin is a separate project. -->
+  <PropertyGroup>
+    <RufusEdition Condition="'$(RufusEdition)' == ''">Development</RufusEdition>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(RufusEdition)' == 'User'">
+    <DefineConstants>$(DefineConstants);RUFUS_USER</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(RufusEdition)' != 'User'">
+    <DefineConstants>$(DefineConstants);RUFUS_DEVELOPMENT</DefineConstants>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,369 @@
+<UserControl x:Class="RufusMapEditor.App.Controls.ContentDialogEditorPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:RufusMapEditor.App.ViewModels">
+  <UserControl.Resources>
+    <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+    <Style x:Key="FieldLabel" TargetType="TextBlock">
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondary}"/>
+      <Setter Property="Margin" Value="0,0,0,4"/>
+    </Style>
+    <Style x:Key="PanelBrownHeader" TargetType="Border" BasedOn="{StaticResource BrownHeaderBar}">
+      <Setter Property="CornerRadius" Value="4,4,0,0"/>
+      <Setter Property="Padding" Value="10,7"/>
+    </Style>
+    <Style x:Key="DialogTabRadio" TargetType="RadioButton">
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+      <Setter Property="Padding" Value="16,8"/>
+      <Setter Property="Margin" Value="0,0,4,0"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="RadioButton">
+            <Border x:Name="Tab" Background="{DynamicResource SecondaryButtonBackground}"
+                    BorderBrush="{DynamicResource Border}" BorderThickness="1"
+                    CornerRadius="4,4,0,0" Padding="{TemplateBinding Padding}">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="Tab" Property="Background" Value="{DynamicResource PanelBackground}"/>
+                <Setter TargetName="Tab" Property="BorderBrush" Value="{DynamicResource Border}"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+              </Trigger>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Tab" Property="Background" Value="{DynamicResource HoverBackground}"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+  </UserControl.Resources>
+
+  <DockPanel>
+    <!-- Cabecera: tipo de diálogo con pestañas estilo editor de misiones -->
+    <Border DockPanel.Dock="Top" Background="{DynamicResource PanelBackground}"
+            BorderBrush="{DynamicResource Border}" BorderThickness="1"
+            CornerRadius="4" Margin="0,0,0,10">
+      <StackPanel>
+        <Border Style="{StaticResource PanelBrownHeader}">
+          <TextBlock Text="Diálogo del NPC" Style="{StaticResource BrownHeaderText}"/>
+        </Border>
+        <StackPanel Margin="10,8,10,10">
+          <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+            <RadioButton Content="Diálogo simple" Style="{StaticResource DialogTabRadio}"
+                         IsChecked="{Binding IsSimpleMode, Mode=TwoWay}" GroupName="DialogMode"/>
+            <RadioButton Content="Conversación interactiva" Style="{StaticResource DialogTabRadio}"
+                         IsChecked="{Binding IsInteractiveMode, Mode=TwoWay}" GroupName="DialogMode"/>
+          </StackPanel>
+          <TextBlock Text="{Binding InitialQuestionLabel}" FontSize="11"
+                     Foreground="{DynamicResource TextSecondary}"/>
+          <Border Visibility="{Binding IsPendingDialogEs, Converter={StaticResource BoolToVis}}"
+                  Background="{DynamicResource ElevatedSurface}"
+                  BorderBrush="{DynamicResource Accent}" BorderThickness="1"
+                  CornerRadius="4" Padding="10,8" Margin="0,8,0,0">
+            <StackPanel>
+              <TextBlock Text="{Binding SimplePendingTitle}" FontWeight="SemiBold"
+                         Foreground="{DynamicResource Accent}"/>
+              <TextBlock Text="{Binding SimplePendingDetails}"
+                         FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"
+                         FontFamily="Consolas" Foreground="{DynamicResource TextSecondary}"/>
+              <TextBlock Text="Usa «Publicar cliente» en la barra de Contenido. Este NPC no se publicará en BD hasta entonces."
+                         FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"
+                         Foreground="{DynamicResource TextSecondary}"/>
+            </StackPanel>
+          </Border>
+          <Border Visibility="{Binding IsDialogEsPublished, Converter={StaticResource BoolToVis}}"
+                  Background="{DynamicResource ElevatedSurface}"
+                  BorderBrush="{DynamicResource Accent}" BorderThickness="1"
+                  CornerRadius="4" Padding="10,8" Margin="0,8,0,0">
+            <StackPanel>
+              <TextBlock Text="✓ dialog_es publicado" FontWeight="SemiBold"
+                         Foreground="{DynamicResource Accent}"/>
+              <TextBlock Text="{Binding SimplePublishedDetails}"
+                         FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"
+                         FontFamily="Consolas" Foreground="{DynamicResource TextSecondary}"/>
+              <TextBlock Text="⚠ Pendiente de publicación BD"
+                         FontSize="11" FontWeight="SemiBold" Margin="0,6,0,0"
+                         Foreground="{DynamicResource Accent}"/>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </StackPanel>
+    </Border>
+
+    <!-- MODO A — DIÁLOGO SIMPLE -->
+    <Border Visibility="{Binding IsSimpleMode, Converter={StaticResource BoolToVis}}"
+            Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource Border}"
+            BorderThickness="1" CornerRadius="4" Padding="0">
+      <StackPanel>
+        <Border Style="{StaticResource PanelBrownHeader}">
+          <TextBlock Text="Texto del diálogo" Style="{StaticResource BrownHeaderText}"/>
+        </Border>
+        <StackPanel Margin="14" MaxWidth="640" HorizontalAlignment="Left">
+          <TextBlock Text="Tabla: npcs_modelo · Columna: pregunta. No crea npc_preguntas ni npc_respuestas."
+                     FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12"
+                     Foreground="{DynamicResource TextSecondary}"/>
+          <TextBlock Text="Texto del NPC (local → futuro dialog_es)" Style="{StaticResource FieldLabel}"/>
+          <TextBox Text="{Binding SimpleDialogTextLocal, UpdateSourceTrigger=PropertyChanged}"
+                   TextChanged="Field_TextChanged" AcceptsReturn="True" MinHeight="100" TextWrapping="Wrap"
+                   VerticalScrollBarVisibility="Auto" Margin="0,0,0,12"/>
+          <TextBlock Text="ID de diálogo / pregunta existente (opcional)" Style="{StaticResource FieldLabel}"/>
+          <TextBox Text="{Binding SimpleDialogIdText, UpdateSourceTrigger=PropertyChanged}"
+                   TextChanged="Field_TextChanged" Margin="0,0,0,8" FontFamily="Consolas" Width="160"
+                   HorizontalAlignment="Left"/>
+          <TextBlock FontSize="11" TextWrapping="Wrap" Foreground="{DynamicResource TextMuted}"
+                     Text="Opcional. Solo para reutilizar un texto ya existente. El texto nuevo no requiere ID manual: se reserva un D.q provisional."/>
+        </StackPanel>
+      </StackPanel>
+    </Border>
+
+    <!-- MODO B — CONVERSACIÓN INTERACTIVA -->
+    <Grid Visibility="{Binding IsInteractiveMode, Converter={StaticResource BoolToVis}}">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="260"/>
+        <ColumnDefinition Width="10"/>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="10"/>
+        <ColumnDefinition Width="300"/>
+      </Grid.ColumnDefinitions>
+
+      <!-- Árbol de preguntas -->
+      <Border Grid.Column="0" Background="{DynamicResource PanelBackground}"
+              BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="4" Padding="0">
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+          </Grid.RowDefinitions>
+          <Border Style="{StaticResource PanelBrownHeader}">
+            <TextBlock Text="{Binding NpcHeader}" Style="{StaticResource BrownHeaderText}" TextTrimming="CharacterEllipsis"/>
+          </Border>
+          <TreeView Grid.Row="1" ItemsSource="{Binding TreeRoots}"
+                    SelectedItemChanged="Tree_SelectedItemChanged"
+                    BorderThickness="0" Background="Transparent" Margin="6,4">
+            <TreeView.ItemTemplate>
+              <HierarchicalDataTemplate DataType="{x:Type vm:DialogTreeNodeVm}" ItemsSource="{Binding Children}">
+                <TextBlock Text="{Binding Label}" TextWrapping="Wrap" MaxWidth="230"/>
+              </HierarchicalDataTemplate>
+            </TreeView.ItemTemplate>
+            <TreeView.ItemContainerStyle>
+              <Style TargetType="TreeViewItem">
+                <Setter Property="IsExpanded" Value="True"/>
+                <Setter Property="Padding" Value="2"/>
+              </Style>
+            </TreeView.ItemContainerStyle>
+          </TreeView>
+          <StackPanel Grid.Row="2" Margin="8,4,8,8">
+            <Button Content="+ Nueva pregunta" Command="{Binding NewQuestionCommand}"
+                    Style="{StaticResource PrimaryButton}" Padding="8,5" Margin="0,0,0,6"/>
+            <WrapPanel>
+              <Button Content="Duplicar" Command="{Binding DuplicateQuestionCommand}"
+                      Style="{StaticResource SecondaryButton}" Padding="8,4" Margin="0,0,6,4"/>
+              <Button Content="Eliminar" Command="{Binding DeleteQuestionCommand}"
+                      Style="{StaticResource DeleteButton}" Padding="8,4" Margin="0,0,6,4"/>
+              <Button Content="Marcar inicial" Command="{Binding SetInitialCommand}"
+                      Style="{StaticResource SecondaryButton}" Padding="8,4"/>
+            </WrapPanel>
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <!-- Vista esquemática -->
+      <Border Grid.Column="2" Background="{DynamicResource PanelBackground}"
+              BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="4" Padding="0">
+        <DockPanel>
+          <Border DockPanel.Dock="Top" Style="{StaticResource PanelBrownHeader}">
+            <TextBlock Text="Esquema visual" Style="{StaticResource BrownHeaderText}"/>
+          </Border>
+          <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Margin="10">
+            <ItemsControl ItemsSource="{Binding TreeRoots}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="{x:Type vm:DialogTreeNodeVm}">
+                  <StackPanel Margin="0,0,0,14">
+                    <Border Background="{DynamicResource DialogHeaderBackground}"
+                            CornerRadius="4" Padding="10,8" HorizontalAlignment="Left" MaxWidth="420">
+                      <TextBlock Text="{Binding Label}" FontWeight="SemiBold" TextWrapping="Wrap"
+                                 Foreground="{DynamicResource HeaderForeground}"/>
+                    </Border>
+                    <ItemsControl ItemsSource="{Binding Children}" Margin="28,8,0,0">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:DialogTreeNodeVm}">
+                          <StackPanel Margin="0,0,0,8">
+                            <TextBlock Text="│" Foreground="{DynamicResource TextMuted}" Margin="8,0,0,0"/>
+                            <Border BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="4"
+                                    Padding="8,6" HorizontalAlignment="Left" MaxWidth="380"
+                                    Background="{DynamicResource InputBackground}">
+                              <TextBlock Text="{Binding Label}" TextWrapping="Wrap"/>
+                            </Border>
+                            <ItemsControl ItemsSource="{Binding Children}" Margin="24,4,0,0">
+                              <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:DialogTreeNodeVm}">
+                                  <StackPanel Orientation="Horizontal" Margin="0,2,0,2">
+                                    <TextBlock Text="└ " Foreground="{DynamicResource TextMuted}"/>
+                                    <TextBlock Text="{Binding Label}" FontSize="12"
+                                               Foreground="{DynamicResource TextSecondary}" TextWrapping="Wrap"/>
+                                  </StackPanel>
+                                </DataTemplate>
+                              </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                          </StackPanel>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </DockPanel>
+      </Border>
+
+      <!-- Editor pregunta / respuesta / acción -->
+      <Border Grid.Column="4" Background="{DynamicResource PanelBackground}"
+              BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="4" Padding="0">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel>
+            <StackPanel Visibility="{Binding HasQuestion, Converter={StaticResource BoolToVis}}">
+              <Border Style="{StaticResource PanelBrownHeader}">
+                <TextBlock Text="Pregunta" Style="{StaticResource BrownHeaderText}"/>
+              </Border>
+              <StackPanel Margin="12,10">
+                <TextBlock Text="ID provisional" Style="{StaticResource FieldLabel}"/>
+                <TextBox Text="{Binding SelectedQuestion.Id, Mode=OneWay}" IsReadOnly="True"
+                         Margin="0,0,0,8" FontFamily="Consolas"/>
+                <TextBlock Text="Texto (local → futuro dialog_es)" Style="{StaticResource FieldLabel}"/>
+                <TextBox Text="{Binding SelectedQuestion.TextLocal, UpdateSourceTrigger=PropertyChanged}"
+                         TextChanged="Field_TextChanged" AcceptsReturn="True" MinHeight="72" TextWrapping="Wrap"
+                         VerticalScrollBarVisibility="Auto" Margin="0,0,0,8"/>
+                <Expander Header="Avanzado (params / alternos)" IsExpanded="{Binding AdvancedExpanded}" Margin="0,0,0,8">
+                  <StackPanel Margin="0,8,0,0">
+                    <TextBlock Text="params" Style="{StaticResource FieldLabel}"/>
+                    <TextBox Text="{Binding SelectedQuestion.Params, UpdateSourceTrigger=PropertyChanged}"
+                             TextChanged="Field_TextChanged" Margin="0,0,0,6" FontFamily="Consolas"/>
+                    <TextBlock Text="alternos (raw)" Style="{StaticResource FieldLabel}"/>
+                    <TextBox Text="{Binding SelectedQuestion.Alternos, UpdateSourceTrigger=PropertyChanged}"
+                             TextChanged="Field_TextChanged" AcceptsReturn="True" Height="48" FontFamily="Consolas"/>
+                  </StackPanel>
+                </Expander>
+                <Button Content="+ Añadir respuesta" Command="{Binding AddResponseCommand}"
+                        Style="{StaticResource PrimaryButton}" Padding="8,5"/>
+              </StackPanel>
+            </StackPanel>
+
+            <StackPanel Visibility="{Binding HasResponse, Converter={StaticResource BoolToVis}}">
+              <Border Style="{StaticResource PanelBrownHeader}" Margin="0,4,0,0">
+                <TextBlock Text="Respuesta" Style="{StaticResource BrownHeaderText}"/>
+              </Border>
+              <StackPanel Margin="12,10">
+                <Border Visibility="{Binding SelectedResponseIncomplete, Converter={StaticResource BoolToVis}}"
+                        Background="{DynamicResource ElevatedSurface}"
+                        BorderBrush="{DynamicResource Accent}" BorderThickness="1"
+                        CornerRadius="4" Padding="10,8" Margin="0,0,0,10">
+                  <StackPanel>
+                    <TextBlock Text="⚠ Respuesta sin acción" FontWeight="SemiBold"
+                               Foreground="{DynamicResource Accent}"/>
+                    <TextBlock Text="Añade al menos una acción antes de publicar."
+                               FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"
+                               Foreground="{DynamicResource TextSecondary}"/>
+                  </StackPanel>
+                </Border>
+                <TextBlock Text="Texto (local → futuro dialog_es)" Style="{StaticResource FieldLabel}"/>
+                <TextBox Text="{Binding SelectedResponse.TextLocal, UpdateSourceTrigger=PropertyChanged}"
+                         TextChanged="Field_TextChanged" AcceptsReturn="True" MinHeight="64" TextWrapping="Wrap"
+                         Margin="0,0,0,8"/>
+                <WrapPanel Margin="0,0,0,8">
+                  <Button Content="Duplicar" Command="{Binding DuplicateResponseCommand}"
+                          Style="{StaticResource SecondaryButton}" Padding="8,4" Margin="0,0,6,4"/>
+                  <Button Content="Eliminar" Command="{Binding DeleteResponseCommand}"
+                          Style="{StaticResource DeleteButton}" Padding="8,4" Margin="0,0,6,4"/>
+                  <Button Content="↑" Command="{Binding MoveResponseUpCommand}"
+                          Style="{StaticResource SecondaryButton}" Padding="8,4" Margin="0,0,6,4"/>
+                  <Button Content="↓" Command="{Binding MoveResponseDownCommand}"
+                          Style="{StaticResource SecondaryButton}" Padding="8,4"/>
+                </WrapPanel>
+                <TextBlock Text="Añadir acción" FontWeight="SemiBold" Margin="0,4,0,6"/>
+                <WrapPanel>
+                  <Button Content="Ir a pregunta (1)" Command="{Binding AddGotoActionCommand}"
+                          Style="{StaticResource SecondaryButton}" Padding="8,4" Margin="0,0,6,4"/>
+                  <Button Content="Dar misión (44)" Command="{Binding AddQuestActionCommand}"
+                          Style="{StaticResource SecondaryButton}" Padding="8,4" Margin="0,0,6,4"/>
+                  <Button Content="Teleport (0)" Command="{Binding AddTeleportActionCommand}"
+                          Style="{StaticResource SecondaryButton}" Padding="8,4" Margin="0,0,6,4"/>
+                  <Button Content="Acción avanzada" Command="{Binding AddAdvancedActionCommand}"
+                          Style="{StaticResource SecondaryButton}" Padding="8,4"/>
+                </WrapPanel>
+              </StackPanel>
+            </StackPanel>
+
+            <StackPanel Visibility="{Binding HasAction, Converter={StaticResource BoolToVis}}">
+              <Border Style="{StaticResource PanelBrownHeader}" Margin="0,4,0,0">
+                <TextBlock Text="Acción" Style="{StaticResource BrownHeaderText}"/>
+              </Border>
+              <StackPanel Margin="12,10">
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="90"/>
+                    <ColumnDefinition Width="*"/>
+                  </Grid.ColumnDefinitions>
+                  <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                  </Grid.RowDefinitions>
+                  <TextBlock Grid.Row="0" Text="accion" Style="{StaticResource FieldLabel}"/>
+                  <TextBox Grid.Row="0" Grid.Column="1"
+                           Text="{Binding SelectedAction.Accion, UpdateSourceTrigger=PropertyChanged}"
+                           TextChanged="Field_TextChanged" Margin="0,0,0,6" FontFamily="Consolas"/>
+                  <TextBlock Grid.Row="1" Text="args" Style="{StaticResource FieldLabel}"/>
+                  <TextBox Grid.Row="1" Grid.Column="1"
+                           Text="{Binding SelectedAction.Args, UpdateSourceTrigger=PropertyChanged}"
+                           TextChanged="Field_TextChanged" Margin="0,0,0,6" FontFamily="Consolas"/>
+                  <TextBlock Grid.Row="2" Text="condicion" Style="{StaticResource FieldLabel}"/>
+                  <TextBox Grid.Row="2" Grid.Column="1"
+                           Text="{Binding SelectedAction.Condicion, UpdateSourceTrigger=PropertyChanged}"
+                           TextChanged="Field_TextChanged" Margin="0,0,0,8" FontFamily="Consolas"/>
+                </Grid>
+                <StackPanel Visibility="{Binding IsGotoAction, Converter={StaticResource BoolToVis}}" Margin="0,4,0,8">
+                  <TextBlock Text="Ramificación (accion=1)" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                  <ComboBox ItemsSource="{Binding QuestionChoices}" SelectedItem="{Binding LinkTargetQuestion}"
+                            Margin="0,0,0,6">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate>
+                        <TextBlock>
+                          <Run Text="#"/><Run Text="{Binding Id, Mode=OneWay}"/>
+                          <Run Text=" — "/><Run Text="{Binding TextLocal, Mode=OneWay}"/>
+                        </TextBlock>
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+                  <WrapPanel>
+                    <Button Content="+ Crear pregunta y enlazar" Command="{Binding CreateLinkedQuestionCommand}"
+                            Style="{StaticResource PrimaryButton}" Padding="8,4" Margin="0,0,6,0"/>
+                    <Button Content="Quitar enlace" Command="{Binding ClearLinkCommand}"
+                            Style="{StaticResource SecondaryButton}" Padding="8,4"/>
+                  </WrapPanel>
+                </StackPanel>
+                <StackPanel Visibility="{Binding IsStartQuestAction, Converter={StaticResource BoolToVis}}"
+                            Margin="0,4,0,8">
+                  <TextBlock Text="Dar / iniciar misión (accion=44)" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                  <ComboBox ItemsSource="{Binding MissionChoices}" SelectedItem="{Binding LinkTargetMission}"
+                            Margin="0,0,0,6">
+                    <ComboBox.ItemTemplate>
+                      <DataTemplate>
+                        <TextBlock Text="{Binding Nombre}"/>
+                      </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                  </ComboBox>
+                </StackPanel>
+                <Button Content="Eliminar acción" Command="{Binding DeleteActionCommand}"
+                        Style="{StaticResource DeleteButton}" Padding="8,5" Margin="0,4,0,0"/>
+              </StackPanel>
+            </StackPanel>
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+    </Grid>
+  </DockPanel>
+</UserControl>

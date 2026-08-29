@@ -1,0 +1,489 @@
+<UserControl x:Class="RufusMapEditor.App.Controls.ContentMissionEditorPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:RufusMapEditor.App.ViewModels">
+  <UserControl.Resources>
+    <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+    <Style x:Key="SectionHeader" TargetType="TextBlock">
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="Margin" Value="0,8,0,6"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+    </Style>
+    <Style x:Key="FieldLabel" TargetType="TextBlock">
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondary}"/>
+    </Style>
+    <Style x:Key="MutedHint" TargetType="TextBlock">
+      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextMuted}"/>
+    </Style>
+    <Style x:Key="FlowChip" TargetType="Button">
+      <Setter Property="Padding" Value="10,5"/>
+      <Setter Property="Margin" Value="0,0,0,0"/>
+      <Setter Property="Background" Value="{DynamicResource SecondaryButtonBackground}"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource Border}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="bd" Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="6" Padding="{TemplateBinding Padding}">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource BrandAccent}"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+  </UserControl.Resources>
+
+  <ScrollViewer VerticalScrollBarVisibility="Auto" IsEnabled="{Binding EditorEnabled}">
+    <StackPanel>
+      <!-- DATOS GENERALES -->
+      <Border Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource Border}"
+              BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,0,10"
+              DataContext="{Binding Selected}">
+        <StackPanel>
+          <TextBlock Text="DATOS GENERALES" Style="{StaticResource SectionHeader}" Margin="0,0,0,6"/>
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="140"/><ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <TextBlock Grid.Row="0" Text="Nombre de misión" Style="{StaticResource FieldLabel}"/>
+            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Nombre, UpdateSourceTrigger=PropertyChanged}"
+                     TextChanged="Field_Changed" Margin="0,0,0,6"/>
+            <TextBlock Grid.Row="1" Text="Repetible" Style="{StaticResource FieldLabel}"/>
+            <CheckBox Grid.Row="1" Grid.Column="1" Content="Sí" IsChecked="{Binding PuedeRepetirse}"
+                      Checked="Field_Changed" Unchecked="Field_Changed"/>
+          </Grid>
+          <Expander Header="Detalles técnicos" Margin="0,10,0,0">
+            <StackPanel Margin="0,8,0,0">
+              <TextBlock Style="{StaticResource MutedHint}" TextWrapping="Wrap"
+                         Text="{Binding DataContext.QuestIdLabel, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+              <TextBlock Style="{StaticResource MutedHint}" FontFamily="Consolas" Margin="0,6,0,0" TextWrapping="Wrap">
+                <Run Text="pregDarMision: "/><Run Text="{Binding DataContext.PregDarPreview, RelativeSource={RelativeSource AncestorType=UserControl}, Mode=OneWay}"/>
+                <LineBreak/>
+                <Run Text="pregMisIncompleta: "/><Run Text="{Binding DataContext.PregIncPreview, RelativeSource={RelativeSource AncestorType=UserControl}, Mode=OneWay}"/>
+                <LineBreak/>
+                <Run Text="pregMisCompletada: "/><Run Text="{Binding DataContext.PregCompPreview, RelativeSource={RelativeSource AncestorType=UserControl}, Mode=OneWay}"/>
+              </TextBlock>
+            </StackPanel>
+          </Expander>
+        </StackPanel>
+      </Border>
+
+      <!-- DIÁLOGO -->
+      <Border Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource Border}"
+              BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,0,10">
+        <StackPanel>
+          <TextBlock Text="DIÁLOGO DE MISIÓN" Style="{StaticResource SectionHeader}" Margin="0,0,0,6"/>
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="140"/><ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+              <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <TextBlock Grid.Row="0" Text="NPC inicial" Style="{StaticResource FieldLabel}"/>
+            <ComboBox Grid.Row="0" Grid.Column="1" ItemsSource="{Binding NpcChoices}"
+                      SelectedItem="{Binding SelectedStartNpc}" Margin="0,0,0,6"
+                      Background="{DynamicResource InputBackground}"
+                      Foreground="{DynamicResource TextPrimary}"
+                      BorderBrush="{DynamicResource InputBorder}">
+              <ComboBox.ItemTemplate>
+                <DataTemplate>
+                  <TextBlock>
+                    <Run Text="{Binding Nombre, Mode=OneWay}"/>
+                    <Run Text="  #"/><Run Text="{Binding Id, Mode=OneWay}"/>
+                  </TextBlock>
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+            <TextBlock Grid.Row="1" Text="Al ofrecer misión" Style="{StaticResource FieldLabel}"/>
+            <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding QuestionChoices}"
+                      SelectedItem="{Binding SelectedPregDar}" Margin="0,0,0,6" DisplayMemberPath="Id"
+                      Background="{DynamicResource InputBackground}"
+                      Foreground="{DynamicResource TextPrimary}"
+                      BorderBrush="{DynamicResource InputBorder}"/>
+            <TextBlock Grid.Row="2" Text="Misión incompleta" Style="{StaticResource FieldLabel}"/>
+            <ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{Binding QuestionChoices}"
+                      SelectedItem="{Binding SelectedPregInc}" Margin="0,0,0,6" DisplayMemberPath="Id"
+                      Background="{DynamicResource InputBackground}"
+                      Foreground="{DynamicResource TextPrimary}"
+                      BorderBrush="{DynamicResource InputBorder}"/>
+            <TextBlock Grid.Row="3" Text="Misión completada" Style="{StaticResource FieldLabel}"/>
+            <ComboBox Grid.Row="3" Grid.Column="1" ItemsSource="{Binding QuestionChoices}"
+                      SelectedItem="{Binding SelectedPregComp}" DisplayMemberPath="Id"
+                      Background="{DynamicResource InputBackground}"
+                      Foreground="{DynamicResource TextPrimary}"
+                      BorderBrush="{DynamicResource InputBorder}"/>
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <!-- FLUJO COMPACTO -->
+      <Border Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource Border}"
+              BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,0,10">
+        <StackPanel>
+          <DockPanel>
+            <Button DockPanel.Dock="Right" Content="+ Añadir etapa" Command="{Binding AddStageCommand}" Padding="10,4"/>
+            <TextBlock Text="FLUJO" Style="{StaticResource SectionHeader}" Margin="0"/>
+          </DockPanel>
+          <ItemsControl ItemsSource="{Binding FlowStages}" Margin="0,8,0,0">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <WrapPanel Orientation="Horizontal"/>
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate DataType="{x:Type vm:MissionFlowNodeVm}">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,4,6">
+                  <Button Content="{Binding Label}"
+                          Command="{Binding DataContext.SelectFlowStageCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                          CommandParameter="{Binding Stage}"
+                          IsEnabled="{Binding IsClickable}"
+                          ToolTip="Seleccionar etapa"
+                          Padding="10,5">
+                    <Button.Style>
+                      <Style TargetType="Button" BasedOn="{StaticResource FlowChip}">
+                        <Style.Triggers>
+                          <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                            <Setter Property="BorderBrush" Value="{DynamicResource BrandAccent}"/>
+                            <Setter Property="FontWeight" Value="SemiBold"/>
+                          </DataTrigger>
+                          <DataTrigger Binding="{Binding IsEndpoint}" Value="True">
+                            <Setter Property="Opacity" Value="0.75"/>
+                            <Setter Property="Cursor" Value="Arrow"/>
+                          </DataTrigger>
+                          <DataTrigger Binding="{Binding IsClickable}" Value="False">
+                            <Setter Property="IsEnabled" Value="False"/>
+                          </DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </Button.Style>
+                  </Button>
+                  <TextBlock Text=" → " VerticalAlignment="Center" Foreground="{DynamicResource TextMuted}"
+                             Margin="2,0,0,0"/>
+                </StackPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+
+      <!-- ETAPAS + EDITOR -->
+      <Border Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource Border}"
+              BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,0,10">
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="240"/>
+            <ColumnDefinition Width="12"/>
+            <ColumnDefinition Width="*"/>
+          </Grid.ColumnDefinitions>
+
+          <StackPanel>
+            <TextBlock Text="ETAPAS" Style="{StaticResource SectionHeader}" Margin="0,0,0,6"/>
+            <ListBox ItemsSource="{Binding StageRows}" SelectedItem="{Binding SelectedStageRow}"
+                     Height="150" Margin="0,0,0,8">
+              <ListBox.ItemTemplate>
+                <DataTemplate>
+                  <StackPanel Margin="0,2">
+                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding IdHint}" Style="{StaticResource MutedHint}"/>
+                  </StackPanel>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+            <WrapPanel>
+              <Button Content="Duplicar" Command="{Binding DuplicateStageCommand}" Padding="8,4" Margin="0,0,4,4"
+                      ToolTip="Duplicar etapa"/>
+              <Button Content="Eliminar" Command="{Binding DeleteStageCommand}" Padding="8,4" Margin="0,0,4,4"
+                      ToolTip="Eliminar etapa"/>
+              <Button Content="Mover arriba" Command="{Binding MoveStageUpCommand}" Padding="8,4" Margin="0,0,4,4"
+                      ToolTip="Mover etapa arriba"/>
+              <Button Content="Mover abajo" Command="{Binding MoveStageDownCommand}" Padding="8,4" Margin="0,0,4,4"
+                      ToolTip="Mover etapa abajo"/>
+            </WrapPanel>
+          </StackPanel>
+
+          <StackPanel Grid.Column="2" Visibility="{Binding HasStage, Converter={StaticResource BoolToVis}}">
+            <TextBlock Text="Etapa seleccionada" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/>
+            <TextBlock Text="{Binding SelectedStageProvisionalLabel}" Style="{StaticResource MutedHint}" Margin="0,0,0,8"/>
+            <TextBlock Text="{Binding StageNameValidation}" Foreground="{DynamicResource Error}"
+                       Visibility="{Binding HasStageNameValidation, Converter={StaticResource BoolToVis}}"
+                       Margin="0,0,0,6" TextWrapping="Wrap"/>
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="110"/><ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+              </Grid.RowDefinitions>
+              <TextBlock Grid.Row="0" Text="Nombre" Style="{StaticResource FieldLabel}"/>
+              <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding SelectedStage.Nombre, UpdateSourceTrigger=PropertyChanged}"
+                       TextChanged="Field_Changed" Margin="0,0,0,6"/>
+              <TextBlock Grid.Row="1" Text="Descripción" Style="{StaticResource FieldLabel}"/>
+              <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SelectedStage.Descripcion, UpdateSourceTrigger=PropertyChanged}"
+                       TextChanged="Field_Changed" AcceptsReturn="True" Height="48" TextWrapping="Wrap"/>
+            </Grid>
+            <Expander Header="Configuración avanzada de etapa" Margin="0,8,0,0">
+              <StackPanel Margin="0,8,0,0">
+                <TextBlock Text="variosobj" Style="{StaticResource FieldLabel}" Margin="0,0,0,4"/>
+                <TextBox Text="{Binding SelectedStage.VariosObj, UpdateSourceTrigger=PropertyChanged}"
+                         TextChanged="Field_Changed" FontFamily="Consolas"/>
+              </StackPanel>
+            </Expander>
+
+            <!-- RECOMPENSAS -->
+            <TextBlock Text="RECOMPENSAS" Style="{StaticResource SectionHeader}"/>
+            <Grid Margin="0,0,0,8">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="110"/><ColumnDefinition Width="140"/>
+              </Grid.ColumnDefinitions>
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+              </Grid.RowDefinitions>
+              <TextBlock Grid.Row="0" Text="EXPERIENCIA" Style="{StaticResource FieldLabel}" FontWeight="SemiBold"/>
+              <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding SelectedStage.Rewards.Exp, UpdateSourceTrigger=PropertyChanged}"
+                       TextChanged="Rewards_Changed" Margin="0,0,0,6"/>
+              <TextBlock Grid.Row="1" Text="KAMAS" Style="{StaticResource FieldLabel}" FontWeight="SemiBold"/>
+              <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SelectedStage.Rewards.Kamas, UpdateSourceTrigger=PropertyChanged}"
+                       TextChanged="Rewards_Changed"/>
+            </Grid>
+            <DockPanel Margin="0,0,0,6">
+              <Button DockPanel.Dock="Right" Content="+ Añadir objeto" Command="{Binding PickRewardItemCommand}" Padding="10,4"/>
+              <TextBlock Text="OBJETOS" VerticalAlignment="Center" FontWeight="SemiBold"/>
+            </DockPanel>
+            <ItemsControl ItemsSource="{Binding RewardItemRows}" Margin="0,0,0,6">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Border BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="6"
+                          Padding="8" Margin="0,0,0,6" Background="{DynamicResource DialogHeaderBackground}">
+                    <DockPanel>
+                      <Button DockPanel.Dock="Right" Content="Quitar" Padding="8,3" VerticalAlignment="Center"
+                              Click="RewardRemove_Click" Tag="{Binding}"/>
+                      <Image DockPanel.Dock="Left" Width="36" Height="36" Margin="0,0,10,0"
+                             Source="{Binding Icon}" Stretch="Uniform"/>
+                      <StackPanel>
+                        <TextBlock Text="{Binding Nombre}" FontWeight="SemiBold"/>
+                        <TextBlock Style="{StaticResource MutedHint}">
+                          <Run Text="{Binding IdLine, Mode=OneWay}"/>
+                          <Run Text="  "/><Run Text="{Binding Meta, Mode=OneWay}"/>
+                        </TextBlock>
+                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                          <TextBlock Text="Cantidad:" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                          <TextBox Width="56" Text="{Binding Cantidad, UpdateSourceTrigger=LostFocus}"
+                                   TextChanged="RewardQty_Changed"/>
+                        </StackPanel>
+                      </StackPanel>
+                    </DockPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Expander Header="Recompensas avanzadas" IsExpanded="{Binding AdvancedRewards}">
+              <Grid Margin="0,8,0,0">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="110"/><ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Text="emotes" Style="{StaticResource FieldLabel}"/>
+                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding SelectedStage.Rewards.Emotes, UpdateSourceTrigger=PropertyChanged}"
+                         TextChanged="Rewards_Changed" Margin="0,0,0,4" FontFamily="Consolas"/>
+                <TextBlock Grid.Row="1" Text="hechizos" Style="{StaticResource FieldLabel}"/>
+                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SelectedStage.Rewards.Hechizos, UpdateSourceTrigger=PropertyChanged}"
+                         TextChanged="Rewards_Changed" Margin="0,0,0,4" FontFamily="Consolas"/>
+                <TextBlock Grid.Row="2" Text="oficios" Style="{StaticResource FieldLabel}"/>
+                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding SelectedStage.Rewards.Oficios, UpdateSourceTrigger=PropertyChanged}"
+                         TextChanged="Rewards_Changed" Margin="0,0,0,4" FontFamily="Consolas"/>
+                <TextBlock Grid.Row="3" Text="acciones" Style="{StaticResource FieldLabel}"/>
+                <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding SelectedStage.Rewards.Acciones, UpdateSourceTrigger=PropertyChanged}"
+                         TextChanged="Rewards_Changed" FontFamily="Consolas"/>
+              </Grid>
+            </Expander>
+
+            <!-- OBJETIVOS -->
+            <TextBlock Text="OBJETIVOS" Style="{StaticResource SectionHeader}"/>
+            <ListBox ItemsSource="{Binding ObjectiveRows}" SelectedItem="{Binding SelectedObjectiveRow}"
+                     Height="110" Margin="0,0,0,6">
+              <ListBox.ItemTemplate>
+                <DataTemplate>
+                  <StackPanel Margin="0,2">
+                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold"/>
+                    <TextBlock Text="{Binding Summary}" TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding IdHint}" Style="{StaticResource MutedHint}"/>
+                  </StackPanel>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+            <DockPanel Margin="0,0,0,8">
+              <Button DockPanel.Dock="Right" Content="+ Añadir objetivo" Command="{Binding AddObjectiveCommand}"
+                      Padding="10,4" Margin="8,0,0,0"/>
+              <ComboBox ItemsSource="{Binding ObjectiveTypeChoices}"
+                        SelectedItem="{Binding SelectedObjectiveType}"
+                        DisplayMemberPath="Nombre"
+                        Background="{DynamicResource InputBackground}"
+                        Foreground="{DynamicResource TextPrimary}"
+                        BorderBrush="{DynamicResource InputBorder}"/>
+            </DockPanel>
+            <Button Content="Eliminar objetivo" Command="{Binding DeleteObjectiveCommand}"
+                    Padding="8,4" HorizontalAlignment="Left" Margin="0,0,0,10"/>
+
+            <StackPanel Visibility="{Binding HasObjective, Converter={StaticResource BoolToVis}}">
+              <TextBlock FontWeight="SemiBold" Margin="0,0,0,6" Text="{Binding ObjectiveTypeLabel}"/>
+              <TextBlock Text="{Binding ObjectiveValidation}" Foreground="{DynamicResource Error}"
+                         Visibility="{Binding HasObjectiveValidation, Converter={StaticResource BoolToVis}}"
+                         Margin="0,0,0,8" TextWrapping="Wrap"/>
+
+              <StackPanel Visibility="{Binding ShowManualFields, Converter={StaticResource BoolToVis}}" Margin="0,0,0,8">
+                <TextBlock Text="Descripción visible" Style="{StaticResource FieldLabel}" Margin="0,0,0,4"/>
+                <TextBox Text="{Binding ObjManualText, UpdateSourceTrigger=PropertyChanged}"
+                         AcceptsReturn="True" Height="48" TextWrapping="Wrap"/>
+              </StackPanel>
+
+              <StackPanel Visibility="{Binding ShowNpcFields, Converter={StaticResource BoolToVis}}" Margin="0,0,0,8">
+                <TextBlock Text="NPC destino" Style="{StaticResource FieldLabel}" Margin="0,0,0,4"/>
+                <DockPanel>
+                  <Button DockPanel.Dock="Right" Content="Buscar NPC" Command="{Binding PickObjectiveNpcCommand}"
+                          Padding="8,3" Margin="8,0,0,0"/>
+                  <TextBlock Text="{Binding ObjNpcLabel}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                </DockPanel>
+              </StackPanel>
+
+              <StackPanel Visibility="{Binding ShowItemFields, Converter={StaticResource BoolToVis}}" Margin="0,0,0,8">
+                <TextBlock Text="Objeto" Style="{StaticResource FieldLabel}" Margin="0,0,0,4"/>
+                <DockPanel>
+                  <Button DockPanel.Dock="Right" Content="Buscar objeto" Command="{Binding PickObjectiveItemCommand}"
+                          Padding="8,3" Margin="8,0,0,0"/>
+                  <StackPanel Orientation="Horizontal">
+                    <Image Width="28" Height="28" Source="{Binding ObjItemPreview}" Margin="0,0,8,0"/>
+                    <TextBlock Text="{Binding ObjItemLabel}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                  </StackPanel>
+                </DockPanel>
+                <TextBlock Margin="0,6,0,0" FontSize="11" TextWrapping="Wrap"
+                           Foreground="{DynamicResource TextSecondary}"
+                           Visibility="{Binding ShowItemSemanticsNote, Converter={StaticResource BoolToVis}}"
+                           Text="{Binding ItemSemanticsNote}"/>
+              </StackPanel>
+
+              <StackPanel Visibility="{Binding ShowMobFields, Converter={StaticResource BoolToVis}}" Margin="0,0,0,8">
+                <TextBlock Text="Monstruo" Style="{StaticResource FieldLabel}" Margin="0,0,0,4"/>
+                <DockPanel>
+                  <Button DockPanel.Dock="Right" Content="Buscar mob" Command="{Binding PickObjectiveMobCommand}"
+                          Padding="8,3" Margin="8,0,0,0"/>
+                  <StackPanel Orientation="Horizontal">
+                    <Image Width="36" Height="36" Source="{Binding ObjMobPreview}" Margin="0,0,8,0"/>
+                    <TextBlock Text="{Binding ObjMobLabel}" VerticalAlignment="Center"/>
+                  </StackPanel>
+                </DockPanel>
+              </StackPanel>
+
+              <StackPanel Visibility="{Binding ShowMapFields, Converter={StaticResource BoolToVis}}" Margin="0,0,0,8">
+                <TextBlock Text="Mapa" Style="{StaticResource FieldLabel}" Margin="0,0,0,4"/>
+                <DockPanel>
+                  <Button DockPanel.Dock="Right" Content="Elegir Map ID" Command="{Binding PickObjectiveMapCommand}"
+                          Padding="8,3" Margin="8,0,0,0"/>
+                  <TextBlock Text="{Binding ObjMapLabel}" VerticalAlignment="Center"/>
+                </DockPanel>
+              </StackPanel>
+
+              <StackPanel Visibility="{Binding ShowAreaFields, Converter={StaticResource BoolToVis}}" Margin="0,0,0,8">
+                <TextBlock Text="Zona (área)" Style="{StaticResource FieldLabel}" Margin="0,0,0,4"/>
+                <DockPanel>
+                  <Button DockPanel.Dock="Right" Content="Buscar área" Command="{Binding PickObjectiveAreaCommand}"
+                          Padding="8,3" Margin="8,0,0,0"/>
+                  <TextBlock Text="{Binding ObjAreaLabel}" VerticalAlignment="Center"/>
+                </DockPanel>
+              </StackPanel>
+
+              <StackPanel Visibility="{Binding ShowQtyField, Converter={StaticResource BoolToVis}}" Margin="0,0,0,8">
+                <TextBlock Text="Cantidad" Style="{StaticResource FieldLabel}" Margin="0,0,0,4"/>
+                <TextBox Width="80" HorizontalAlignment="Left"
+                         Text="{Binding ObjQty, UpdateSourceTrigger=PropertyChanged}"/>
+              </StackPanel>
+
+              <StackPanel Visibility="{Binding ShowLevelFields, Converter={StaticResource BoolToVis}}" Margin="0,0,0,8">
+                <TextBlock Text="Nivel mínimo requerido" Style="{StaticResource FieldLabel}" Margin="0,0,0,4"/>
+                <TextBox Width="80" HorizontalAlignment="Left"
+                         Text="{Binding ObjLevel, UpdateSourceTrigger=PropertyChanged}"/>
+              </StackPanel>
+
+              <StackPanel Visibility="{Binding ShowSpellFields, Converter={StaticResource BoolToVis}}" Margin="0,0,0,8">
+                <TextBlock Text="Cantidad mínima de hechizos" Style="{StaticResource FieldLabel}" Margin="0,0,0,4"/>
+                <TextBox Width="80" HorizontalAlignment="Left"
+                         Text="{Binding ObjSpellCount, UpdateSourceTrigger=PropertyChanged}"/>
+              </StackPanel>
+
+              <StackPanel Visibility="{Binding ShowJobFields, Converter={StaticResource BoolToVis}}" Margin="0,0,0,8">
+                <TextBlock Text="Número de oficios" Style="{StaticResource FieldLabel}" Margin="0,0,0,4"/>
+                <TextBox Width="80" HorizontalAlignment="Left" Margin="0,0,0,6"
+                         Text="{Binding ObjJobCount, UpdateSourceTrigger=PropertyChanged}"/>
+                <TextBlock Text="Nivel requerido" Style="{StaticResource FieldLabel}" Margin="0,0,0,4"/>
+                <TextBox Width="80" HorizontalAlignment="Left"
+                         Text="{Binding ObjJobLevel, UpdateSourceTrigger=PropertyChanged}"/>
+              </StackPanel>
+
+              <StackPanel Visibility="{Binding ShowCoordsCheckbox, Converter={StaticResource BoolToVis}}" Margin="0,0,0,8">
+                <CheckBox Content="Restringir objetivo a coordenadas" IsChecked="{Binding ObjRestrictCoords}"
+                          Margin="0,0,0,6"/>
+                <StackPanel Orientation="Horizontal"
+                            Visibility="{Binding ShowCoordsPanel, Converter={StaticResource BoolToVis}}">
+                  <TextBlock Text="X" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                  <TextBox Width="56" Text="{Binding ObjX, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,12,0"/>
+                  <TextBlock Text="Y" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                  <TextBox Width="56" Text="{Binding ObjY, UpdateSourceTrigger=PropertyChanged}"/>
+                </StackPanel>
+              </StackPanel>
+
+              <TextBlock Text="Descripción visible" Style="{StaticResource FieldLabel}" Margin="0,0,0,4"/>
+              <TextBox Text="{Binding SelectedObjective.Detalle, UpdateSourceTrigger=PropertyChanged}"
+                       TextChanged="Field_Changed" Margin="0,0,0,8" TextWrapping="Wrap"/>
+
+              <Expander Header="Condición · configuración avanzada" Margin="0,0,0,8">
+                <StackPanel Margin="0,8,0,0">
+                  <TextBlock Style="{StaticResource MutedHint}" Margin="0,0,0,4" TextWrapping="Wrap"
+                             Text="Solo texto técnico conocido. No se inventa sintaxis."/>
+                  <TextBox Text="{Binding SelectedObjective.Condicion, UpdateSourceTrigger=PropertyChanged}"
+                           TextChanged="Field_Changed" FontFamily="Consolas"/>
+                </StackPanel>
+              </Expander>
+            </StackPanel>
+
+            <Expander Header="Vista técnica (solo lectura)" IsExpanded="{Binding ShowTechnical}" Margin="0,8,0,0">
+              <StackPanel Margin="0,8,0,0">
+                <TextBlock Style="{StaticResource MutedHint}" Margin="0,0,0,4"
+                           Text="{Binding RewardsRawPreview, StringFormat=recompensas: {0}}" TextWrapping="Wrap"
+                           FontFamily="Consolas"/>
+                <TextBox IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="90"
+                         FontFamily="Consolas" FontSize="11"
+                         Text="{Binding TechnicalPreview, Mode=OneWay}"
+                         Background="{DynamicResource InputBackground}"
+                         Foreground="{DynamicResource TextPrimary}"
+                         BorderBrush="{DynamicResource InputBorder}"/>
+              </StackPanel>
+            </Expander>
+
+            <TextBlock Margin="0,10,0,0" Style="{StaticResource MutedHint}" TextWrapping="Wrap"
+                       Text="{Binding QuestsEsStatusLine}"/>
+          </StackPanel>
+        </Grid>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

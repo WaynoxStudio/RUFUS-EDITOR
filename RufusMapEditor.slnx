@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/RufusMapEditor.Domain/RufusMapEditor.Domain.csproj" />
+    <Project Path="src/RufusMapEditor.Licensing/RufusMapEditor.Licensing.csproj" />
+    <Project Path="src/RufusMapEditor.LegacyCompatibility/RufusMapEditor.LegacyCompatibility.csproj" />
+    <Project Path="src/RufusMapEditor.Rendering/RufusMapEditor.Rendering.csproj" />
+    <Project Path="src/RufusMapEditor.App/RufusMapEditor.App.csproj" />
+    <Project Path="src/RufusMapEditor.Admin/RufusMapEditor.Admin.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/RufusMapEditor.LegacyCompatibility.Tests/RufusMapEditor.LegacyCompatibility.Tests.csproj" />
+    <Project Path="tests/RufusMapEditor.Licensing.Tests/RufusMapEditor.Licensing.Tests.csproj" />
+    <Project Path="tests/RufusMapEditor.AiBackend.Tests/RufusMapEditor.AiBackend.Tests.csproj" />
+  </Folder>
+</Solution>

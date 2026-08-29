@@ -1,0 +1,68 @@
+<UserControl x:Class="RufusMapEditor.App.Controls.NpcOrientationPicker"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Border BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="6"
+          Background="{DynamicResource PanelBackground}" Padding="8">
+    <StackPanel>
+      <DockPanel Margin="0,0,0,6">
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+          <TextBlock Text="Valor" VerticalAlignment="Center" Margin="0,0,6,0"
+                     Foreground="{DynamicResource TextSecondary}" FontSize="11"/>
+          <TextBox x:Name="NumericBox" Width="44" FontFamily="Consolas"
+                   TextAlignment="Center" VerticalContentAlignment="Center"
+                   TextChanged="NumericBox_TextChanged"
+                   ToolTip="orientacion (0 = sin definir; 1–8 = direcciones visuales)"/>
+        </StackPanel>
+        <TextBlock Text="Clic en una dirección" FontSize="11" VerticalAlignment="Center"
+                   Foreground="{DynamicResource TextMuted}"/>
+      </DockPanel>
+
+      <!--
+        Layout (screen) matching posiciones.png:
+              6
+          5       7
+        4    NPC    8
+          3       1
+              2
+      -->
+      <Grid x:Name="DirGrid" Width="156" Height="156" HorizontalAlignment="Left" Margin="0,2,0,4">
+        <Grid.RowDefinitions>
+          <RowDefinition Height="*"/><RowDefinition Height="*"/><RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <Button Grid.Row="0" Grid.Column="1" Tag="6" Content="6" Click="Direction_Click"
+                ToolTip="6 — Arriba" Margin="3" FontSize="13" Cursor="Hand"/>
+        <Button Grid.Row="1" Grid.Column="0" Tag="4" Content="4" Click="Direction_Click"
+                ToolTip="4 — Izquierda" Margin="3" FontSize="13" Cursor="Hand"/>
+        <Button Grid.Row="1" Grid.Column="2" Tag="8" Content="8" Click="Direction_Click"
+                ToolTip="8 — Derecha" Margin="3" FontSize="13" Cursor="Hand"/>
+        <Button Grid.Row="2" Grid.Column="1" Tag="2" Content="2" Click="Direction_Click"
+                ToolTip="2 — Abajo" Margin="3" FontSize="13" Cursor="Hand"/>
+
+        <Button Grid.Row="0" Grid.Column="0" Tag="5" Content="5" Click="Direction_Click"
+                ToolTip="5 — Arriba-izquierda" Margin="3" FontSize="13" Cursor="Hand"/>
+        <Button Grid.Row="0" Grid.Column="2" Tag="7" Content="7" Click="Direction_Click"
+                ToolTip="7 — Arriba-derecha" Margin="3" FontSize="13" Cursor="Hand"/>
+        <Button Grid.Row="2" Grid.Column="0" Tag="3" Content="3" Click="Direction_Click"
+                ToolTip="3 — Abajo-izquierda" Margin="3" FontSize="13" Cursor="Hand"/>
+        <Button Grid.Row="2" Grid.Column="2" Tag="1" Content="1" Click="Direction_Click"
+                ToolTip="1 — Abajo-derecha" Margin="3" FontSize="13" Cursor="Hand"/>
+
+        <Border Grid.Row="1" Grid.Column="1" Margin="6" CornerRadius="18"
+                BorderBrush="{DynamicResource BrandAccent}" BorderThickness="1.5"
+                Background="{DynamicResource DialogHeaderBackground}">
+          <TextBlock Text="NPC" FontSize="10" FontWeight="SemiBold"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"
+                     Foreground="{DynamicResource TextSecondary}"/>
+        </Border>
+      </Grid>
+
+      <TextBlock x:Name="SelectedLabel" FontSize="11" TextWrapping="Wrap"
+                 Foreground="{DynamicResource TextSecondary}"
+                 Text="Orientación seleccionada: — (sin definir)"/>
+    </StackPanel>
+  </Border>
+</UserControl>

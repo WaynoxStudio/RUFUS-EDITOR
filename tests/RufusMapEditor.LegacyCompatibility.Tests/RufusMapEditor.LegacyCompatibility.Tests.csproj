@@ -1,0 +1,33 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <None Update="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Fixtures\maps_es_1282.swf" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Fixtures\versions_es.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Fixtures\items_es_1305.swf" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Fixtures\monsters_es_1278.swf" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\RufusMapEditor.LegacyCompatibility\RufusMapEditor.LegacyCompatibility.csproj" />
+    <ProjectReference Include="..\..\src\RufusMapEditor.Domain\RufusMapEditor.Domain.csproj" />
+    <ProjectReference Include="..\..\src\RufusMapEditor.Rendering\RufusMapEditor.Rendering.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,23 @@
+﻿{
+  "formatVersion": 1,
+  "documentId": "11111111-1111-1111-1111-111111111111",
+  "createdUtc": "2026-01-01T00:00:00Z",
+  "modifiedUtc": "2026-01-01T00:00:00Z",
+  "map": {
+    "id": 1,
+    "width": 2,
+    "height": 1,
+    "dateMap": "AME",
+    "key": "",
+    "fightPlaces": "",
+    "backgroundId": 0,
+    "musicId": 0,
+    "ambianceId": 0,
+    "capabilities": 0,
+    "cells": [
+      { "active": true, "los": true, "movement": 4, "ground": 0, "object1": 0, "object2": 0, "flipG": false, "flipO1": false, "flipO2": false, "rotG": 0, "rotO1": 0, "level": 7, "slope": 1, "io": false },
+      { "active": true, "los": true, "movement": 4, "ground": 0, "object1": 0, "object2": 0, "flipG": false, "flipO1": false, "flipO2": false, "rotG": 0, "rotO1": 0, "level": 7, "slope": 1, "io": false }
+    ],
+    "mapData": ""
+  }
+}

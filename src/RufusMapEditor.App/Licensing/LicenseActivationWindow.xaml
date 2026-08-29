@@ -1,0 +1,61 @@
+<Window x:Class="RufusMapEditor.App.Licensing.LicenseActivationWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="RUFUS EDITOR — Activación"
+        Width="480" Height="400"
+        MinWidth="420" MinHeight="360"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource WindowBackground}"
+        Foreground="{DynamicResource TextPrimary}"
+        FontFamily="{DynamicResource AppFontFamily}">
+  <Grid Margin="28,24">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+
+    <TextBlock Text="RUFUS EDITOR"
+               FontSize="22" FontWeight="SemiBold"
+               FontFamily="{DynamicResource AppFontFamilyDisplay}"
+               HorizontalAlignment="Center"/>
+    <TextBlock Grid.Row="1" Text="ACTIVACIÓN DE LICENCIA"
+               Margin="0,4,0,8"
+               FontSize="13" FontWeight="SemiBold"
+               Foreground="{DynamicResource Accent}"
+               HorizontalAlignment="Center"/>
+    <TextBlock Grid.Row="2" Text="Necesitas una licencia activa para utilizar RUFUS Editor."
+               Margin="0,0,0,14" TextWrapping="Wrap" TextAlignment="Center"
+               FontSize="12" Foreground="{DynamicResource TextSecondary}"/>
+
+    <TextBlock Grid.Row="3" Text="Código de licencia" Margin="0,0,0,6"
+               Foreground="{DynamicResource TextSecondary}"/>
+    <TextBox x:Name="CodeBox" Grid.Row="4" Padding="10,8" FontSize="14"
+             FontFamily="Consolas" CharacterCasing="Upper"/>
+
+    <TextBlock x:Name="ErrorText" Grid.Row="5" Margin="0,10,0,0"
+               TextWrapping="Wrap" Foreground="{DynamicResource Accent}"
+               Visibility="Collapsed"/>
+
+    <StackPanel Grid.Row="7" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+      <Button x:Name="ServiceStatusButton" Content="Estado del servicio" Padding="12,6" Margin="0,0,8,0"
+              Click="ServiceStatus_Click"/>
+      <Button Content="Salir" Width="90" Padding="8,6" Margin="0,0,8,0"
+              IsCancel="True" Click="Exit_Click"/>
+      <Button x:Name="ActivateButton" Content="ACTIVAR" Width="110" Padding="8,6"
+              Style="{StaticResource PrimaryButton}"
+              IsDefault="True" Click="Activate_Click"/>
+    </StackPanel>
+
+    <TextBlock x:Name="BusyText" Grid.Row="8" Margin="0,10,0,0"
+               FontSize="12" Foreground="{DynamicResource TextSecondary}"
+               Visibility="Collapsed" Text="Contactando servicio…"/>
+  </Grid>
+</Window>

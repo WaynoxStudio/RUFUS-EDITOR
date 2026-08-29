@@ -1,0 +1,188 @@
+﻿=== npc_respuestas columns ===
+COLUMN_NAME | DATA_TYPE
+orden | int
+id | int
+accion | int
+args | text
+condicion | text
+(5 rows)
+
+=== Exists pregunta 20009? ===
+n
+0
+(1 rows)
+
+=== Exists pregunta 20006/20007? ===
+id | respuestas | params | alternos
+20006 | 20007 |  | 
+(1 rows)
+
+=== npc_respuestas id IN (20007,20009) OR args=3503 ===
+orden | id | accion | args | condicion
+2502 | 20007 | 44 | 3503 | 
+(1 rows)
+
+=== Responses of q 20006 via FIND_IN_SET ===
+qid | respuestas | orden | rid | accion | args | condicion
+20006 | 20007 | 2502 | 20007 | 44 | 3503 | 
+(1 rows)
+
+=== accion=44 count + samples ===
+n44
+99
+(1 rows)
+
+=== accion=44 samples ===
+orden | id | accion | args | condicion
+107 | 3325 | 44 | 190 | 
+114 | 3208 | 44 | 179 | 
+147 | 3620 | 44 | 231 | 
+330 | 3272 | 44 | 186 | 
+332 | 3335 | 44 | 191 | 
+513 | 3258 | 44 | 185 | 
+522 | 3248 | 44 | 183 | 
+542 | 3266 | 44 | 184 | 
+628 | 3388 | 44 | 200 | 
+1033 | 1513 | 44 | 469 | 
+1038 | 3706 | 44 | 602 | PL>14
+1039 | 3349 | 44 | 193 | 
+1041 | 2451 | 44 | 611 | 
+1042 | 3680 | 44 | 435 | 
+1044 | 3398 | 44 | 188 | 
+1048 | 1501 | 44 | 460 | 
+1049 | 1531 | 44 | 459 | 
+1050 | 1482 | 44 | 458 | 
+1051 | 1532 | 44 | 468 | 
+1052 | 1543 | 44 | 461 | 
+1053 | 1504 | 44 | 462 | 
+1054 | 1541 | 44 | 463 | 
+1055 | 1505 | 44 | 464 | 
+1056 | 1542 | 44 | 465 | 
+1057 | 1533 | 44 | 466 | 
+(25 rows)
+
+=== accion=44 args top ===
+args | n
+200 | 2
+470 | 2
+1007 | 1
+1002 | 1
+1018 | 1
+1004 | 1
+1005 | 1
+1003 | 1
+700 | 1
+439 | 1
+230 | 1
+163 | 1
+245 | 1
+1000 | 1
+1006 | 1
+1008 | 1
+1009 | 1
+1010 | 1
+1011 | 1
+1012 | 1
+1013 | 1
+1014 | 1
+1015 | 1
+1016 | 1
+1017 | 1
+(25 rows)
+
+=== args=3503 any accion ===
+orden | id | accion | args | condicion
+2502 | 20007 | 44 | 3503 | 
+(1 rows)
+
+=== acciones 40-55 counts ===
+accion | n
+41 | 13
+43 | 47
+44 | 99
+50 | 1
+55 | 50
+(5 rows)
+
+=== acciones 40-55 samples ===
+orden | id | accion | args
+419 | 1501 | 41 | 167
+937 | 1570 | 41 | 163
+630 | 3258 | 43 | 758
+957 | 3259 | 43 | 758
+(4 rows)
+
+=== Top acciones ===
+accion | n
+1 | 1017
+66 | 511
+0 | 156
+6 | 105
+15 | 100
+5 | 99
+44 | 99
+29 | 63
+55 | 50
+43 | 47
+77 | 41
+3 | 39
+33 | 18
+41 | 13
+76 | 10
+22 | 6
+36 | 6
+56 | 5
+11 | 5
+27 | 4
+(20 rows)
+
+=== Stage objetivos separators sample ===
+id | objetivos | variosobj
+55 | 115|104|105 | 
+165 | 338|343|347|339 | 
+166 | 350;340 | 
+342 | 744 | 
+343 | 745 | 
+432 | 977,978,979,980,981,982,983,984,985 | 
+5500 | 4214 | 0
+(7 rows)
+
+=== Mission 181 etapas order vs ids ===
+id | etapas
+181 | 343,342
+(1 rows)
+
+=== tipo14 linked to mission 701? ===
+id | nombre | etapas | stage | objetivos | oid | tipo | args
+701 | Alcanzar el nivel | 4000,4001,4002,4003,4004,4005,4006,4007,4008,4009,4010,4011,4012,4013,4014,4015,4016,4017,4018,4019 | 4000 | 3616 | 3616 | 14 | [10]
+(1 rows)
+
+=== stage 4000 raw ===
+id | nombre | objetivos | recompensas
+4000 | Alcanzar nivel 10 | 3616 | null|2000|11432,5|null|null|null
+4001 | Alcanzar nivel 20 | 3617 | null|4000|11432,10|null|null|null
+4020 | Aprende 10 hechizos del mago | 3636 | null|2000|11432,5|null|null|null
+(3 rows)
+
+=== objs for stage 4000/4001 if numeric ===
+id | tipo | args | detalle
+3616 | 14 | [10] | 
+3617 | 14 | [20] | 
+(2 rows)
+
+=== preg* empty counts ===
+dar_empty | comp_empty | inc_empty | total
+58 | 75 | 104 | 114
+(1 rows)
+
+=== Same preg for comp and inc (sample) ===
+same_comp_inc
+2
+(1 rows)
+
+=== MAX id < 1000 / gaps RUFUS ===
+max_below_1k | max_1k_9k | count_3500s | count_2000s
+721 | 3503 | 1 | 0
+(1 rows)
+
+DONE3

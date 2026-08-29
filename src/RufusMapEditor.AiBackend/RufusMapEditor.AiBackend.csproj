@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>RufusMapEditor.AiBackend</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RufusMapEditor.LegacyCompatibility\RufusMapEditor.LegacyCompatibility.csproj" />
+    <ProjectReference Include="..\RufusMapEditor.Licensing\RufusMapEditor.Licensing.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="RufusMapEditor.AiBackend.Tests" />
+    <InternalsVisibleTo Include="RufusMapEditor.Licensing.Tests" />
+  </ItemGroup>
+
+</Project>

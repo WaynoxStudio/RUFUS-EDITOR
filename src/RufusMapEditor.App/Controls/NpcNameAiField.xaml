@@ -1,0 +1,206 @@
+<UserControl x:Class="RufusMapEditor.App.Controls.NpcNameAiField"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:RufusMapEditor.App.ViewModels"
+             MinHeight="28">
+  <UserControl.Resources>
+    <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+    <Style x:Key="FieldLabel" TargetType="TextBlock">
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondary}"/>
+    </Style>
+  </UserControl.Resources>
+  <Grid x:Name="Root">
+    <Border Background="{DynamicResource InputBackground}"
+            BorderBrush="{DynamicResource InputBorder}"
+            BorderThickness="1"
+            CornerRadius="6"/>
+    <TextBox x:Name="NameBox"
+             Text="{Binding Nombre, RelativeSource={RelativeSource AncestorType=UserControl}, UpdateSourceTrigger=PropertyChanged}"
+             Background="Transparent"
+             BorderThickness="0"
+             Padding="8,4,36,4"
+             VerticalContentAlignment="Center"
+             VerticalAlignment="Stretch"/>
+    <Button x:Name="AiButton"
+            Width="30" Height="26"
+            HorizontalAlignment="Right"
+            Margin="0,0,4,0"
+            VerticalAlignment="Center"
+            Padding="0"
+            ClickMode="Press"
+            Background="Transparent"
+            BorderThickness="0"
+            ToolTip="Asistente IA · Nombre"
+            Click="AiButton_Click"
+            Visibility="{Binding IsEditorEnabled, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}">
+      <Button.Template>
+        <ControlTemplate TargetType="Button">
+          <Border x:Name="Bd"
+                  Background="Transparent"
+                  BorderBrush="Transparent"
+                  BorderThickness="1"
+                  CornerRadius="4"
+                  Padding="4,2">
+            <TextBlock x:Name="Icon"
+                       Text="✨"
+                       FontSize="14"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       Foreground="{DynamicResource BrandAccent}"/>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{DynamicResource DialogHeaderBackground}"/>
+              <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource BrandAccentHover}"/>
+              <Setter TargetName="Icon" Property="Foreground" Value="{DynamicResource BrandAccentHover}"/>
+            </Trigger>
+            <DataTrigger Binding="{Binding IsOpen, ElementName=AiPopup}" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{DynamicResource DialogHeaderBackground}"/>
+              <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource BrandAccent}"/>
+              <Setter TargetName="Icon" Property="Foreground" Value="{DynamicResource BrandAccent}"/>
+            </DataTrigger>
+            <MultiDataTrigger>
+              <MultiDataTrigger.Conditions>
+                <Condition Binding="{Binding IsMouseOver, RelativeSource={RelativeSource Self}}" Value="True"/>
+                <Condition Binding="{Binding IsOpen, ElementName=AiPopup}" Value="True"/>
+              </MultiDataTrigger.Conditions>
+              <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource BrandAccentHover}"/>
+              <Setter TargetName="Icon" Property="Foreground" Value="{DynamicResource BrandAccentHover}"/>
+            </MultiDataTrigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Button.Template>
+    </Button>
+
+    <Popup x:Name="AiPopup"
+           Placement="Bottom"
+           PlacementTarget="{Binding ElementName=Root}"
+           StaysOpen="True"
+           AllowsTransparency="True"
+           PopupAnimation="Slide">
+      <Border MinWidth="{Binding ActualWidth, ElementName=Root}"
+              MaxWidth="480"
+              MaxHeight="560"
+              Margin="0,4,0,0"
+              BorderBrush="{DynamicResource InputBorder}"
+              BorderThickness="1"
+              CornerRadius="8"
+              Background="{DynamicResource ElevatedSurface}"
+              Padding="12">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel DataContext="{Binding AiAssistant, RelativeSource={RelativeSource AncestorType=UserControl}}">
+            <DockPanel Margin="0,0,0,10">
+              <TextBlock DockPanel.Dock="Right" FontWeight="SemiBold" FontSize="11"
+                         VerticalAlignment="Center" Margin="8,0,0,0"
+                         Text="{Binding ServiceStatusLabel}"
+                         Foreground="{DynamicResource BrandAccent}"/>
+              <TextBlock Text="ASISTENTE IA · NOMBRE" FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center"/>
+            </DockPanel>
+
+            <Grid Margin="0,0,0,8">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="150"/><ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+              </Grid.RowDefinitions>
+
+              <TextBlock Grid.Row="0" Text="Actitud / personalidad" Style="{StaticResource FieldLabel}"/>
+              <ComboBox Grid.Row="0" Grid.Column="1" Margin="0,0,0,8"
+                        ItemsSource="{Binding AttitudePresets}"
+                        SelectedItem="{Binding AttitudePreset, Mode=TwoWay}"/>
+
+              <TextBlock Grid.Row="1" Text="Actitud personalizada" Style="{StaticResource FieldLabel}"
+                         Visibility="{Binding IsCustomAttitude, Converter={StaticResource BoolToVis}}"/>
+              <TextBox Grid.Row="1" Grid.Column="1" Margin="0,0,0,8"
+                       Text="{Binding CustomAttitude, UpdateSourceTrigger=PropertyChanged}"
+                       Visibility="{Binding IsCustomAttitude, Converter={StaticResource BoolToVis}}"/>
+
+              <TextBlock Grid.Row="2" Text="Contexto / ubicación narrativa" Style="{StaticResource FieldLabel}"
+                         VerticalAlignment="Top" Margin="0,6,0,0"/>
+              <TextBox Grid.Row="2" Grid.Column="1" Margin="0,0,0,8" MinHeight="48"
+                       TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"
+                       Text="{Binding NarrativeContext, UpdateSourceTrigger=PropertyChanged}"
+                       ToolTip="Ej.: Está en las montañas de Poben y necesita ayuda."/>
+
+              <TextBlock Grid.Row="3" Text="Longitud" Style="{StaticResource FieldLabel}"/>
+              <ComboBox Grid.Row="3" Grid.Column="1" Margin="0,0,0,8" Width="140" HorizontalAlignment="Left"
+                        ItemsSource="{Binding LengthOptions}"
+                        SelectedItem="{Binding Length, Mode=TwoWay}"/>
+            </Grid>
+
+            <WrapPanel Margin="0,0,0,8">
+              <Button Content="✨ Generar nombre" Command="{Binding GenerateNameCommand}"
+                      Padding="12,6" Margin="0,0,8,6"
+                      ToolTip="Genera exactamente 3 propuestas de nombre · aplica al borrador con Usar"/>
+            </WrapPanel>
+
+            <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" Margin="0,0,0,8"
+                       Foreground="{DynamicResource BrandAccent}"
+                       Visibility="{Binding HasStatusMessage, Converter={StaticResource BoolToVis}}"/>
+
+            <CheckBox Content="Ver solicitud IA" IsChecked="{Binding ShowRequestPreview, Mode=TwoWay}"
+                      Margin="0,0,0,6" FontWeight="SemiBold"
+                      ToolTip="Solicitud creativa + PROMPT COMPUESTO (sin API key)"/>
+            <Border Visibility="{Binding ShowRequestPreview, Converter={StaticResource BoolToVis}}"
+                    BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="6"
+                    Padding="10" Background="{DynamicResource PanelBackground}" Margin="0,0,0,10">
+              <TextBox Text="{Binding RequestPreviewText, Mode=OneWay}" IsReadOnly="True"
+                       TextWrapping="Wrap" AcceptsReturn="True" BorderThickness="0"
+                       Background="Transparent" FontFamily="Consolas" FontSize="12"
+                       MinHeight="120" MaxHeight="280" VerticalScrollBarVisibility="Auto"/>
+            </Border>
+
+            <DockPanel Margin="0,0,0,6"
+                       Visibility="{Binding ShowMockTools, Converter={StaticResource BoolToVis}}">
+              <Button DockPanel.Dock="Right" Content="Cargar resultado mock"
+                      Command="{Binding LoadMockResultCommand}" Padding="10,4"
+                      ToolTip="Dev · valida JSON mock y muestra preview · no modifica el NPC"/>
+              <CheckBox Content="Ver resultado IA" IsChecked="{Binding ShowResultPreview, Mode=TwoWay}"
+                        VerticalAlignment="Center" FontWeight="SemiBold"
+                        ToolTip="Preview del contrato estructurado"/>
+            </DockPanel>
+
+            <Border Visibility="{Binding ShowIdentityAiResult, Converter={StaticResource BoolToVis}}"
+                    BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="6"
+                    Padding="10" Background="{DynamicResource PanelBackground}">
+              <StackPanel>
+                <TextBlock Text="{Binding ValidationDebugText}" FontSize="11" FontFamily="Consolas"
+                           Foreground="{DynamicResource TextMuted}" Margin="0,0,0,8" TextWrapping="Wrap"/>
+                <StackPanel Visibility="{Binding HasNamePreview, Converter={StaticResource BoolToVis}}">
+                  <TextBlock Text="NOMBRES" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                  <ItemsControl ItemsSource="{Binding NamePreviewItems}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <Border BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="4"
+                                Padding="8" Margin="0,0,0,6" Background="{DynamicResource PanelBackground}">
+                          <DockPanel>
+                            <Button DockPanel.Dock="Right" Content="Usar"
+                                    Command="{Binding UseCommand}"
+                                    Padding="8,3" Margin="8,0,0,0"
+                                    ToolTip="Aplicar el nombre al borrador del NPC (sustituye el actual · no publica)"/>
+                            <StackPanel>
+                              <TextBlock Text="{Binding Nombre}" FontWeight="SemiBold"/>
+                              <TextBlock Text="{Binding Motivo}" FontSize="11"
+                                         Foreground="{DynamicResource TextSecondary}" TextWrapping="Wrap"/>
+                            </StackPanel>
+                          </DockPanel>
+                        </Border>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  <Button Content="Regenerar" Command="{Binding RegenerateCommand}"
+                          Padding="10,4" HorizontalAlignment="Left" Margin="0,4,0,0"
+                          ToolTip="Nueva generación de 3 nombres · no aplica al NPC"/>
+                </StackPanel>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+    </Popup>
+  </Grid>
+</UserControl>

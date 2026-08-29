@@ -1,0 +1,67 @@
+<Window x:Class="RufusMapEditor.App.GenerateLangMapsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Generar maps_es local (LANG)"
+        Width="520" Height="560"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource WindowBackground}"
+        Foreground="{DynamicResource TextPrimary}">
+  <Grid Margin="16">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+      <StackPanel>
+        <TextBlock Text="Solo local / offline — no publica BD ni versions_es remoto."
+                   TextWrapping="Wrap" Margin="0,0,0,12"
+                   Foreground="{DynamicResource TextSecondary}"/>
+        <TextBlock Text="maps_es de origen" Margin="0,0,0,4"/>
+        <DockPanel Margin="0,0,0,10">
+          <Button DockPanel.Dock="Right" Content="…" Width="32" Margin="6,0,0,0" Click="BrowseSource_Click"/>
+          <TextBox x:Name="SourcePathBox" FontFamily="Consolas" IsReadOnly="True"/>
+        </DockPanel>
+        <TextBlock Text="Carpeta de salida" Margin="0,0,0,4"/>
+        <DockPanel Margin="0,0,0,12">
+          <Button DockPanel.Dock="Right" Content="…" Width="32" Margin="6,0,0,0" Click="BrowseOutput_Click"/>
+          <TextBox x:Name="OutputDirBox" FontFamily="Consolas"/>
+        </DockPanel>
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="140"/>
+            <ColumnDefinition Width="*"/>
+          </Grid.ColumnDefinitions>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+          </Grid.RowDefinitions>
+          <TextBlock Grid.Row="0" Text="Map ID" VerticalAlignment="Center"/>
+          <TextBox x:Name="MapIdBox" Grid.Row="0" Grid.Column="1" Margin="0,0,0,6" FontFamily="Consolas" IsReadOnly="True"/>
+          <TextBlock Grid.Row="1" Text="X" VerticalAlignment="Center"/>
+          <TextBox x:Name="XBox" Grid.Row="1" Grid.Column="1" Margin="0,0,0,6" FontFamily="Consolas"/>
+          <TextBlock Grid.Row="2" Text="Y" VerticalAlignment="Center"/>
+          <TextBox x:Name="YBox" Grid.Row="2" Grid.Column="1" Margin="0,0,0,6" FontFamily="Consolas"/>
+          <TextBlock Grid.Row="3" Text="SubArea (sa)" VerticalAlignment="Center"/>
+          <TextBox x:Name="SubAreaBox" Grid.Row="3" Grid.Column="1" Margin="0,0,0,6" FontFamily="Consolas"/>
+          <TextBlock Grid.Row="4" Text="EP (obligatorio)" VerticalAlignment="Center"/>
+          <TextBox x:Name="EpBox" Grid.Row="4" Grid.Column="1" Margin="0,0,0,6" FontFamily="Consolas"/>
+          <TextBlock Grid.Row="5" Text="Versión origen" VerticalAlignment="Center"/>
+          <TextBox x:Name="SourceVersionBox" Grid.Row="5" Grid.Column="1" Margin="0,0,0,6" FontFamily="Consolas" IsReadOnly="True"/>
+          <TextBlock Grid.Row="6" Text="Versión destino" VerticalAlignment="Center"/>
+          <TextBox x:Name="TargetVersionBox" Grid.Row="6" Grid.Column="1" Margin="0,0,0,6" FontFamily="Consolas" IsReadOnly="True"/>
+          <TextBlock Grid.Row="7" Text="Archivo destino" VerticalAlignment="Center"/>
+          <TextBox x:Name="TargetFileBox" Grid.Row="7" Grid.Column="1" Margin="0,0,0,6" FontFamily="Consolas" IsReadOnly="True"/>
+        </Grid>
+      </StackPanel>
+    </ScrollViewer>
+    <TextBlock x:Name="StatusText" Grid.Row="1" TextWrapping="Wrap" Margin="0,8,0,8"
+               Foreground="{DynamicResource TextSecondary}"/>
+    <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+      <Button Content="Generar SWF de prueba" Width="160" Margin="0,0,8,0" IsDefault="True" Click="Generate_Click"/>
+      <Button Content="Cancelar" Width="90" IsCancel="True" Click="Cancel_Click"/>
+    </StackPanel>
+  </Grid>
+</Window>

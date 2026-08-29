@@ -1,0 +1,40 @@
+<Window x:Class="RufusMapEditor.App.WorldGridSizeWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Tamaño del mundo"
+        Width="320" Height="200"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="{DynamicResource WindowBackground}"
+        Foreground="{DynamicResource TextPrimary}">
+  <Grid Margin="16">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+    <TextBlock Text="Tamaño de la cuadrícula:" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,4"/>
+    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,12">
+      <TextBox x:Name="WidthBox" Width="56" FontFamily="Consolas" Text="10"
+               Background="{DynamicResource InputBackground}" BorderBrush="{DynamicResource InputBorder}"/>
+      <TextBlock Text="×" VerticalAlignment="Center" Margin="10,0" FontSize="16"/>
+      <TextBox x:Name="HeightBox" Width="56" FontFamily="Consolas" Text="10"
+               Background="{DynamicResource InputBackground}" BorderBrush="{DynamicResource InputBorder}"/>
+    </StackPanel>
+    <TextBlock Grid.Row="2" Text="Posición de inicio:" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,4"/>
+    <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,0,0,8">
+      <TextBox x:Name="OriginXBox" Width="56" FontFamily="Consolas" Text="0"
+               Background="{DynamicResource InputBackground}" BorderBrush="{DynamicResource InputBorder}"/>
+      <TextBlock Text="," VerticalAlignment="Center" Margin="10,0" FontSize="16"/>
+      <TextBox x:Name="OriginYBox" Width="56" FontFamily="Consolas" Text="0"
+               Background="{DynamicResource InputBackground}" BorderBrush="{DynamicResource InputBorder}"/>
+    </StackPanel>
+    <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right">
+      <Button Content="Aceptar" Width="90" Margin="0,0,8,0" Padding="8,4" IsDefault="True" Click="Ok_Click"/>
+      <Button Content="Cancelar" Width="90" Padding="8,4" IsCancel="True" Click="Cancel_Click"/>
+    </StackPanel>
+  </Grid>
+</Window>

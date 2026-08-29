@@ -1,0 +1,271 @@
+<UserControl x:Class="RufusMapEditor.Admin.Views.LicensesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="Transparent"
+             Foreground="{StaticResource Text}">
+  <Grid>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+    </Grid.RowDefinitions>
+
+    <StackPanel Grid.Row="0" Margin="0,0,0,12">
+      <DockPanel LastChildFill="False" Margin="0,0,0,8">
+        <TextBlock Text="Licencias" Style="{StaticResource SectionTitle}" DockPanel.Dock="Left"/>
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+          <Button x:Name="DeleteToolbarButton" Content="Eliminar licencia"
+                  Style="{StaticResource DeleteButton}" Margin="0,0,8,0"
+                  IsEnabled="False" Click="Delete_Click"
+                  ToolTip="Borra la licencia de la base de datos. No se puede deshacer."/>
+          <Button x:Name="RevokeToolbarButton" Content="Revocar licencia"
+                  Style="{StaticResource DeleteButton}" Margin="0,0,8,0"
+                  IsEnabled="False" Click="Revoke_Click"
+                  ToolTip="Invalida el código y cierra sesiones. La licencia pasa a Revocada (filtro Revocadas)."/>
+          <Button x:Name="ResetDeviceToolbarButton" Content="Liberar dispositivo"
+                  Style="{StaticResource SecondaryButton}" Margin="0,0,8,0"
+                  IsEnabled="False" Click="ResetDevice_Click"
+                  ToolTip="Desvincula dispositivos y cierra sesiones activas (libera el bloque)."/>
+          <Button Content="Crear licencia" Style="{StaticResource PrimaryButton}"
+                  Click="Create_Click"/>
+        </StackPanel>
+      </DockPanel>
+      <TextBlock Text="Gestión privada de licencias RUFUS" Style="{StaticResource SectionCaption}" Margin="0,0,0,8"/>
+
+      <Grid Margin="0,0,0,8">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*"/>
+          <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+        <TextBox x:Name="SearchBox" Padding="10,8" TextChanged="SearchBox_TextChanged"
+                 ToolTip="Buscar por nombre, hint, id o estado"/>
+        <Button Grid.Column="1" Content="Actualizar" Style="{StaticResource SecondaryButton}"
+                Margin="8,0,0,0" Click="Reload_Click"/>
+      </Grid>
+
+      <WrapPanel x:Name="FilterPanel">
+        <RadioButton Content="Todas" Style="{StaticResource FilterChip}" IsChecked="True"
+                     Tag="all" Checked="Filter_Checked"/>
+        <RadioButton Content="Activas" Style="{StaticResource FilterChip}" Tag="Active" Checked="Filter_Checked"/>
+        <RadioButton Content="Creadas" Style="{StaticResource FilterChip}" Tag="Created" Checked="Filter_Checked"/>
+        <RadioButton Content="Suspendidas" Style="{StaticResource FilterChip}" Tag="Suspended" Checked="Filter_Checked"/>
+        <RadioButton Content="Caducadas" Style="{StaticResource FilterChip}" Tag="Expired" Checked="Filter_Checked"/>
+        <RadioButton Content="Revocadas" Style="{StaticResource FilterChip}" Tag="Revoked" Checked="Filter_Checked"/>
+      </WrapPanel>
+    </StackPanel>
+
+    <Grid Grid.Row="1">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="1.35*" MinWidth="420"/>
+        <ColumnDefinition Width="12"/>
+        <ColumnDefinition Width="*" MinWidth="320"/>
+      </Grid.ColumnDefinitions>
+
+      <Border Grid.Column="0" Style="{StaticResource Card}" Padding="0" ClipToBounds="True">
+        <DataGrid x:Name="LicensesGrid" SelectionChanged="LicensesGrid_SelectionChanged"
+                  BorderThickness="0" HeadersVisibility="Column">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Nombre" Binding="{Binding DisplayName}" Width="*"/>
+            <DataGridTextColumn Header="Hint" Binding="{Binding CodeDisplayHint}" Width="70"/>
+            <DataGridTemplateColumn Header="Estado" Width="110">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate>
+                  <Border CornerRadius="4" Padding="8,3" HorizontalAlignment="Left"
+                          Background="{Binding Status, Converter={StaticResource StatusBrushConverter}}">
+                    <TextBlock Text="{Binding Status, Converter={StaticResource StatusBadgeConverter}}"
+                               Foreground="White" FontSize="10" FontWeight="SemiBold"/>
+                  </Border>
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTextColumn Header="Caduca"
+                                Binding="{Binding ExpiresAt, Converter={StaticResource ExpiresLocalConverter}}"
+                                Width="130"/>
+            <DataGridTextColumn Header="Dev" Width="70">
+              <DataGridTextColumn.Binding>
+                <MultiBinding StringFormat="{}{0}/{1}">
+                  <Binding Path="DevicesBound"/>
+                  <Binding Path="MaxDevices"/>
+                </MultiBinding>
+              </DataGridTextColumn.Binding>
+            </DataGridTextColumn>
+            <DataGridTextColumn Header="Ses" Width="70">
+              <DataGridTextColumn.Binding>
+                <MultiBinding StringFormat="{}{0}/{1}">
+                  <Binding Path="ActiveSessions"/>
+                  <Binding Path="MaxConcurrentSessions"/>
+                </MultiBinding>
+              </DataGridTextColumn.Binding>
+            </DataGridTextColumn>
+            <DataGridTextColumn Header="IA"
+                                Binding="{Binding PermissionAi, Converter={StaticResource BoolPermitidoConverter}}"
+                                Width="50"/>
+            <DataGridTextColumn Header="Id" Binding="{Binding LicenseId}" Width="50"/>
+          </DataGrid.Columns>
+        </DataGrid>
+      </Border>
+
+      <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
+        <StackPanel>
+          <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+            <StackPanel>
+              <DockPanel>
+                <TextBlock x:Name="DetailTitle" Text="Detalle" FontSize="18" FontWeight="SemiBold"
+                           DockPanel.Dock="Left"/>
+                <Border x:Name="DetailBadge" CornerRadius="4" Padding="8,3" DockPanel.Dock="Right"
+                        VerticalAlignment="Center" Visibility="Collapsed">
+                  <TextBlock x:Name="DetailBadgeText" Foreground="White" FontSize="10" FontWeight="SemiBold"/>
+                </Border>
+              </DockPanel>
+              <TextBlock x:Name="DetailHint" Style="{StaticResource MutedText}" Margin="0,6,0,0"/>
+              <Grid Margin="0,12,0,0">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="DetailNameBox" Padding="8,6"
+                         ToolTip="Nombre o titular (ej. cliente, prueba interna)"/>
+                <Button Grid.Column="1" Content="Guardar nombre" Style="{StaticResource SecondaryButton}"
+                        Margin="8,0,0,0" Click="SaveName_Click"/>
+              </Grid>
+              <WrapPanel x:Name="DetailQuickActions" Margin="0,12,0,0" Visibility="Collapsed">
+                <Button Content="Eliminar licencia" Style="{StaticResource DeleteButton}"
+                        Margin="0,0,8,0" Click="Delete_Click"/>
+                <Button Content="Revocar licencia" Style="{StaticResource DeleteButton}"
+                        Margin="0,0,8,0" Click="Revoke_Click"/>
+                <Button Content="Liberar dispositivo" Style="{StaticResource SecondaryButton}"
+                        Margin="0,0,8,0" Click="ResetDevice_Click"/>
+                <Button Content="Cerrar sesión" Style="{StaticResource SecondaryButton}"
+                        Click="Terminate_Click"/>
+              </WrapPanel>
+            </StackPanel>
+          </Border>
+
+          <UniformGrid Columns="2" Margin="0,0,0,12">
+            <Border Style="{StaticResource Card}" Margin="0,0,6,6">
+              <StackPanel>
+                <TextBlock Text="CADUCIDAD" Style="{StaticResource MutedText}" FontSize="11"/>
+                <TextBlock x:Name="DetailExpires" FontWeight="SemiBold" Margin="0,6,0,0" Text="—"/>
+              </StackPanel>
+            </Border>
+            <Border Style="{StaticResource Card}" Margin="6,0,0,6">
+              <StackPanel>
+                <TextBlock Text="DURACIÓN" Style="{StaticResource MutedText}" FontSize="11"/>
+                <TextBlock x:Name="DetailDuration" FontWeight="SemiBold" Margin="0,6,0,0" Text="—"/>
+              </StackPanel>
+            </Border>
+            <Border Style="{StaticResource Card}" Margin="0,0,6,0">
+              <StackPanel>
+                <TextBlock Text="DISPOSITIVOS" Style="{StaticResource MutedText}" FontSize="11"/>
+                <TextBlock x:Name="DetailDevices" FontWeight="SemiBold" Margin="0,6,0,0" Text="—"/>
+              </StackPanel>
+            </Border>
+            <Border Style="{StaticResource Card}" Margin="6,0,0,0">
+              <StackPanel>
+                <TextBlock Text="SESIONES" Style="{StaticResource MutedText}" FontSize="11"/>
+                <TextBlock x:Name="DetailSessions" FontWeight="SemiBold" Margin="0,6,0,0" Text="—"/>
+              </StackPanel>
+            </Border>
+          </UniformGrid>
+
+          <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+            <StackPanel>
+              <TextBlock Text="PERMISOS" FontWeight="SemiBold" Margin="0,0,0,10"/>
+              <Grid Margin="0,0,0,6">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="RUFUS Editor" Foreground="{StaticResource Muted}"/>
+                <TextBlock x:Name="DetailEditor" Grid.Column="1" FontWeight="SemiBold"/>
+              </Grid>
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Asistente IA" Foreground="{StaticResource Muted}"/>
+                <TextBlock x:Name="DetailAiPerm" Grid.Column="1" FontWeight="SemiBold"/>
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+            <StackPanel>
+              <TextBlock Text="ASISTENTE IA" FontWeight="SemiBold" Margin="0,0,0,10"/>
+              <Grid Margin="0,0,0,6">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="100"/>
+                  <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Hoy:" Foreground="{StaticResource Muted}"/>
+                <TextBlock x:Name="DetailAiToday" Grid.Column="1"/>
+              </Grid>
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="100"/>
+                  <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Este mes:" Foreground="{StaticResource Muted}"/>
+                <TextBlock x:Name="DetailAiMonth" Grid.Column="1"/>
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+            <StackPanel>
+              <TextBlock Text="DISPOSITIVO" FontWeight="SemiBold" Margin="0,0,0,10"/>
+              <Grid Margin="0,0,0,6">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="120"/>
+                  <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Identificador:" Foreground="{StaticResource Muted}"/>
+                <TextBlock x:Name="DetailDeviceId" Grid.Column="1" TextWrapping="Wrap"/>
+              </Grid>
+              <Grid Margin="0,0,0,6">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="120"/>
+                  <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Última actividad:" Foreground="{StaticResource Muted}"/>
+                <TextBlock x:Name="DetailLastActivity" Grid.Column="1"/>
+              </Grid>
+              <TextBlock x:Name="DetailNotes" Style="{StaticResource MutedText}" TextWrapping="Wrap"/>
+            </StackPanel>
+          </Border>
+
+          <TextBlock Text="PRINCIPALES" Style="{StaticResource MutedText}" FontSize="11" Margin="0,0,0,8"/>
+          <WrapPanel Margin="0,0,0,12">
+            <Button Content="Extender…" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8" Click="Extend_Click"/>
+            <Button Content="IA / Límites…" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8" Click="AiSettings_Click"/>
+          </WrapPanel>
+
+          <TextBlock Text="SESIÓN / DISPOSITIVO" Style="{StaticResource MutedText}" FontSize="11" Margin="0,0,0,8"/>
+          <WrapPanel Margin="0,0,0,12">
+            <Button Content="Reset dispositivo" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8" Click="ResetDevice_Click"/>
+            <Button Content="Cerrar sesión" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8" Click="Terminate_Click"/>
+          </WrapPanel>
+
+          <TextBlock Text="ESTADO" Style="{StaticResource MutedText}" FontSize="11" Margin="0,0,0,8"/>
+          <WrapPanel Margin="0,0,0,16">
+            <Button Content="Suspender" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8" Click="Suspend_Click"/>
+            <Button Content="Reactivar" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8" Click="Reactivate_Click"/>
+          </WrapPanel>
+
+          <TextBlock Text="PELIGRO / LIMPIEZA" Style="{StaticResource MutedText}" FontSize="11" Margin="0,0,0,4"
+                     Foreground="{StaticResource Danger}"/>
+          <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="{StaticResource Muted}" Margin="0,0,0,8"
+                     Text="Eliminar borra la licencia de la base de datos (ideal para licencias de prueba). Revocar invalida el código pero deja el registro. Liberar dispositivo quita el bloqueo del PC vinculado."/>
+          <WrapPanel Margin="0,0,0,16">
+            <Button Content="Eliminar licencia" Style="{StaticResource DeleteButton}" Margin="0,0,8,8"
+                    Click="Delete_Click"/>
+            <Button Content="Revocar licencia" Style="{StaticResource DeleteButton}" Margin="0,0,8,8"
+                    Click="Revoke_Click"/>
+            <Button Content="Liberar dispositivo" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8"
+                    Click="ResetDevice_Click"/>
+          </WrapPanel>
+        </StackPanel>
+      </ScrollViewer>
+    </Grid>
+  </Grid>
+</UserControl>

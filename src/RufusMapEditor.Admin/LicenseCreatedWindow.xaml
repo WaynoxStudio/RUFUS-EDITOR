@@ -1,0 +1,29 @@
+<Window x:Class="RufusMapEditor.Admin.LicenseCreatedWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Licencia creada" Height="300" Width="540"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="{StaticResource Panel}" Foreground="{StaticResource Text}">
+  <Border Style="{StaticResource Card}" Margin="20" Padding="24">
+    <StackPanel>
+      <TextBlock Text="LICENCIA CREADA" FontSize="18" FontWeight="SemiBold"
+                 HorizontalAlignment="Center"/>
+      <Border Background="{StaticResource PanelElevated}" CornerRadius="8" Padding="16" Margin="0,18,0,14">
+        <TextBox x:Name="CodeBox" FontFamily="Consolas" FontSize="16"
+                 IsReadOnly="True" TextWrapping="Wrap" BorderThickness="0"
+                 Background="Transparent" TextAlignment="Center"
+                 HorizontalContentAlignment="Center"/>
+      </Border>
+      <TextBlock TextWrapping="Wrap" Style="{StaticResource MutedText}" TextAlignment="Center"
+                 Margin="0,0,0,18"
+                 Text="Guarda este código. No podrá volver a mostrarse completo."/>
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+        <Button Content="COPIAR" Width="120" Margin="0,0,8,0" Click="Copy_Click"
+                Style="{StaticResource PrimaryButton}"/>
+        <Button Content="Cerrar" Width="100" IsDefault="True" IsCancel="True"
+                Style="{StaticResource SecondaryButton}"/>
+      </StackPanel>
+    </StackPanel>
+  </Border>
+</Window>

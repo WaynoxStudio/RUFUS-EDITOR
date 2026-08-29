@@ -1,0 +1,85 @@
+<Window x:Class="RufusMapEditor.App.MapPickerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Selección de mapa"
+        Height="560" Width="720"
+        MinHeight="420" MinWidth="520"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResizeWithGrip"
+        Background="{DynamicResource WindowBackground}"
+        Foreground="{DynamicResource TextPrimary}">
+  <Window.Resources>
+    <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+  </Window.Resources>
+  <DockPanel Margin="12">
+    <Button DockPanel.Dock="Bottom" Content="Validar" Margin="0,10,0,0" Padding="10,6"
+            IsDefault="True" Click="Ok_Click"/>
+    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+      <TextBlock x:Name="PromptText" Text="Selecciona un mapa:" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,6"/>
+      <TextBox x:Name="SearchBox" Padding="6,4"
+               Background="{DynamicResource InputBackground}" BorderBrush="{DynamicResource InputBorder}"
+               TextChanged="SearchBox_TextChanged"
+               ToolTip="Filtrar por Map ID"/>
+    </StackPanel>
+    <ListBox x:Name="MapGrid"
+             Background="{DynamicResource SurfaceBackground}"
+             BorderBrush="{DynamicResource Border}"
+             BorderThickness="1"
+             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+             MouseDoubleClick="MapGrid_MouseDoubleClick">
+      <ListBox.ItemsPanel>
+        <ItemsPanelTemplate>
+          <WrapPanel HorizontalAlignment="Center"/>
+        </ItemsPanelTemplate>
+      </ListBox.ItemsPanel>
+      <ListBox.ItemContainerStyle>
+        <Style TargetType="ListBoxItem">
+          <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+          <Setter Property="Padding" Value="0"/>
+          <Setter Property="Margin" Value="4"/>
+          <Setter Property="Background" Value="Transparent"/>
+          <Setter Property="BorderThickness" Value="0"/>
+          <Setter Property="Template">
+            <Setter.Value>
+              <ControlTemplate TargetType="ListBoxItem">
+                <Border x:Name="SelBorder" Padding="2" Background="Transparent"
+                        BorderBrush="{DynamicResource Accent}" BorderThickness="2" CornerRadius="2">
+                  <ContentPresenter/>
+                </Border>
+                <ControlTemplate.Triggers>
+                  <Trigger Property="IsSelected" Value="True">
+                    <Setter TargetName="SelBorder" Property="BorderBrush" Value="{DynamicResource Accent}"/>
+                    <Setter TargetName="SelBorder" Property="Background" Value="{DynamicResource SelectionBackground}"/>
+                  </Trigger>
+                  <Trigger Property="IsMouseOver" Value="True">
+                    <Setter TargetName="SelBorder" Property="BorderBrush" Value="{DynamicResource AccentHover}"/>
+                  </Trigger>
+                </ControlTemplate.Triggers>
+              </ControlTemplate>
+            </Setter.Value>
+          </Setter>
+        </Style>
+      </ListBox.ItemContainerStyle>
+      <ListBox.ItemTemplate>
+        <DataTemplate>
+          <Border Width="158" Background="{DynamicResource ElevatedSurface}" CornerRadius="2">
+            <StackPanel>
+              <Border Height="96" Background="{DynamicResource CheckerA}" Margin="4,4,4,2">
+                <Grid>
+                  <Image Source="{Binding Thumbnail}" Stretch="Uniform" Margin="2"
+                         RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+                  <TextBlock Text="…" HorizontalAlignment="Center" VerticalAlignment="Center"
+                             Foreground="{DynamicResource TextMuted}" FontSize="18"
+                             Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}"/>
+                </Grid>
+              </Border>
+              <TextBlock Text="{Binding MapId}" FontFamily="Consolas" FontSize="12" FontWeight="SemiBold"
+                         HorizontalAlignment="Center" Margin="0,0,0,6"
+                         Foreground="{DynamicResource TextPrimary}"/>
+            </StackPanel>
+          </Border>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+  </DockPanel>
+</Window>

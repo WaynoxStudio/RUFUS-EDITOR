@@ -1,0 +1,166 @@
+<UserControl x:Class="RufusMapEditor.App.Controls.LogConsolePanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:RufusMapEditor.App.ViewModels"
+             xmlns:logging="clr-namespace:RufusMapEditor.LegacyCompatibility.Logging;assembly=RufusMapEditor.LegacyCompatibility"
+             xmlns:local="clr-namespace:RufusMapEditor.App.Controls">
+  <UserControl.Resources>
+    <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+    <local:LogLevelToBrushConverter x:Key="LogLevelBrush"/>
+  </UserControl.Resources>
+
+  <Grid>
+    <!-- Collapsed: thin bar -->
+    <Border Height="26"
+            Background="{DynamicResource BrandBarBackground}"
+            BorderBrush="{DynamicResource Divider}"
+            BorderThickness="0,1,0,0"
+            Visibility="{Binding CollapsedBarVisible, Converter={StaticResource BoolToVis}}">
+      <DockPanel Margin="10,0">
+        <Button DockPanel.Dock="Left"
+                Content="Logs"
+                Command="{Binding ToggleExpandedCommand}"
+                Padding="10,2"
+                Margin="0,3"
+                FontSize="11"
+                Cursor="Hand"
+                ToolTip="Abrir consola de logs / depuración"
+                Background="Transparent"
+                BorderThickness="0"
+                Foreground="{DynamicResource BrandAccent}"
+                FontWeight="SemiBold"
+                VerticalAlignment="Center"/>
+        <TextBlock Text="LOGS / DEPURACIÓN"
+                   FontSize="10"
+                   FontWeight="SemiBold"
+                   VerticalAlignment="Center"
+                   Margin="12,0,0,0"
+                   Foreground="{DynamicResource TextMuted}"/>
+      </DockPanel>
+    </Border>
+
+    <!-- Expanded panel -->
+    <Grid Visibility="{Binding ExpandedPanelVisible, Converter={StaticResource BoolToVis}}">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="*"/>
+      </Grid.RowDefinitions>
+
+      <Border Grid.Row="0"
+              Background="{DynamicResource SurfaceBackground}"
+              BorderBrush="{DynamicResource Divider}"
+              BorderThickness="0,1,0,1"
+              Padding="10,6">
+        <DockPanel LastChildFill="False">
+          <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
+            <Border Width="3" Height="12" CornerRadius="1.5" Background="{DynamicResource BrandAccent}" Margin="0,0,8,0"/>
+            <TextBlock Text="LOGS / DEPURACIÓN"
+                       FontSize="11"
+                       FontWeight="SemiBold"
+                       VerticalAlignment="Center"
+                       Foreground="{DynamicResource TextSecondary}"/>
+          </StackPanel>
+
+          <Button Content="Limpiar" Command="{Binding ClearCommand}"
+                  Padding="8,3" Margin="0,0,4,0" FontSize="11"
+                  ToolTip="Vaciar la consola"/>
+          <Button Content="Copiar logs" Command="{Binding CopyCommand}"
+                  Padding="8,3" Margin="0,0,4,0" FontSize="11"
+                  ToolTip="Copiar entradas visibles al portapapeles"/>
+          <Button Content="Guardar log" Command="{Binding SaveCommand}"
+                  Padding="8,3" Margin="0,0,4,0" FontSize="11"
+                  ToolTip="Exportar a archivo UTF-8"/>
+          <Button Content="{Binding AutoScrollLabel}" Command="{Binding ToggleAutoScrollCommand}"
+                  Padding="8,3" Margin="0,0,12,0" FontSize="11"
+                  ToolTip="Activar / desactivar auto-scroll"/>
+
+          <TextBlock Text="Filtro:" FontSize="11" VerticalAlignment="Center"
+                     Foreground="{DynamicResource TextMuted}" Margin="0,0,6,0"/>
+          <Button Content="Todos" Command="{Binding SetFilterAllCommand}"
+                  Padding="6,3" Margin="0,0,2,0" FontSize="11"/>
+          <Button Content="Info" Command="{Binding SetFilterInfoCommand}"
+                  Padding="6,3" Margin="0,0,2,0" FontSize="11"/>
+          <Button Content="Warn" Command="{Binding SetFilterWarnCommand}"
+                  Padding="6,3" Margin="0,0,2,0" FontSize="11"/>
+          <Button Content="Error" Command="{Binding SetFilterErrorCommand}"
+                  Padding="6,3" Margin="0,0,2,0" FontSize="11"/>
+          <Button Content="Debug" Command="{Binding SetFilterDebugCommand}"
+                  Padding="6,3" Margin="0,0,8,0" FontSize="11"/>
+
+          <Button DockPanel.Dock="Right"
+                  Content="▾"
+                  Command="{Binding ToggleExpandedCommand}"
+                  Padding="8,2"
+                  FontSize="11"
+                  ToolTip="Cerrar panel de logs"
+                  VerticalAlignment="Center"/>
+        </DockPanel>
+      </Border>
+
+      <Border Grid.Row="1"
+              Background="{DynamicResource LogConsoleBackground}"
+              BorderBrush="{DynamicResource Divider}"
+              BorderThickness="0">
+        <ListBox x:Name="LogList"
+                 ItemsSource="{Binding VisibleEntries}"
+                 Background="Transparent"
+                 BorderThickness="0"
+                 Padding="6,4"
+                 FontFamily="{StaticResource AppFontFamilyMono}"
+                 FontSize="12"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                 VirtualizingPanel.IsVirtualizing="True"
+                 VirtualizingPanel.VirtualizationMode="Recycling"
+                 Loaded="LogList_Loaded">
+          <ListBox.ItemContainerStyle>
+            <Style TargetType="ListBoxItem">
+              <Setter Property="Padding" Value="6,2"/>
+              <Setter Property="Margin" Value="0,1"/>
+              <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+              <Setter Property="Background" Value="Transparent"/>
+              <Setter Property="BorderThickness" Value="0"/>
+              <Setter Property="Focusable" Value="False"/>
+              <Setter Property="Template">
+                <Setter.Value>
+                  <ControlTemplate TargetType="ListBoxItem">
+                    <Border Background="{TemplateBinding Background}" CornerRadius="3" Padding="{TemplateBinding Padding}">
+                      <ContentPresenter/>
+                    </Border>
+                  </ControlTemplate>
+                </Setter.Value>
+              </Setter>
+              <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                  <Setter Property="Background" Value="{DynamicResource HoverBackground}"/>
+                </Trigger>
+              </Style.Triggers>
+            </Style>
+          </ListBox.ItemContainerStyle>
+          <ListBox.ItemTemplate>
+            <DataTemplate DataType="{x:Type logging:RufusLogEntry}">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="68"/>
+                  <ColumnDefinition Width="56"/>
+                  <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0"
+                           Text="{Binding Timestamp, StringFormat={}{0:HH:mm:ss}}"
+                           Foreground="{DynamicResource TextMuted}"/>
+                <TextBlock Grid.Column="1"
+                           Text="{Binding LevelLabel}"
+                           FontWeight="SemiBold"
+                           Foreground="{Binding Level, Converter={StaticResource LogLevelBrush}}"/>
+                <TextBlock Grid.Column="2"
+                           Text="{Binding Message}"
+                           TextWrapping="Wrap"
+                           Foreground="{DynamicResource TextPrimary}"/>
+              </Grid>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Border>
+    </Grid>
+  </Grid>
+</UserControl>

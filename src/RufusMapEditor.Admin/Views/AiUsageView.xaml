@@ -1,0 +1,219 @@
+<UserControl x:Class="RufusMapEditor.Admin.Views.AiUsageView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="Transparent"
+             Foreground="{StaticResource Text}">
+  <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <StackPanel>
+      <DockPanel LastChildFill="False" Margin="0,0,0,8">
+        <StackPanel DockPanel.Dock="Left">
+          <TextBlock Text="Uso IA" Style="{StaticResource SectionTitle}"/>
+          <TextBlock TextWrapping="Wrap" MaxWidth="720"
+                     Style="{StaticResource SectionCaption}"
+                     Text="Métricas reales de generaciones USER (rufus_ai_usage_events · vinculadas a licencia). La IA de RUFUS ADMIN (sesión rai1) no consume cuota USER y aún no tiene telemetría separada."/>
+        </StackPanel>
+        <Button DockPanel.Dock="Right" Content="Actualizar" Style="{StaticResource PrimaryButton}"
+                VerticalAlignment="Top" Click="Refresh_Click" Margin="16,4,0,0"/>
+      </DockPanel>
+
+      <TextBlock x:Name="StatusText" Style="{StaticResource MutedText}" Margin="0,0,0,16"
+                 TextWrapping="Wrap" Text="—"/>
+
+      <TextBlock Text="HOY" FontWeight="SemiBold" FontSize="12"
+                 Foreground="{StaticResource Muted}" Margin="0,0,0,8"/>
+      <UniformGrid Columns="4" Margin="0,0,0,20">
+        <Border Style="{StaticResource MetricCard}" Margin="0,0,10,0">
+          <StackPanel>
+            <TextBlock Text="GENERACIONES" Style="{StaticResource MutedText}" FontSize="11"/>
+            <TextBlock x:Name="TodayGenText" Text="—" FontSize="26" FontWeight="SemiBold" Margin="0,8,0,0"/>
+          </StackPanel>
+        </Border>
+        <Border Style="{StaticResource MetricCard}" Margin="0,0,10,0">
+          <StackPanel>
+            <TextBlock Text="INPUT TOKENS" Style="{StaticResource MutedText}" FontSize="11"/>
+            <TextBlock x:Name="TodayInText" Text="—" FontSize="26" FontWeight="SemiBold" Margin="0,8,0,0"/>
+          </StackPanel>
+        </Border>
+        <Border Style="{StaticResource MetricCard}" Margin="0,0,10,0">
+          <StackPanel>
+            <TextBlock Text="OUTPUT TOKENS" Style="{StaticResource MutedText}" FontSize="11"/>
+            <TextBlock x:Name="TodayOutText" Text="—" FontSize="26" FontWeight="SemiBold" Margin="0,8,0,0"/>
+          </StackPanel>
+        </Border>
+        <Border Style="{StaticResource MetricCard}">
+          <StackPanel>
+            <TextBlock Text="TOTAL" Style="{StaticResource MutedText}" FontSize="11"/>
+            <TextBlock x:Name="TodayTotalText" Text="—" FontSize="26" FontWeight="SemiBold" Margin="0,8,0,0"/>
+          </StackPanel>
+        </Border>
+      </UniformGrid>
+
+      <TextBlock Text="ESTE MES" FontWeight="SemiBold" FontSize="12"
+                 Foreground="{StaticResource Muted}" Margin="0,0,0,8"/>
+      <UniformGrid Columns="4" Margin="0,0,0,20">
+        <Border Style="{StaticResource MetricCard}" Margin="0,0,10,0">
+          <StackPanel>
+            <TextBlock Text="GENERACIONES" Style="{StaticResource MutedText}" FontSize="11"/>
+            <TextBlock x:Name="MonthGenText" Text="—" FontSize="26" FontWeight="SemiBold" Margin="0,8,0,0"/>
+          </StackPanel>
+        </Border>
+        <Border Style="{StaticResource MetricCard}" Margin="0,0,10,0">
+          <StackPanel>
+            <TextBlock Text="INPUT TOKENS" Style="{StaticResource MutedText}" FontSize="11"/>
+            <TextBlock x:Name="MonthInText" Text="—" FontSize="26" FontWeight="SemiBold" Margin="0,8,0,0"/>
+          </StackPanel>
+        </Border>
+        <Border Style="{StaticResource MetricCard}" Margin="0,0,10,0">
+          <StackPanel>
+            <TextBlock Text="OUTPUT TOKENS" Style="{StaticResource MutedText}" FontSize="11"/>
+            <TextBlock x:Name="MonthOutText" Text="—" FontSize="26" FontWeight="SemiBold" Margin="0,8,0,0"/>
+          </StackPanel>
+        </Border>
+        <Border Style="{StaticResource MetricCard}">
+          <StackPanel>
+            <TextBlock Text="TOTAL" Style="{StaticResource MutedText}" FontSize="11"/>
+            <TextBlock x:Name="MonthTotalText" Text="—" FontSize="26" FontWeight="SemiBold" Margin="0,8,0,0"/>
+          </StackPanel>
+        </Border>
+      </UniformGrid>
+
+      <TextBlock Text="HISTÓRICO" FontWeight="SemiBold" FontSize="12"
+                 Foreground="{StaticResource Muted}" Margin="0,0,0,8"/>
+      <UniformGrid Columns="4" Margin="0,0,0,20">
+        <Border Style="{StaticResource MetricCard}" Margin="0,0,10,0">
+          <StackPanel>
+            <TextBlock Text="GENERACIONES" Style="{StaticResource MutedText}" FontSize="11"/>
+            <TextBlock x:Name="AllGenText" Text="—" FontSize="26" FontWeight="SemiBold" Margin="0,8,0,0"/>
+          </StackPanel>
+        </Border>
+        <Border Style="{StaticResource MetricCard}" Margin="0,0,10,0">
+          <StackPanel>
+            <TextBlock Text="INPUT TOKENS" Style="{StaticResource MutedText}" FontSize="11"/>
+            <TextBlock x:Name="AllInText" Text="—" FontSize="26" FontWeight="SemiBold" Margin="0,8,0,0"/>
+          </StackPanel>
+        </Border>
+        <Border Style="{StaticResource MetricCard}" Margin="0,0,10,0">
+          <StackPanel>
+            <TextBlock Text="OUTPUT TOKENS" Style="{StaticResource MutedText}" FontSize="11"/>
+            <TextBlock x:Name="AllOutText" Text="—" FontSize="26" FontWeight="SemiBold" Margin="0,8,0,0"/>
+          </StackPanel>
+        </Border>
+        <Border Style="{StaticResource MetricCard}">
+          <StackPanel>
+            <TextBlock Text="TOTAL" Style="{StaticResource MutedText}" FontSize="11"/>
+            <TextBlock x:Name="AllTotalText" Text="—" FontSize="26" FontWeight="SemiBold" Margin="0,8,0,0"/>
+          </StackPanel>
+        </Border>
+      </UniformGrid>
+
+      <TextBlock Text="PROMEDIO POR GENERACIÓN" FontWeight="SemiBold" FontSize="12"
+                 Foreground="{StaticResource Muted}" Margin="0,0,0,8"/>
+      <Border Style="{StaticResource Card}" Margin="0,0,0,20">
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*"/>
+          </Grid.ColumnDefinitions>
+          <StackPanel Grid.Column="0" Margin="0,0,12,0">
+            <TextBlock Text="Global (input / output / total)" Style="{StaticResource MutedText}" FontSize="11"/>
+            <TextBlock x:Name="AvgGlobalText" Text="—" FontSize="16" FontWeight="SemiBold" Margin="0,8,0,0"/>
+          </StackPanel>
+          <StackPanel Grid.Column="1" Margin="0,0,12,0">
+            <TextBlock Text="Por tipo (media total)" Style="{StaticResource MutedText}" FontSize="11"/>
+            <TextBlock x:Name="AvgByActionText" Text="—" FontSize="14" Margin="0,8,0,0"
+                       TextWrapping="Wrap"/>
+          </StackPanel>
+          <StackPanel Grid.Column="2">
+            <TextBlock Text="Detalle input · output" Style="{StaticResource MutedText}" FontSize="11"/>
+            <TextBlock x:Name="AvgByActionDetailText" Text="—" FontSize="13" Margin="0,8,0,0"
+                       Style="{StaticResource MutedText}" TextWrapping="Wrap"/>
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <TextBlock Text="POR TIPO DE GENERACIÓN" FontWeight="SemiBold" FontSize="12"
+                 Foreground="{StaticResource Muted}" Margin="0,0,0,8"/>
+      <ItemsControl x:Name="ByActionList" Margin="0,0,0,20">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Border Style="{StaticResource Card}" Margin="0,0,0,10" Padding="16">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="180"/>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="{Binding Label}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                <StackPanel Grid.Column="1" Margin="8,0">
+                  <TextBlock Text="Generaciones" Style="{StaticResource MutedText}" FontSize="10"/>
+                  <TextBlock Text="{Binding GenerationsText}" FontWeight="SemiBold"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2" Margin="8,0">
+                  <TextBlock Text="Input" Style="{StaticResource MutedText}" FontSize="10"/>
+                  <TextBlock Text="{Binding InputText}" FontWeight="SemiBold"/>
+                </StackPanel>
+                <StackPanel Grid.Column="3" Margin="8,0">
+                  <TextBlock Text="Output" Style="{StaticResource MutedText}" FontSize="10"/>
+                  <TextBlock Text="{Binding OutputText}" FontWeight="SemiBold"/>
+                </StackPanel>
+                <StackPanel Grid.Column="4" Margin="8,0">
+                  <TextBlock Text="Total" Style="{StaticResource MutedText}" FontSize="10"/>
+                  <TextBlock Text="{Binding TotalText}" FontWeight="SemiBold"/>
+                </StackPanel>
+              </Grid>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <TextBlock Text="EVOLUCIÓN (últimos 30 días UTC)" FontWeight="SemiBold" FontSize="12"
+                 Foreground="{StaticResource Muted}" Margin="0,0,0,8"/>
+      <Border Style="{StaticResource Card}" Margin="0,0,0,20" MaxHeight="220">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <ItemsControl x:Name="DailyList">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <DockPanel Margin="0,0,0,6">
+                  <TextBlock DockPanel.Dock="Left" Width="90" Text="{Binding Day}"
+                             Style="{StaticResource MutedText}" FontSize="12"/>
+                  <TextBlock DockPanel.Dock="Right" Text="{Binding Summary}"
+                             FontSize="12" HorizontalAlignment="Right"/>
+                  <Border Height="8" CornerRadius="2" Background="{StaticResource PanelElevated}"
+                          VerticalAlignment="Center" Margin="8,0">
+                    <Border HorizontalAlignment="Left" Height="8" CornerRadius="2"
+                            Background="{StaticResource Accent}"
+                            Width="{Binding BarWidth}"/>
+                  </Border>
+                </DockPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+      </Border>
+
+      <TextBlock Text="EVOLUCIÓN MENSUAL (UTC)" FontWeight="SemiBold" FontSize="12"
+                 Foreground="{StaticResource Muted}" Margin="0,0,0,8"/>
+      <Border Style="{StaticResource Card}" Margin="0,0,0,12">
+        <ItemsControl x:Name="MonthlyList">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <DockPanel Margin="0,0,0,6">
+                <TextBlock DockPanel.Dock="Left" Width="70" Text="{Binding Month}"
+                           Style="{StaticResource MutedText}" FontSize="12"/>
+                <TextBlock Text="{Binding Summary}" FontSize="12"/>
+              </DockPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </Border>
+
+      <Border Style="{StaticResource Card}" Margin="0,8,0,0">
+        <TextBlock x:Name="ScopeNoteText" Style="{StaticResource MutedText}" TextWrapping="Wrap"
+                   FontSize="12" LineHeight="18"/>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

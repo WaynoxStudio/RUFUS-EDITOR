@@ -1,0 +1,64 @@
+﻿=== npc_preguntas columns ===
+COLUMN_NAME | DATA_TYPE
+id | int
+respuestas | varchar
+params | varchar
+alternos | text
+(4 rows)
+
+=== npc_preguntas 20006/20009 + nearby ===
+id | respuestas | params | alternos
+20000 | 20001 |  | 
+20002 | 20003 |  | 
+20004 |  |  | 
+20005 |  |  | 
+20006 | 20007 |  | 
+(5 rows)
+
+=== misiones referencing 20009 ===
+id | nombre | pregDarMision | pregMisCompletada | pregMisIncompleta
+3503 | Pieles Mojadas, Sabiduria Seca | 20003;20006 | 20003;20009 | 20003;20009
+(1 rows)
+
+=== npcs_modelo pregunta=20009 or id=20003 ===
+id | nombre | pregunta
+20003 | Salazar Limo | 20006
+1529 | [Tejossus] | 20006
+1532 | [Klim] | 20009
+(3 rows)
+
+=== npc_preguntas containing 20009 in respuestas ===
+id | respuestas
+(0 rows)
+
+=== npc_respuestas id=20009 OR linked to 3503 ===
+dotnet : Unhandled exception. MySqlConnector.MySqlException (0x80004005): Unknown column 'respuesta' in 'field list'
+En C:\Users\rubez\AppData\Local\Temp\ps-script-8d9171a8-ea92-466f-a5ba-84767ee524b2.ps1: 82 Carácter: 1
++ dotnet run --project "C:\Users\rubez\Desktop\ASTRIA V2\tools\Cont41Au ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Unhandled excep...in 'field list':String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+   at MySqlConnector.Core.ServerSession.ReceiveReplyAsync(IOBehavior ioBehavior, CancellationToken cancellationToken) 
+in /_/src/MySqlConnector/Core/ServerSession.cs:line 1081
+   at MySqlConnector.Core.ResultSet.ReadResultSetHeaderAsync(IOBehavior ioBehavior) in 
+/_/src/MySqlConnector/Core/ResultSet.cs:line 37
+   at MySqlConnector.MySqlDataReader.ActivateResultSet(CancellationToken cancellationToken) in 
+/_/src/MySqlConnector/MySqlDataReader.cs:line 131
+   at MySqlConnector.MySqlDataReader.InitAsync(CommandListPosition commandListPosition, ICommandPayloadCreator 
+payloadCreator, IDictionary`2 cachedProcedures, IMySqlCommand command, CommandBehavior behavior, Activity activity, 
+IOBehavior ioBehavior, CancellationToken cancellationToken) in /_/src/MySqlConnector/MySqlDataReader.cs:line 487
+   at MySqlConnector.Core.CommandExecutor.ExecuteReaderAsync(CommandListPosition commandListPosition, 
+ICommandPayloadCreator payloadCreator, CommandBehavior behavior, Activity activity, IOBehavior ioBehavior, 
+CancellationToken cancellationToken) in /_/src/MySqlConnector/Core/CommandExecutor.cs:line 56
+   at MySqlConnector.MySqlCommand.ExecuteReaderAsync(CommandBehavior behavior, IOBehavior ioBehavior, 
+CancellationToken cancellationToken) in /_/src/MySqlConnector/MySqlCommand.cs:line 357
+   at Program.<>c__DisplayClass0_0.<<<Main>$>g__DumpAsync|0>d.MoveNext() in C:\Users\rubez\Desktop\ASTRIA 
+V2\tools\Cont41Audit\Program.cs:line 29
+--- End of stack trace from previous location ---
+   at Program.<>c__DisplayClass0_0.<<<Main>$>g__DumpAsync|0>d.MoveNext() in C:\Users\rubez\Desktop\ASTRIA 
+V2\tools\Cont41Audit\Program.cs:line 49
+--- End of stack trace from previous location ---
+   at Program.<Main>$(String[] args) in C:\Users\rubez\Desktop\ASTRIA V2\tools\Cont41Audit\Program.cs:line 79
+   at Program.<Main>$(String[] args) in C:\Users\rubez\Desktop\ASTRIA V2\tools\Cont41Audit\Program.cs:line 160
+   at Program.<Main>(String[] args)

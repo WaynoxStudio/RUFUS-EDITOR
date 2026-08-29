@@ -1,0 +1,55 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>RufusMapEditor</AssemblyName>
+    <RootNamespace>RufusMapEditor.App</RootNamespace>
+    <ApplicationTitle>RUFUS Map Editor</ApplicationTitle>
+    <Product>RUFUS Map Editor</Product>
+    <ApplicationIcon>Assets\RME.ico</ApplicationIcon>
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RufusMapEditor.Domain\RufusMapEditor.Domain.csproj" />
+    <ProjectReference Include="..\RufusMapEditor.LegacyCompatibility\RufusMapEditor.LegacyCompatibility.csproj" />
+    <ProjectReference Include="..\RufusMapEditor.Licensing\RufusMapEditor.Licensing.csproj" />
+    <ProjectReference Include="..\RufusMapEditor.Rendering\RufusMapEditor.Rendering.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\RME.ico" />
+    <Resource Include="Assets\RME.png" />
+  </ItemGroup>
+
+  <!-- Release test publish: artifacts (debuggable) + root single-file launcher -->
+  <PropertyGroup>
+    <RepoRoot>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\..'))</RepoRoot>
+    <ArtifactsPublishDir>$([System.IO.Path]::Combine('$(RepoRoot)', 'artifacts', 'RufusMapEditor'))</ArtifactsPublishDir>
+    <RootLauncherPath>$([System.IO.Path]::Combine('$(RepoRoot)', 'RufusMapEditor.exe'))</RootLauncherPath>
+    <RootPublishStagingDir>$([System.IO.Path]::Combine('$(RepoRoot)', 'artifacts', '_root_launcher_publish'))</RootPublishStagingDir>
+  </PropertyGroup>
+
+  <Target Name="PublishReleaseTest">
+    <Message Importance="high" Text="PublishReleaseTest ($(RufusEdition)): framework-dependent build -&gt; $(ArtifactsPublishDir)" />
+    <MSBuild Projects="$(MSBuildProjectFile)"
+             Targets="Publish"
+             Properties="Configuration=Release;RuntimeIdentifier=win-x64;SelfContained=false;PublishDir=$(ArtifactsPublishDir);RufusEdition=$(RufusEdition)" />
+
+    <Message Importance="high" Text="PublishReleaseTest ($(RufusEdition)): self-contained single-file launcher -&gt; $(RootLauncherPath)" />
+    <MSBuild Projects="$(MSBuildProjectFile)"
+             Targets="Publish"
+             Properties="Configuration=Release;RuntimeIdentifier=win-x64;SelfContained=true;PublishSingleFile=true;IncludeNativeLibrariesForSelfExtract=true;PublishDir=$(RootPublishStagingDir);RufusEdition=$(RufusEdition)" />
+
+    <Copy SourceFiles="$(RootPublishStagingDir)\RufusMapEditor.exe"
+          DestinationFiles="$(RootLauncherPath)"
+          SkipUnchangedFiles="false" />
+    <Message Importance="high" Text="PublishReleaseTest: root launcher ready at $(RootLauncherPath)" />
+  </Target>
+
+</Project>

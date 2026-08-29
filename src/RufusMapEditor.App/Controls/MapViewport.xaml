@@ -1,0 +1,45 @@
+<UserControl x:Class="RufusMapEditor.App.Controls.MapViewport"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{DynamicResource CanvasBackground}"
+             ClipToBounds="True"
+             MouseWheel="Viewport_MouseWheel"
+             MouseDown="Viewport_MouseDown"
+             MouseUp="Viewport_MouseUp"
+             MouseMove="Viewport_MouseMove"
+             MouseLeave="Viewport_MouseLeave"
+             KeyDown="Viewport_KeyDown"
+             KeyUp="Viewport_KeyUp">
+  <Grid>
+    <Canvas x:Name="WorldRoot">
+      <Canvas.RenderTransform>
+        <TransformGroup>
+          <ScaleTransform x:Name="WorldScale" ScaleX="1" ScaleY="1"/>
+          <TranslateTransform x:Name="WorldTranslate"/>
+        </TransformGroup>
+      </Canvas.RenderTransform>
+      <Image x:Name="MapImage"
+             Stretch="Fill"
+             SnapsToDevicePixels="True"
+             RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+      <Canvas x:Name="OverlayCanvas" IsHitTestVisible="False" ClipToBounds="True"/>
+    </Canvas>
+    <TextBlock Text="Selecciona un mapa en la lista"
+               Foreground="{DynamicResource TextDisabled}"
+               HorizontalAlignment="Center"
+               VerticalAlignment="Center"
+               FontSize="14"
+               IsHitTestVisible="False">
+      <TextBlock.Style>
+        <Style TargetType="TextBlock">
+          <Setter Property="Visibility" Value="Collapsed"/>
+          <Style.Triggers>
+            <DataTrigger Binding="{Binding MapImage}" Value="{x:Null}">
+              <Setter Property="Visibility" Value="Visible"/>
+            </DataTrigger>
+          </Style.Triggers>
+        </Style>
+      </TextBlock.Style>
+    </TextBlock>
+  </Grid>
+</UserControl>

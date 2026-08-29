@@ -1,0 +1,53 @@
+<Window x:Class="RufusMapEditor.App.BackgroundPickerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Seleccionar fondo"
+        Width="640" Height="520"
+        MinWidth="480" MinHeight="360"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource WindowBackground}"
+        Foreground="{DynamicResource TextPrimary}">
+  <DockPanel Margin="12">
+    <Border DockPanel.Dock="Top" Background="{DynamicResource DialogHeaderBackground}" CornerRadius="6"
+            BorderBrush="{DynamicResource Border}" BorderThickness="1" Padding="12,10" Margin="0,0,0,10">
+      <StackPanel Orientation="Horizontal">
+        <Border Width="3" Height="16" CornerRadius="1.5" Background="{DynamicResource BrandAccent}" Margin="0,0,10,0"/>
+        <TextBlock Text="Seleccionar fondo" FontWeight="SemiBold" VerticalAlignment="Center"/>
+      </StackPanel>
+    </Border>
+    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+      <TextBlock Text="Buscar ID" VerticalAlignment="Center" Margin="0,0,8,0"/>
+      <TextBox x:Name="SearchBox" Width="100" TextChanged="SearchBox_TextChanged"/>
+      <TextBlock x:Name="CountText" VerticalAlignment="Center" Margin="12,0,0,0"
+                 Foreground="{DynamicResource TextSecondary}"/>
+    </StackPanel>
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+      <Button Content="Sin fondo (0)" Click="Clear_Click" Margin="0,0,8,0" ToolTip="BackgroundId = 0"/>
+      <Button Content="Cancelar" IsCancel="True" Margin="0,0,8,0"/>
+      <Button Content="Aplicar" Style="{StaticResource PrimaryButton}" IsDefault="True" Click="Apply_Click"/>
+    </StackPanel>
+    <ListBox x:Name="BackgroundList" MouseDoubleClick="BackgroundList_MouseDoubleClick"
+             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+             Background="{DynamicResource SurfaceBackground}" BorderBrush="{DynamicResource Border}" BorderThickness="1">
+      <ListBox.ItemsPanel>
+        <ItemsPanelTemplate>
+          <WrapPanel/>
+        </ItemsPanelTemplate>
+      </ListBox.ItemsPanel>
+      <ListBox.ItemTemplate>
+        <DataTemplate>
+          <Border Width="108" Height="120" Margin="4" Padding="4" CornerRadius="4"
+                  Background="{DynamicResource ThumbBackground}" BorderBrush="{DynamicResource Border}" BorderThickness="1">
+            <StackPanel>
+              <Border Height="72" Background="{DynamicResource CheckerA}" CornerRadius="3" ClipToBounds="True">
+                <Image Source="{Binding Thumbnail}" Stretch="Uniform"/>
+              </Border>
+              <TextBlock Text="{Binding Label}" HorizontalAlignment="Center" FontFamily="Consolas" FontSize="11"
+                         Foreground="{DynamicResource TextPrimary}" Margin="0,4,0,0"/>
+            </StackPanel>
+          </Border>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+  </DockPanel>
+</Window>
