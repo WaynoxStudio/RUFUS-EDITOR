@@ -30,6 +30,8 @@
         </StackPanel>
         <Menu Background="Transparent" BorderThickness="0">
       <MenuItem Header="_Archivo">
+        <MenuItem Header="Nuevo mapa..." Command="{Binding NewMapCommand}"
+                  ToolTip="Crear mapa vacío: Medio 15×17, Grande 19×22 o tamaño personalizado."/>
         <MenuItem Header="Abrir proyecto..." Command="{Binding OpenProjectCommand}" InputGestureText="Ctrl+O"/>
         <MenuItem Header="Abrir mapa de biblioteca..." Command="{Binding OpenMapDialogCommand}" InputGestureText="Ctrl+Shift+O"/>
         <MenuItem Header="Seleccionar biblioteca..." Command="{Binding SelectLibraryCommand}"/>
@@ -435,6 +437,9 @@
             </DockPanel>
             <TextBlock DockPanel.Dock="Top" Text="{Binding LibraryStatusMessage}" TextWrapping="Wrap"
                        Margin="12,0,12,8" Foreground="{DynamicResource TextMuted}" FontSize="11"/>
+            <Button DockPanel.Dock="Top" Content="Nuevo mapa..." Margin="12,0,12,6" Padding="8,5"
+                    Command="{Binding NewMapCommand}"
+                    ToolTip="Crear mapa vacío (Medio / Grande / Personalizado)"/>
             <Button DockPanel.Dock="Top" Content="Biblioteca..." Margin="12,0,12,10" Padding="8,5"
                     Command="{Binding SelectLibraryCommand}"/>
             <ListBox x:Name="MapList" ItemsSource="{Binding MapListItems}"

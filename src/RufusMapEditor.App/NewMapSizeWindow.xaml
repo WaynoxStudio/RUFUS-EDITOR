@@ -1,0 +1,59 @@
+<Window x:Class="RufusMapEditor.App.NewMapSizeWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Nuevo mapa"
+        Width="420" Height="340"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="{DynamicResource WindowBackground}"
+        Foreground="{DynamicResource TextPrimary}">
+  <Grid Margin="16">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+
+    <TextBlock Text="Elige el tamaño del mapa (como en Astria):" TextWrapping="Wrap" Margin="0,0,0,12"/>
+
+    <StackPanel Grid.Row="1" Margin="0,0,0,12">
+      <RadioButton x:Name="PresetMedio" GroupName="Size" IsChecked="True"
+                   Content="Medio — 15 × 17 (estándar, 479 celdas)"
+                   Margin="0,0,0,8" Checked="Preset_Changed"/>
+      <RadioButton x:Name="PresetGrande" GroupName="Size"
+                   Content="Grande — 19 × 22 (796 celdas)"
+                   Margin="0,0,0,8" Checked="Preset_Changed"/>
+      <RadioButton x:Name="PresetCustom" GroupName="Size"
+                   Content="Personalizado — elegir ancho y alto"
+                   Margin="0,0,0,8" Checked="Preset_Changed"/>
+    </StackPanel>
+
+    <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,12">
+      <TextBlock Text="Ancho" VerticalAlignment="Center" Margin="0,0,8,0"
+                 Foreground="{DynamicResource TextSecondary}"/>
+      <TextBox x:Name="WidthBox" Width="56" FontFamily="Consolas" Text="15" IsEnabled="False"
+               Background="{DynamicResource InputBackground}" BorderBrush="{DynamicResource InputBorder}"/>
+      <TextBlock Text="×" VerticalAlignment="Center" Margin="10,0" FontSize="16"/>
+      <TextBlock Text="Alto" VerticalAlignment="Center" Margin="0,0,8,0"
+                 Foreground="{DynamicResource TextSecondary}"/>
+      <TextBox x:Name="HeightBox" Width="56" FontFamily="Consolas" Text="17" IsEnabled="False"
+               Background="{DynamicResource InputBackground}" BorderBrush="{DynamicResource InputBorder}"/>
+    </StackPanel>
+
+    <StackPanel Grid.Row="3" Margin="0,0,0,8">
+      <TextBlock Text="Map ID" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,4"/>
+      <TextBox x:Name="MapIdBox" FontFamily="Consolas" Width="120" HorizontalAlignment="Left"
+               Background="{DynamicResource InputBackground}" BorderBrush="{DynamicResource InputBorder}"/>
+      <TextBlock Text="ID local (debe ser único en la biblioteca). Puedes cambiarlo antes de crear."
+                 FontSize="11" Foreground="{DynamicResource TextMuted}" TextWrapping="Wrap" Margin="0,6,0,0"/>
+    </StackPanel>
+
+    <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right">
+      <Button Content="Cancelar" Width="90" Margin="0,0,8,0" Padding="8,4" IsCancel="True" Click="Cancel_Click"/>
+      <Button Content="Crear" Width="90" Padding="8,4" IsDefault="True" Click="Ok_Click"/>
+    </StackPanel>
+  </Grid>
+</Window>

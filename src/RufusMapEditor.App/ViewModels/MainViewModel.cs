@@ -166,6 +166,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
         SelectLibraryCommand = new RelayCommand(SelectLibrary);
         OpenMapDialogCommand = new RelayCommand(OpenMapDialog, () => HasLibrary);
+        NewMapCommand = new RelayCommand(() => _ = NewMapAsync(), () => HasLibrary);
         CloseMapCommand = new RelayCommand(
             () =>
             {
@@ -400,6 +401,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
     public RelayCommand SelectLibraryCommand { get; }
     public RelayCommand OpenMapDialogCommand { get; }
+    public RelayCommand NewMapCommand { get; }
     public RelayCommand CloseMapCommand { get; }
     public RelayCommand ExitCommand { get; }
     public RelayCommand FitMapCommand { get; }
@@ -759,6 +761,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         {
             if (SetProperty(ref _hasLibrary, value))
                 OpenMapDialogCommand.RaiseCanExecuteChanged();
+                NewMapCommand.RaiseCanExecuteChanged();
         }
     }
 
@@ -3705,6 +3708,72 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         {
             SelectedMapId = id;
             _ = LoadMapAsync(id);
+        }
+    }
+
+    private async Task NewMapAsync()
+    {
+        if (!HasLibrary)
+        {
+            MessageBox.Show("Carga primero la biblioteca (Library).", "Nuevo mapa");
+            return;
+        }
+
+        var reserved = new HashSet<int>(MapIds);
+        foreach (var doc in _openDocuments)
+            reserved.Add(doc.MapId);
+
+        var maxId = reserved.Count > 0 ? reserved.Max() : 30000;
+        var proposed = new LocalMapIdAllocator().ProposeNextId(maxId, reserved);
+
+        var dlg = new NewMapSizeWindow(proposed) { Owner = Application.Current.MainWindow };
+        if (dlg.ShowDialog() != true)
+            return;
+
+        var mapId = dlg.ResultMapId;
+        if (!new LocalMapIdAllocator().IsAvailable(mapId, reserved))
+        {
+            MessageBox.Show(
+                $"El Map ID {mapId} ya existe (biblioteca o mapa abierto). Elige otro.",
+                "Nuevo mapa",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
+        try
+        {
+            IsLoading = true;
+            StatusText = $"Creando mapa {mapId} ({dlg.ResultWidth}×{dlg.ResultHeight})...";
+
+            var map = BlankMapFactory.Create(mapId, dlg.ResultWidth, dlg.ResultHeight);
+            var hit = new IsoHitTester(map.Width, map.Height);
+            var session = new MapEditSession(map, hit)
+            {
+                CreatedUtc = DateTimeOffset.UtcNow,
+                Source = new RufmapSourceDto
+                {
+                    Kind = "NewMap",
+                    OriginalMapId = mapId,
+                    LibraryPathHint = _library.RootPath ?? _effectiveLibraryPath,
+                },
+                ProjectName = $"map_{mapId}",
+            };
+
+            await PresentLoadedDocumentAsync(map, session, fromAutosave: false);
+            StatusText = $"Mapa nuevo {mapId} ({map.Width}×{map.Height}) — guarda con Ctrl+S para crear Library\\Maps\\{mapId}\\";
+            RufusLog.Info($"Mapa nuevo {mapId} ({map.Width}×{map.Height})");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"No se pudo crear el mapa:\n{ex.Message}", "Nuevo mapa",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+            StatusText = "Error al crear mapa";
+            RufusLog.Error($"Error nuevo mapa: {ex.Message}");
+        }
+        finally
+        {
+            IsLoading = false;
         }
     }
 
