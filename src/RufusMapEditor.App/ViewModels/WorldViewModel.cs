@@ -145,6 +145,19 @@ public sealed class WorldViewModel : ViewModelBase
     public WorldDocument? World => _world;
     public bool IsDirty => _world?.IsDirty == true;
 
+    /// <summary>{Library}/Géopositions — carpeta de proyectos de mundo (paridad Astria).</summary>
+    public string? GeopositionsPath =>
+        string.IsNullOrWhiteSpace(_library.RootPath)
+            ? null
+            : GeopositionsStore.GetRoot(_library.RootPath);
+
+    public string CurrentWorldLabel =>
+        _world is null
+            ? "Sin mundo abierto"
+            : string.IsNullOrWhiteSpace(_world.FilePath)
+                ? $"{_world.Name} (sin guardar)"
+                : _world.Name;
+
     public bool MosaicMode
     {
         get => _mosaicMode;
@@ -184,6 +197,12 @@ public sealed class WorldViewModel : ViewModelBase
 
     public bool HasSingleSelection => _selectedKeys.Count == 1;
     public IReadOnlySet<string> SelectedKeys => _selectedKeys;
+
+    public void NotifyLibraryRootChanged()
+    {
+        OnPropertyChanged(nameof(GeopositionsPath));
+        ImportGeoCommand.RaiseCanExecuteChanged();
+    }
 
     public void MarkDirtyFromView()
     {
@@ -262,13 +281,16 @@ public sealed class WorldViewModel : ViewModelBase
     public void OpenWorld()
     {
         if (!ConfirmDiscard()) return;
-        var dlg = new OpenFileDialog
-        {
-            Filter = $"Mundo RUFUS (*{RufworldFormat.FileExtension})|*{RufworldFormat.FileExtension}",
-            Title = "Abrir mundo",
-        };
-        if (dlg.ShowDialog() != true) return;
-        LoadWorldFromPath(dlg.FileName);
+        if (!TryGetLibraryRoot(out var libraryRoot))
+            return;
+
+        var geoRoot = GeopositionsStore.EnsureRoot(libraryRoot);
+        var projects = GeopositionsStore.ListProjects(libraryRoot);
+        var pick = new WorldProjectsWindow(geoRoot, projects) { Owner = Application.Current.MainWindow };
+        if (pick.ShowDialog() != true || string.IsNullOrWhiteSpace(pick.SelectedPath))
+            return;
+
+        LoadWorldFromPath(pick.SelectedPath);
     }
 
     public void LoadWorldFromPath(string path)
@@ -361,25 +383,67 @@ public sealed class WorldViewModel : ViewModelBase
     public void SaveWorldAs()
     {
         if (_world is null) return;
-        var dlg = new SaveFileDialog
+        if (!TryGetLibraryRoot(out var libraryRoot))
+            return;
+
+        var geoRoot = GeopositionsStore.EnsureRoot(libraryRoot);
+        var suggested = string.IsNullOrWhiteSpace(_world.Name) || _world.Name == "Nuevo mundo"
+            ? "Mundo"
+            : _world.Name;
+        var nameDlg = new WorldNameInputWindow(
+            "Elige un nombre para este mundo (proyecto). Cada nombre es un proyecto distinto, como en Astria.",
+            suggested,
+            geoRoot) { Owner = Application.Current.MainWindow };
+        if (nameDlg.ShowDialog() != true || string.IsNullOrWhiteSpace(nameDlg.ResultName))
+            return;
+
+        var projectName = nameDlg.ResultName;
+        var path = GeopositionsStore.ProjectFilePath(libraryRoot, projectName);
+        if (File.Exists(path) &&
+            !string.Equals(_world.FilePath, path, StringComparison.OrdinalIgnoreCase))
         {
-            Filter = $"Mundo RUFUS (*{RufworldFormat.FileExtension})|*{RufworldFormat.FileExtension}",
-            FileName = (_world.Name ?? "mundo") + RufworldFormat.FileExtension,
-        };
-        if (dlg.ShowDialog() != true) return;
-        _world.FilePath = dlg.FileName;
-        WriteWorld(dlg.FileName);
+            var overwrite = MessageBox.Show(
+                $"Ya existe el proyecto «{projectName}».\n\n¿Sobrescribir?",
+                "Géopositions",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+            if (overwrite != MessageBoxResult.Yes)
+                return;
+        }
+
+        _world.Name = projectName;
+        _world.FilePath = path;
+        WriteWorld(path);
+        OnPropertyChanged(nameof(GeopositionsPath));
+        OnPropertyChanged(nameof(CurrentWorldLabel));
     }
 
     private void WriteWorld(string path)
     {
         if (_world is null) return;
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
         var dto = RufworldSerializer.FromWorld(_world);
         RufworldIo.SaveAtomic(path, RufworldSerializer.Serialize(dto));
         _world.IsDirty = false;
         _autosave.Delete(_world.WorldId);
-        StatusText = $"Guardado: {Path.GetFileName(path)}";
+        StatusText = $"Guardado: {GeopositionsStore.FolderName}\\{Path.GetFileNameWithoutExtension(path)}\\{Path.GetFileName(path)}";
         _setStatus(StatusText);
+        OnPropertyChanged(nameof(IsDirty));
+        OnPropertyChanged(nameof(CurrentWorldLabel));
+    }
+
+    private bool TryGetLibraryRoot(out string libraryRoot)
+    {
+        libraryRoot = _library.RootPath ?? "";
+        if (!string.IsNullOrWhiteSpace(libraryRoot))
+            return true;
+
+        MessageBox.Show(
+            "Carga primero la biblioteca (Library) para usar la carpeta Géopositions.",
+            "Mundo",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
+        return false;
     }
 
     public void AddMapFromLibrary(int? worldX = null, int? worldY = null)
@@ -432,6 +496,8 @@ public sealed class WorldViewModel : ViewModelBase
         _world = world;
         OnPropertyChanged(nameof(World));
         OnPropertyChanged(nameof(IsDirty));
+        OnPropertyChanged(nameof(CurrentWorldLabel));
+        OnPropertyChanged(nameof(GeopositionsPath));
         SaveWorldCommand.RaiseCanExecuteChanged();
         SaveWorldAsCommand.RaiseCanExecuteChanged();
         AddMapCommand.RaiseCanExecuteChanged();
@@ -749,11 +815,24 @@ public sealed class WorldViewModel : ViewModelBase
     public bool ConfirmDiscard()
     {
         if (_world is not { IsDirty: true }) return true;
-        return MessageBox.Show(
-            "El mundo tiene cambios sin guardar. ¿Continuar?",
+
+        var name = string.IsNullOrWhiteSpace(_world.Name) ? "mundo" : _world.Name;
+        var result = MessageBox.Show(
+            $"El mundo «{name}» tiene cambios sin guardar.\n\n" +
+            "Sí = Guardar y continuar\n" +
+            "No = Descartar cambios\n" +
+            "Cancelar = Seguir con este mundo",
             "Mundo",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning) == MessageBoxResult.Yes;
+            MessageBoxButton.YesNoCancel,
+            MessageBoxImage.Warning);
+
+        if (result == MessageBoxResult.Cancel)
+            return false;
+        if (result == MessageBoxResult.No)
+            return true;
+
+        SaveWorld();
+        return _world is not { IsDirty: true };
     }
 
     public void PlaceTrayItem(string key)

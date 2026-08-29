@@ -3677,6 +3677,9 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         RefreshVisibleGfx();
         // Start with no map open. Only re-select if a document is already open (library refresh).
         SelectedMapId = _activeDocument?.MapId;
+        if (!string.IsNullOrWhiteSpace(_effectiveLibraryPath))
+            GeopositionsStore.EnsureRoot(_effectiveLibraryPath);
+        World.NotifyLibraryRootChanged();
     }
 
     private void OpenMapDialog()

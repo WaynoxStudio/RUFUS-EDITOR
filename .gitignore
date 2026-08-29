@@ -42,6 +42,10 @@ publish/
 # Sources of truth remain clips SWFs + Library/Visuals — not this folder.
 /Library/cache/
 
+# World projects under Library/Géopositions (user-created; keep folder via .gitkeep)
+/Library/Géopositions/**
+!/Library/Géopositions/.gitkeep
+
 # Local reference copies (not required to build)
 _refs/
 

@@ -803,10 +803,17 @@
                 <DockPanel Grid.Column="0" Background="{DynamicResource PanelBackground}">
                   <ToolBar DockPanel.Dock="Top">
                     <Button Content="Nuevo" Command="{Binding World.NewWorldCommand}" Padding="6,3"/>
-                    <Button Content="Abrir" Command="{Binding World.OpenWorldCommand}" Padding="6,3"/>
-                    <Button Content="Guardar" Command="{Binding World.SaveWorldCommand}" Padding="6,3"/>
+                    <Button Content="Abrir" Command="{Binding World.OpenWorldCommand}" Padding="6,3"
+                            ToolTip="Abrir un proyecto desde Library/Géopositions"/>
+                    <Button Content="Guardar" Command="{Binding World.SaveWorldCommand}" Padding="6,3"
+                            ToolTip="Guardar en Library/Géopositions (pide nombre si es nuevo)"/>
+                    <Button Content="Guardar como..." Command="{Binding World.SaveWorldAsCommand}" Padding="6,3"/>
                   </ToolBar>
                   <StackPanel DockPanel.Dock="Top" Margin="8,4,8,8">
+                    <TextBlock Text="{Binding World.CurrentWorldLabel}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,4"/>
+                    <TextBlock Text="{Binding World.GeopositionsPath}" FontSize="10" Foreground="{DynamicResource TextMuted}"
+                               TextWrapping="Wrap" Margin="0,0,0,8"
+                               ToolTip="Carpeta de proyectos de mundo (equivalente a Géopositions de Astria)"/>
                     <TextBlock Text="{Binding World.MultiMapStatusText}" Foreground="{DynamicResource Accent}" FontWeight="SemiBold"
                                Margin="0,0,0,6" Visibility="{Binding World.IsMultiMapEditMode, Converter={StaticResource BoolToVis}}"/>
                     <Button Content="Editar selección" Command="{Binding World.EnterMultiMapEditCommand}" Padding="6,3" Margin="0,0,0,4"/>
