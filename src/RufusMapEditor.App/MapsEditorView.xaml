@@ -743,7 +743,7 @@
                         <TextBlock Text="VISTA" Style="{StaticResource ToolSidebarGroupHeader}"
                                    Width="{StaticResource ToolSidebarWrapWidth}"/>
                         <RadioButton Style="{StaticResource ToolSidebarCompact}" GroupName="MapTool" IsChecked="{Binding IsPanTool}"
-                                     ToolTip="Mover vista (H) · También: rueda central, Alt+arrastrar o Espacio+arrastrar">
+                                     ToolTip="Mover vista (arrastra con el clic en cualquier zona del mapa)">
                           <Viewbox Width="{StaticResource ToolSidebarIconSize}" Height="{StaticResource ToolSidebarIconSize}">
                             <Path Data="{StaticResource IconPanHandGeom}" Fill="{DynamicResource TextPrimary}"/>
                           </Viewbox>

@@ -20,10 +20,13 @@ public partial class MapViewport : UserControl
     private bool _stroking;
     private bool _erasing;
     private bool _rectDragging;
+    private bool _leftPressPending;
     private Point _panLast;
+    private Point _leftPressPos;
     private bool _spaceDown;
     private double? _lastHitContentX;
     private double? _lastHitContentY;
+    private const double PanDragThreshold = 5;
 
     private static readonly SolidColorBrush HoverDiamondFill =
         new(Color.FromArgb(60, 64, 160, 255));
@@ -321,15 +324,13 @@ public partial class MapViewport : UserControl
 
         var pos = e.GetPosition(this);
         var (cx, cy) = _camera.ViewportToContent(pos.X, pos.Y);
-        var ctrl = (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control;
 
-        // Same hit-test path as MouseMove preview: refresh hover before paint so
-        // PreviewTargetCell == PaintCell on this click.
         if (cx >= 0 && cy >= 0 && cx < _camera.ContentWidth && cy < _camera.ContentHeight)
             _vm.UpdateHover(cx, cy);
         _lastHitContentX = cx;
         _lastHitContentY = cy;
 
+        // Rect select needs drag for the marquee — keep immediate behaviour.
         if (_vm.Tool == EditorTool.RectSelect)
         {
             _rectDragging = true;
@@ -339,75 +340,97 @@ public partial class MapViewport : UserControl
             return;
         }
 
-        var cell = _vm.HoveredCellId ?? HitCell(pos);
-        if (cell is int id)
-        {
-            if (_vm.Tool == EditorTool.Pan)
-            {
-                BeginPan(pos);
-                e.Handled = true;
-                return;
-            }
-
-            if (_vm.IsCellModeTool)
-            {
-                _stroking = true;
-                _vm.BeginCellModeStroke();
-                _vm.PaintCellMode(id, isDrag: false, erase: false);
-                CaptureMouse();
-            }
-            else
-            {
-                var paintWithGfx = _vm.SelectedGfxId is int
-                    && _vm.Tool is not EditorTool.RectSelect
-                    && _vm.Tool is not EditorTool.Eyedropper
-                    && _vm.Tool is not EditorTool.Pan
-                    && !(_vm.Tool == EditorTool.Select && ctrl);
-
-                if (paintWithGfx)
-                {
-                    _stroking = true;
-                    _vm.BeginPaintStroke();
-                    _vm.PaintCell(id, isDrag: false);
-                    CaptureMouse();
-                }
-                else
-                {
-                    _stroking = _vm.Tool is EditorTool.Paint or EditorTool.Erase;
-                    if (_stroking)
-                        _vm.BeginStroke();
-                    _vm.HandleCellClick(id, isDrag: false, ctrl);
-                    if (_stroking)
-                        CaptureMouse();
-                }
-            }
-
-            e.Handled = true;
-            RedrawOverlays();
-        }
-        else
-        {
-            // Click on empty canvas (outside cells) → pan the view.
-            BeginPan(pos);
-            e.Handled = true;
-        }
+        // Hold + drag anywhere = pan. Short click (release without dragging) = tool action.
+        _leftPressPending = true;
+        _leftPressPos = pos;
+        CaptureMouse();
+        e.Handled = true;
     }
 
     private void BeginPan(Point viewportPos)
     {
+        _leftPressPending = false;
         _panning = true;
         _panLast = viewportPos;
         CaptureMouse();
         Cursor = Cursors.SizeAll;
     }
 
+    private static bool ExceededPanDragThreshold(Point from, Point to) =>
+        Math.Abs(to.X - from.X) >= PanDragThreshold || Math.Abs(to.Y - from.Y) >= PanDragThreshold;
+
+    /// <summary>Apply select/paint/etc. for a short left click (no pan drag).</summary>
+    private void PerformLeftClickAction(Point pos)
+    {
+        if (_vm is null) return;
+
+        var (cx, cy) = _camera.ViewportToContent(pos.X, pos.Y);
+        var ctrl = (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control;
+
+        if (cx >= 0 && cy >= 0 && cx < _camera.ContentWidth && cy < _camera.ContentHeight)
+            _vm.UpdateHover(cx, cy);
+        _lastHitContentX = cx;
+        _lastHitContentY = cy;
+
+        var cell = _vm.HoveredCellId ?? HitCell(pos);
+        if (cell is not int id)
+            return;
+
+        if (_vm.IsCellModeTool)
+        {
+            _vm.BeginCellModeStroke();
+            _vm.PaintCellMode(id, isDrag: false, erase: false);
+            _vm.FinishStroke();
+        }
+        else
+        {
+            var paintWithGfx = _vm.SelectedGfxId is int
+                && _vm.Tool is not EditorTool.RectSelect
+                && _vm.Tool is not EditorTool.Eyedropper
+                && _vm.Tool is not EditorTool.Pan
+                && !(_vm.Tool == EditorTool.Select && ctrl);
+
+            if (paintWithGfx)
+            {
+                _vm.BeginPaintStroke();
+                _vm.PaintCell(id, isDrag: false);
+                _vm.FinishStroke();
+            }
+            else if (_vm.Tool is EditorTool.Paint or EditorTool.Erase)
+            {
+                _vm.BeginStroke();
+                _vm.HandleCellClick(id, isDrag: false, ctrl);
+                _vm.FinishStroke();
+            }
+            else
+            {
+                _vm.HandleCellClick(id, isDrag: false, ctrl);
+            }
+        }
+
+        RedrawOverlays();
+    }
+
     private void Viewport_MouseUp(object sender, MouseButtonEventArgs e)
     {
+        if (e.ChangedButton == MouseButton.Left && _leftPressPending)
+        {
+            _leftPressPending = false;
+            var clickPos = _leftPressPos;
+            ReleaseMouseCapture();
+            PerformLeftClickAction(clickPos);
+            if (!_stroking && !_erasing && !_rectDragging && !_panning)
+                ReleaseMouseCapture();
+            e.Handled = true;
+            return;
+        }
+
         if (_panning && (e.ChangedButton == MouseButton.Middle || e.ChangedButton == MouseButton.Left))
         {
             _panning = false;
+            _leftPressPending = false;
             ReleaseMouseCapture();
-            Cursor = Cursors.Arrow;
+            Cursor = _vm?.Tool == EditorTool.Pan ? Cursors.Hand : Cursors.Arrow;
             e.Handled = true;
             return;
         }
@@ -424,9 +447,9 @@ public partial class MapViewport : UserControl
 
         if (_rectDragging && e.ChangedButton == MouseButton.Left)
         {
-            var pos = e.GetPosition(this);
-            var (cx, cy) = _camera.ViewportToContent(pos.X, pos.Y);
-            _vm?.EndRectSelect(cx, cy);
+            var upPos = e.GetPosition(this);
+            var (ux, uy) = _camera.ViewportToContent(upPos.X, upPos.Y);
+            _vm?.EndRectSelect(ux, uy);
             _rectDragging = false;
             ReleaseMouseCapture();
             RedrawOverlays();
@@ -447,6 +470,16 @@ public partial class MapViewport : UserControl
     private void Viewport_MouseMove(object sender, MouseEventArgs e)
     {
         var pos = e.GetPosition(this);
+
+        if (_leftPressPending && e.LeftButton == MouseButtonState.Pressed &&
+            ExceededPanDragThreshold(_leftPressPos, pos))
+        {
+            BeginPan(_leftPressPos);
+            _camera.PanBy(pos.X - _panLast.X, pos.Y - _panLast.Y);
+            _panLast = pos;
+            ApplyTransform();
+            return;
+        }
 
         if (_panning)
         {
@@ -497,7 +530,7 @@ public partial class MapViewport : UserControl
 
     private void Viewport_MouseLeave(object sender, MouseEventArgs e)
     {
-        if (_panning || _stroking || _erasing || _rectDragging) return;
+        if (_panning || _stroking || _erasing || _rectDragging || _leftPressPending) return;
         if (!IsBoundActive) return;
         _vm?.ClearHover();
         RedrawOverlays();
