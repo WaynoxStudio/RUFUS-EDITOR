@@ -38,6 +38,10 @@ dist-admin/
 dist-admin-build/
 publish/
 
+# Regenerable PNG preview cache (ArtworkPreviewCache / SpritePreviewCache)
+# Sources of truth remain clips SWFs + Library/Visuals — not this folder.
+/Library/cache/
+
 # Local reference copies (not required to build)
 _refs/
 
