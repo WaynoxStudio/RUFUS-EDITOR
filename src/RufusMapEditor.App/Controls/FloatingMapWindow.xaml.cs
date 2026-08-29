@@ -110,7 +110,8 @@ public partial class FloatingMapWindow : UserControl
     private void OnFloatingSizeChanged(object sender, SizeChangedEventArgs e)
     {
         if (_suppressFit || _isMinimized || _document?.MapImage is null) return;
-        FitViewport();
+        // Do NOT FitMap() here — that resets zoom/pan on every layout tick.
+        Viewport.NotifyViewportSizeChanged();
     }
 
     private void ApplyCascadeOffset(int index)

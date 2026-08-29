@@ -26,7 +26,7 @@ public partial class MapViewport : UserControl
     private bool _spaceDown;
     private double? _lastHitContentX;
     private double? _lastHitContentY;
-    private const double PanDragThreshold = 5;
+    private const double PanDragThreshold = 3;
 
     private static readonly SolidColorBrush HoverDiamondFill =
         new(Color.FromArgb(60, 64, 160, 255));
@@ -215,6 +215,15 @@ public partial class MapViewport : UserControl
     {
         _camera.SetViewportSize(ActualWidth, ActualHeight);
         _camera.FitToViewport();
+        ApplyTransform();
+        UpdateZoomLabel();
+    }
+
+    /// <summary>Keep zoom/pan; only refresh camera viewport size after host resize.</summary>
+    public void NotifyViewportSizeChanged()
+    {
+        if (ActualWidth <= 0 || ActualHeight <= 0) return;
+        _camera.SetViewportSize(ActualWidth, ActualHeight);
         ApplyTransform();
         UpdateZoomLabel();
     }
