@@ -2,30 +2,32 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Guardar mapa"
-        Width="400" Height="220"
+        Width="420"
+        SizeToContent="Height"
+        MinHeight="220"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
-        Background="{DynamicResource WindowBackground}"
-        Foreground="{DynamicResource TextPrimary}">
-  <Grid Margin="16">
+        Background="#FF1A1A1A"
+        Foreground="#FFFFFFFF"
+        FontFamily="Segoe UI"
+        FontSize="13">
+  <Grid Margin="20">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="Auto"/>
-      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
       <RowDefinition Height="Auto"/>
     </Grid.RowDefinitions>
-    <TextBlock x:Name="PromptText" TextWrapping="Wrap" Margin="0,0,0,12"
-               Foreground="{DynamicResource TextPrimary}"/>
-    <TextBlock Grid.Row="1" Text="Map ID" Margin="0,0,0,4"
-               Foreground="{DynamicResource TextPrimary}"/>
-    <TextBox x:Name="MapIdBox" Grid.Row="2" FontFamily="Consolas"
-             Foreground="{DynamicResource TextPrimary}"
-             Background="{DynamicResource InputBackground}" BorderBrush="{DynamicResource InputBorder}"/>
-    <TextBlock Grid.Row="3" TextWrapping="Wrap" FontSize="12" Margin="0,8,0,0" VerticalAlignment="Top"
-               Foreground="{DynamicResource TextSecondary}"
+    <TextBlock x:Name="PromptText" TextWrapping="Wrap" Margin="0,0,0,14"
+               Foreground="#FFFFFFFF"/>
+    <TextBlock Grid.Row="1" Text="Map ID" Margin="0,0,0,6" Foreground="#FFFFFFFF"/>
+    <TextBox x:Name="MapIdBox" Grid.Row="2" FontFamily="Consolas" Padding="4,2"
+             Foreground="#FF222222" Background="#FFFFFFFF" BorderBrush="#FFCCCCCC"/>
+    <TextBlock Grid.Row="3" TextWrapping="Wrap" FontSize="12" Margin="0,10,0,16"
+               Foreground="#FFE0E0E0"
                Text="Se creará Library\Maps\&lt;ID&gt; con .rufmap, .png, _MapData.txt y _AME.swf (si Flasm está disponible)."/>
-    <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+    <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
       <Button Content="Cancelar" Width="90" Margin="0,0,8,0" Padding="8,4" IsCancel="True" Click="Cancel_Click"/>
       <Button Content="Guardar" Width="90" Padding="8,4" IsDefault="True" Click="Ok_Click"/>
     </StackPanel>
