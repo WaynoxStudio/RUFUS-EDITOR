@@ -3675,10 +3675,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         MapPublishQueue.BindLibrary(_effectiveLibraryPath);
         RebuildFolderTree();
         RefreshVisibleGfx();
-        if (MapIds.Contains(10420))
-            SelectedMapId = 10420;
-        else if (MapIds.Count > 0)
-            SelectedMapId = MapIds[0];
+        // Start with no map open. Only re-select if a document is already open (library refresh).
+        SelectedMapId = _activeDocument?.MapId;
     }
 
     private void OpenMapDialog()
