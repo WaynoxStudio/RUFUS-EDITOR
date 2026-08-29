@@ -15,8 +15,9 @@ public static class BlankMapFactory
 
     public static MapDocument Create(int mapId, int width, int height)
     {
-        if (mapId <= 0)
-            throw new ArgumentOutOfRangeException(nameof(mapId), "MapId must be > 0.");
+        // mapId > 0 = official id; mapId < 0 = unsaved template (assigned on save).
+        if (mapId == 0)
+            throw new ArgumentOutOfRangeException(nameof(mapId), "MapId must be non-zero (negative = plantilla sin guardar).");
         if (width < 1 || width > 100)
             throw new ArgumentOutOfRangeException(nameof(width));
         if (height < 1 || height > 100)

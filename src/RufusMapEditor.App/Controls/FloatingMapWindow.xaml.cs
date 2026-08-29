@@ -104,7 +104,8 @@ public partial class FloatingMapWindow : UserControl
         _host = FindParent<Canvas>(this);
         if (!_layoutApplied)
             ApplyDefaultLayout();
-        FitViewport();
+        // Layout may still be settling — fit once the viewport has real size.
+        Dispatcher.BeginInvoke(() => FitViewport(), System.Windows.Threading.DispatcherPriority.Loaded);
     }
 
     private void OnFloatingSizeChanged(object sender, SizeChangedEventArgs e)

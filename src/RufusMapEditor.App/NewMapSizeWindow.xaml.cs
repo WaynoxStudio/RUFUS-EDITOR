@@ -7,17 +7,21 @@ namespace RufusMapEditor.App;
 
 public partial class NewMapSizeWindow : Window
 {
-    public int ResultMapId { get; private set; }
     public int ResultWidth { get; private set; }
     public int ResultHeight { get; private set; }
 
-    public NewMapSizeWindow(int proposedMapId)
+    public NewMapSizeWindow()
     {
         InitializeComponent();
         ThemeService.ApplyToWindow(this);
-        MapIdBox.Text = proposedMapId > 0 ? proposedMapId.ToString() : "1";
         ApplyPresetFields();
-        Loaded += (_, _) => MapIdBox.Focus();
+        Loaded += (_, _) =>
+        {
+            if (PresetCustom.IsChecked == true)
+                WidthBox.Focus();
+            else
+                PresetMedio.Focus();
+        };
     }
 
     private void Preset_Changed(object sender, RoutedEventArgs e) => ApplyPresetFields();
@@ -49,13 +53,6 @@ public partial class NewMapSizeWindow : Window
 
     private void Ok_Click(object sender, RoutedEventArgs e)
     {
-        if (!int.TryParse(MapIdBox.Text.Trim(), out var mapId) || mapId <= 0)
-        {
-            MessageBox.Show(this, "Introduce un Map ID numérico válido (> 0).", Title);
-            MapIdBox.Focus();
-            return;
-        }
-
         if (!int.TryParse(WidthBox.Text.Trim(), out var w) || w < 1 || w > 100)
         {
             MessageBox.Show(this, "Ancho inválido (1–100).", Title);
@@ -80,7 +77,6 @@ public partial class NewMapSizeWindow : Window
             return;
         }
 
-        ResultMapId = mapId;
         ResultWidth = w;
         ResultHeight = h;
         DialogResult = true;

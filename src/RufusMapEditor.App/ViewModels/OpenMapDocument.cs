@@ -53,6 +53,8 @@ public sealed class OpenMapDocument : ViewModelBase
         get
         {
             var dirty = IsDirty ? " *" : "";
+            if (Map.Id <= 0)
+                return $"Mapa nuevo ({Map.Width}×{Map.Height}){dirty}";
             return $"Map {Map.Id}{dirty}";
         }
     }

@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Nuevo mapa"
-        Width="420" Height="340"
+        Width="420" Height="280"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         Background="{DynamicResource WindowBackground}"
@@ -12,46 +12,50 @@
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="Auto"/>
-      <RowDefinition Height="Auto"/>
       <RowDefinition Height="*"/>
       <RowDefinition Height="Auto"/>
     </Grid.RowDefinitions>
 
-    <TextBlock Text="Elige el tamaño del mapa (como en Astria):" TextWrapping="Wrap" Margin="0,0,0,12"/>
+    <TextBlock Text="Elige el tamaño de la plantilla. El Map ID se pide al guardar."
+               TextWrapping="Wrap" Margin="0,0,0,12"
+               Foreground="{DynamicResource TextPrimary}"/>
 
     <StackPanel Grid.Row="1" Margin="0,0,0,12">
       <RadioButton x:Name="PresetMedio" GroupName="Size" IsChecked="True"
+                   Foreground="{DynamicResource TextPrimary}"
                    Content="Medio — 15 × 17 (estándar, 479 celdas)"
                    Margin="0,0,0,8" Checked="Preset_Changed"/>
       <RadioButton x:Name="PresetGrande" GroupName="Size"
+                   Foreground="{DynamicResource TextPrimary}"
                    Content="Grande — 19 × 22 (796 celdas)"
                    Margin="0,0,0,8" Checked="Preset_Changed"/>
       <RadioButton x:Name="PresetCustom" GroupName="Size"
+                   Foreground="{DynamicResource TextPrimary}"
                    Content="Personalizado — elegir ancho y alto"
                    Margin="0,0,0,8" Checked="Preset_Changed"/>
     </StackPanel>
 
     <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,12">
       <TextBlock Text="Ancho" VerticalAlignment="Center" Margin="0,0,8,0"
-                 Foreground="{DynamicResource TextSecondary}"/>
+                 Foreground="{DynamicResource TextPrimary}"/>
       <TextBox x:Name="WidthBox" Width="56" FontFamily="Consolas" Text="15" IsEnabled="False"
+               Foreground="{DynamicResource TextPrimary}"
                Background="{DynamicResource InputBackground}" BorderBrush="{DynamicResource InputBorder}"/>
-      <TextBlock Text="×" VerticalAlignment="Center" Margin="10,0" FontSize="16"/>
+      <TextBlock Text="×" VerticalAlignment="Center" Margin="10,0" FontSize="16"
+                 Foreground="{DynamicResource TextPrimary}"/>
       <TextBlock Text="Alto" VerticalAlignment="Center" Margin="0,0,8,0"
-                 Foreground="{DynamicResource TextSecondary}"/>
+                 Foreground="{DynamicResource TextPrimary}"/>
       <TextBox x:Name="HeightBox" Width="56" FontFamily="Consolas" Text="17" IsEnabled="False"
+               Foreground="{DynamicResource TextPrimary}"
                Background="{DynamicResource InputBackground}" BorderBrush="{DynamicResource InputBorder}"/>
     </StackPanel>
 
-    <StackPanel Grid.Row="3" Margin="0,0,0,8">
-      <TextBlock Text="Map ID" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,4"/>
-      <TextBox x:Name="MapIdBox" FontFamily="Consolas" Width="120" HorizontalAlignment="Left"
-               Background="{DynamicResource InputBackground}" BorderBrush="{DynamicResource InputBorder}"/>
-      <TextBlock Text="ID local (debe ser único en la biblioteca). Puedes cambiarlo antes de crear."
-                 FontSize="11" Foreground="{DynamicResource TextMuted}" TextWrapping="Wrap" Margin="0,6,0,0"/>
-    </StackPanel>
+    <TextBlock Grid.Row="3" VerticalAlignment="Top"
+               Text="Se abre una plantilla vacía para editar. Al guardar (Ctrl+S) se asigna el Map ID y se crea Library\Maps\&lt;ID&gt;."
+               TextWrapping="Wrap" FontSize="12"
+               Foreground="{DynamicResource TextSecondary}"/>
 
-    <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right">
+    <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
       <Button Content="Cancelar" Width="90" Margin="0,0,8,0" Padding="8,4" IsCancel="True" Click="Cancel_Click"/>
       <Button Content="Crear" Width="90" Padding="8,4" IsDefault="True" Click="Ok_Click"/>
     </StackPanel>

@@ -13,6 +13,7 @@ namespace RufusMapEditor.App.Controls;
 
 public partial class MapViewport : UserControl
 {
+    private bool _hasFittedContent;
     private readonly ViewportCamera _camera = new();
     private MainViewModel? _vm;
     private OpenMapDocument? _boundDocument;
@@ -68,11 +69,13 @@ public partial class MapViewport : UserControl
         SizeChanged += (_, _) =>
         {
             _camera.SetViewportSize(ActualWidth, ActualHeight);
+            TryFitContentIfNeeded();
             ApplyTransform();
         };
         Loaded += (_, _) =>
         {
             _camera.SetViewportSize(ActualWidth, ActualHeight);
+            TryFitContentIfNeeded();
             ApplyTransform();
         };
     }
@@ -85,16 +88,24 @@ public partial class MapViewport : UserControl
             if (_boundDocument is not null)
                 _boundDocument.PropertyChanged -= BoundDocumentOnPropertyChanged;
             _boundDocument = value;
+            _hasFittedContent = false;
             if (_boundDocument is not null)
                 _boundDocument.PropertyChanged += BoundDocumentOnPropertyChanged;
             SyncFromViewModel();
+            TryFitContentIfNeeded();
+            ApplyTransform();
         }
     }
 
     private void BoundDocumentOnPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(OpenMapDocument.MapImage))
+        {
+            _hasFittedContent = false;
             SyncFromViewModel();
+            TryFitContentIfNeeded();
+            ApplyTransform();
+        }
     }
 
     private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
@@ -214,7 +225,11 @@ public partial class MapViewport : UserControl
     public void FitMap()
     {
         _camera.SetViewportSize(ActualWidth, ActualHeight);
-        _camera.FitToViewport();
+        if (ActualWidth > 1 && ActualHeight > 1 && _camera.ContentWidth > 0 && _camera.ContentHeight > 0)
+        {
+            _camera.FitToViewport();
+            _hasFittedContent = true;
+        }
         ApplyTransform();
         UpdateZoomLabel();
     }
@@ -224,7 +239,20 @@ public partial class MapViewport : UserControl
     {
         if (ActualWidth <= 0 || ActualHeight <= 0) return;
         _camera.SetViewportSize(ActualWidth, ActualHeight);
+        TryFitContentIfNeeded();
         ApplyTransform();
+        UpdateZoomLabel();
+    }
+
+    private void TryFitContentIfNeeded()
+    {
+        if (_hasFittedContent) return;
+        if (ActualWidth <= 1 || ActualHeight <= 1) return;
+        if (ResolveMapImage() is null || _camera.ContentWidth <= 0 || _camera.ContentHeight <= 0)
+            return;
+        _camera.SetViewportSize(ActualWidth, ActualHeight);
+        _camera.FitToViewport();
+        _hasFittedContent = true;
         UpdateZoomLabel();
     }
 

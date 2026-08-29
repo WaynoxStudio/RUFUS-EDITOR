@@ -96,6 +96,10 @@ public partial class MapsEditorView : UserControl
         MapWorkspaceCanvas.Children.Add(window);
         _mapWindows[doc.DocumentId] = window;
         RefreshAllWindowChrome();
+        Dispatcher.BeginInvoke(() =>
+        {
+            window.Viewport.FitMap();
+        }, System.Windows.Threading.DispatcherPriority.Loaded);
     }
 
     private void OnDocumentClosed(OpenMapDocument doc)

@@ -109,6 +109,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     private readonly List<OpenMapDocument> _openDocuments = new();
     private OpenMapDocument? _activeDocument;
     private int _nextCascadeIndex;
+    private int _nextTempMapId = -1;
     private EditorTool _tool = EditorTool.Select;
     private PaintLayer _paintLayer = PaintLayer.Ground;
     private string? _selectedFolder;
@@ -2238,6 +2239,9 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         if (_session is null || CurrentMap is null)
             return false;
 
+        if (!TryAssignMapIdBeforeOfficialSave())
+            return false;
+
         if (CurrentMap.Id <= 0)
         {
             MessageBox.Show(
@@ -2895,7 +2899,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         DocumentOpened?.Invoke(openDoc);
         ResourceWarnings = warnings;
         RenderTimeText = result is null ? "—" : $"{renderMs:F0} ms";
-        SelectedMapId = map.Id;
+        SelectedMapId = map.Id > 0 ? map.Id : null;
         RequestFitMap?.Invoke();
     }
 
@@ -3719,34 +3723,17 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        var reserved = new HashSet<int>(MapIds);
-        foreach (var doc in _openDocuments)
-            reserved.Add(doc.MapId);
-
-        var maxId = reserved.Count > 0 ? reserved.Max() : 30000;
-        var proposed = new LocalMapIdAllocator().ProposeNextId(maxId, reserved);
-
-        var dlg = new NewMapSizeWindow(proposed) { Owner = Application.Current.MainWindow };
+        var dlg = new NewMapSizeWindow { Owner = Application.Current.MainWindow };
         if (dlg.ShowDialog() != true)
             return;
 
-        var mapId = dlg.ResultMapId;
-        if (!new LocalMapIdAllocator().IsAvailable(mapId, reserved))
-        {
-            MessageBox.Show(
-                $"El Map ID {mapId} ya existe (biblioteca o mapa abierto). Elige otro.",
-                "Nuevo mapa",
-                MessageBoxButton.OK,
-                MessageBoxImage.Warning);
-            return;
-        }
-
+        var tempId = _nextTempMapId--;
         try
         {
             IsLoading = true;
-            StatusText = $"Creando mapa {mapId} ({dlg.ResultWidth}×{dlg.ResultHeight})...";
+            StatusText = $"Abriendo plantilla {dlg.ResultWidth}×{dlg.ResultHeight}...";
 
-            var map = BlankMapFactory.Create(mapId, dlg.ResultWidth, dlg.ResultHeight);
+            var map = BlankMapFactory.Create(tempId, dlg.ResultWidth, dlg.ResultHeight);
             var hit = new IsoHitTester(map.Width, map.Height);
             var session = new MapEditSession(map, hit)
             {
@@ -3754,15 +3741,15 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
                 Source = new RufmapSourceDto
                 {
                     Kind = "NewMap",
-                    OriginalMapId = mapId,
+                    OriginalMapId = null,
                     LibraryPathHint = _library.RootPath ?? _effectiveLibraryPath,
                 },
-                ProjectName = $"map_{mapId}",
+                ProjectName = "mapa_nuevo",
             };
 
             await PresentLoadedDocumentAsync(map, session, fromAutosave: false);
-            StatusText = $"Mapa nuevo {mapId} ({map.Width}×{map.Height}) — guarda con Ctrl+S para crear Library\\Maps\\{mapId}\\";
-            RufusLog.Info($"Mapa nuevo {mapId} ({map.Width}×{map.Height})");
+            StatusText = $"Plantilla {map.Width}×{map.Height} — edita libremente; al guardar se pedirá el Map ID";
+            RufusLog.Info($"Plantilla nueva {map.Width}×{map.Height} (sin Map ID aún)");
         }
         catch (Exception ex)
         {
@@ -3775,6 +3762,53 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         {
             IsLoading = false;
         }
+    }
+
+    /// <summary>
+    /// Unsaved templates use temporary negative IDs. Before official Library save, ask for a real Map ID.
+    /// </summary>
+    private bool TryAssignMapIdBeforeOfficialSave()
+    {
+        if (_session is null || CurrentMap is null)
+            return false;
+        if (CurrentMap.Id > 0)
+            return true;
+
+        var reserved = new HashSet<int>(MapIds);
+        foreach (var doc in _openDocuments)
+        {
+            if (doc.MapId > 0)
+                reserved.Add(doc.MapId);
+        }
+
+        var maxId = reserved.Count > 0 ? reserved.Max() : 30000;
+        var proposed = new LocalMapIdAllocator().ProposeNextId(maxId, reserved);
+        var idDlg = new SaveMapIdWindow(proposed, CurrentMap.Width, CurrentMap.Height)
+        {
+            Owner = Application.Current.MainWindow,
+        };
+        if (idDlg.ShowDialog() != true)
+            return false;
+
+        var mapId = idDlg.ResultMapId;
+        if (!new LocalMapIdAllocator().IsAvailable(mapId, reserved))
+        {
+            MessageBox.Show(
+                $"El Map ID {mapId} ya existe. Elige otro.",
+                "Guardar mapa",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return false;
+        }
+
+        CurrentMap.Id = mapId;
+        if (_session.Source is not null)
+            _session.Source.OriginalMapId = mapId;
+        _session.ProjectName = $"map_{mapId}";
+        SelectedMapId = mapId;
+        _activeDocument?.NotifyDirtyChanged();
+        OnPropertyChanged(nameof(InfoMapId));
+        return true;
     }
 
     private void RebuildFolderTree()
