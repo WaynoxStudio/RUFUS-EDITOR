@@ -198,6 +198,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         SetToolLineOfSightCommand = new RelayCommand(() => Tool = EditorTool.LineOfSight);
         SetToolFightCell1Command = new RelayCommand(() => Tool = EditorTool.FightCell1);
         SetToolFightCell2Command = new RelayCommand(() => Tool = EditorTool.FightCell2);
+        SetToolPanCommand = new RelayCommand(() => Tool = EditorTool.Pan);
         CycleBrushRotationCommand = new RelayCommand(CycleBrushRotation, () => PaintLayer != PaintLayer.Object2);
 
         SetLayerGroundCommand = new RelayCommand(() => PaintLayer = PaintLayer.Ground);
@@ -426,6 +427,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     public RelayCommand SetToolLineOfSightCommand { get; }
     public RelayCommand SetToolFightCell1Command { get; }
     public RelayCommand SetToolFightCell2Command { get; }
+    public RelayCommand SetToolPanCommand { get; }
     public RelayCommand CycleBrushRotationCommand { get; }
     public RelayCommand SetLayerGroundCommand { get; }
     public RelayCommand SetLayerObject1Command { get; }
@@ -1044,6 +1046,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
                 OnPropertyChanged(nameof(IsFightCell1Tool));
                 OnPropertyChanged(nameof(IsFightCell2Tool));
                 OnPropertyChanged(nameof(IsMobCellTool));
+                OnPropertyChanged(nameof(IsPanTool));
                 OnPropertyChanged(nameof(IsCellModeTool));
                 StatusText = value switch
                 {
@@ -1056,6 +1059,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
                     EditorTool.FightCell1 => "Herramienta: Combate — Equipo 1",
                     EditorTool.FightCell2 => "Herramienta: Combate — Equipo 2",
                     EditorTool.MobCell => "Herramienta: Grupos fijos (inactiva · LIB.4 aislado)",
+                    EditorTool.Pan => "Herramienta: Mover vista (arrastra el mapa)",
                     _ => "Herramienta: Seleccionar",
                 };
                 OnPropertyChanged(nameof(ActiveToolLabel));
@@ -1121,6 +1125,12 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     {
         get => Tool == EditorTool.MobCell;
         set { if (value) Tool = EditorTool.MobCell; }
+    }
+
+    public bool IsPanTool
+    {
+        get => Tool == EditorTool.Pan;
+        set { if (value) Tool = EditorTool.Pan; }
     }
 
     public bool IsCellModeTool => Tool.IsCellModeTool();

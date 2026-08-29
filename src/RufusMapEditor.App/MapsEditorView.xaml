@@ -742,6 +742,12 @@
                         <Rectangle Height="1" Margin="0,6" Width="{StaticResource ToolSidebarWrapWidth}" Fill="{DynamicResource Divider}"/>
                         <TextBlock Text="VISTA" Style="{StaticResource ToolSidebarGroupHeader}"
                                    Width="{StaticResource ToolSidebarWrapWidth}"/>
+                        <RadioButton Style="{StaticResource ToolSidebarCompact}" GroupName="MapTool" IsChecked="{Binding IsPanTool}"
+                                     ToolTip="Mover vista (H) · También: rueda central, Alt+arrastrar o Espacio+arrastrar">
+                          <Viewbox Width="{StaticResource ToolSidebarIconSize}" Height="{StaticResource ToolSidebarIconSize}">
+                            <Path Data="{StaticResource IconPanHandGeom}" Fill="{DynamicResource TextPrimary}"/>
+                          </Viewbox>
+                        </RadioButton>
                         <ToggleButton Style="{StaticResource ToolSidebarCompactToggle}" IsChecked="{Binding ShowMapExportLimit}"
                                       ToolTip="Límite del mapa">
                           <Viewbox Width="{StaticResource ToolSidebarIconSize}" Height="{StaticResource ToolSidebarIconSize}">

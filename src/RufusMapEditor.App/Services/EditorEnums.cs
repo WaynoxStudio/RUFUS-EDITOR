@@ -16,6 +16,8 @@ public enum EditorTool
     FightCell2 = 8,
     /// <summary>LIB.4.1 — select a cell for fixed-mob group (does not mutate walkable/LoS/fight).</summary>
     MobCell = 9,
+    /// <summary>Pan / hand — drag to move the map view (especially when zoomed).</summary>
+    Pan = 10,
 }
 
 public static class EditorToolExtensions

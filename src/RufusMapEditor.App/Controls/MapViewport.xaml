@@ -3,6 +3,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              Background="{DynamicResource CanvasBackground}"
              ClipToBounds="True"
+             Focusable="True"
+             FocusVisualStyle="{x:Null}"
              MouseWheel="Viewport_MouseWheel"
              MouseDown="Viewport_MouseDown"
              MouseUp="Viewport_MouseUp"

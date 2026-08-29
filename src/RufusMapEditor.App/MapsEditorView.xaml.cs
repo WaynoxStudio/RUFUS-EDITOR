@@ -445,6 +445,13 @@ public partial class MapsEditorView : UserControl
                 _vm.Tool = EditorTool.Eyedropper;
                 e.Handled = true;
                 break;
+            case Key.H when (Keyboard.Modifiers & ModifierKeys.Control) == 0:
+                _vm.Tool = EditorTool.Pan;
+                e.Handled = true;
+                break;
+            case Key.Space:
+                // Keep Space available for map pan (MapViewport tracks Space while focused).
+                break;
             case Key.Escape:
                 if (_vm.HasSelection && _vm.ClearMapSelectionCommand.CanExecute(null))
                 {

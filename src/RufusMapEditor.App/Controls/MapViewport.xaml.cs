@@ -261,12 +261,13 @@ public partial class MapViewport : UserControl
         if ((_boundDocument?.MapImage ?? _vm?.MapImage) is null) return;
 
         if (e.ChangedButton == MouseButton.Middle ||
-            (e.ChangedButton == MouseButton.Left && (Keyboard.IsKeyDown(Key.Space) || _spaceDown)))
+            (e.ChangedButton == MouseButton.Left &&
+             (Keyboard.IsKeyDown(Key.Space) ||
+              _spaceDown ||
+              (Keyboard.Modifiers & ModifierKeys.Alt) == ModifierKeys.Alt ||
+              _vm?.Tool == EditorTool.Pan)))
         {
-            _panning = true;
-            _panLast = e.GetPosition(this);
-            CaptureMouse();
-            Cursor = Cursors.Hand;
+            BeginPan(e.GetPosition(this));
             e.Handled = true;
             return;
         }
@@ -341,6 +342,13 @@ public partial class MapViewport : UserControl
         var cell = _vm.HoveredCellId ?? HitCell(pos);
         if (cell is int id)
         {
+            if (_vm.Tool == EditorTool.Pan)
+            {
+                BeginPan(pos);
+                e.Handled = true;
+                return;
+            }
+
             if (_vm.IsCellModeTool)
             {
                 _stroking = true;
@@ -353,6 +361,7 @@ public partial class MapViewport : UserControl
                 var paintWithGfx = _vm.SelectedGfxId is int
                     && _vm.Tool is not EditorTool.RectSelect
                     && _vm.Tool is not EditorTool.Eyedropper
+                    && _vm.Tool is not EditorTool.Pan
                     && !(_vm.Tool == EditorTool.Select && ctrl);
 
                 if (paintWithGfx)
@@ -376,6 +385,20 @@ public partial class MapViewport : UserControl
             e.Handled = true;
             RedrawOverlays();
         }
+        else
+        {
+            // Click on empty canvas (outside cells) → pan the view.
+            BeginPan(pos);
+            e.Handled = true;
+        }
+    }
+
+    private void BeginPan(Point viewportPos)
+    {
+        _panning = true;
+        _panLast = viewportPos;
+        CaptureMouse();
+        Cursor = Cursors.SizeAll;
     }
 
     private void Viewport_MouseUp(object sender, MouseButtonEventArgs e)
@@ -482,7 +505,13 @@ public partial class MapViewport : UserControl
 
     private void Viewport_KeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Space) _spaceDown = true;
+        if (e.Key == Key.Space)
+        {
+            _spaceDown = true;
+            if (!_panning && !_stroking && !_erasing && !_rectDragging)
+                Cursor = Cursors.SizeAll;
+            e.Handled = true;
+        }
         if (IsTextInputFocused()) return;
 
         if (e.Key == Key.Delete)
@@ -494,7 +523,13 @@ public partial class MapViewport : UserControl
 
     private void Viewport_KeyUp(object sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Space) _spaceDown = false;
+        if (e.Key == Key.Space)
+        {
+            _spaceDown = false;
+            if (!_panning)
+                Cursor = _vm?.Tool == EditorTool.Pan ? Cursors.Hand : Cursors.Arrow;
+            e.Handled = true;
+        }
     }
 
     private static bool IsTextInputFocused() =>
