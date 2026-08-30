@@ -8,8 +8,9 @@ public static class MapDocumentDuplicator
     public static MapDocument DeepCopy(MapDocument source, int newMapId)
     {
         ArgumentNullException.ThrowIfNull(source);
-        if (newMapId <= 0)
-            throw new ArgumentOutOfRangeException(nameof(newMapId));
+        // newMapId > 0 = oficial; < 0 = plantilla/copia pendiente de Map ID (como BlankMapFactory).
+        if (newMapId == 0)
+            throw new ArgumentOutOfRangeException(nameof(newMapId), "MapId must be non-zero (negative = sin guardar).");
 
         var copy = new MapDocument
         {

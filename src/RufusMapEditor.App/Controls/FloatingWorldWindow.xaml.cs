@@ -9,15 +9,14 @@ using RufusMapEditor.App.ViewModels;
 
 namespace RufusMapEditor.App.Controls;
 
-public partial class FloatingMapWindow : UserControl
+public partial class FloatingWorldWindow : UserControl
 {
-    public event EventHandler? LayoutChanged;
     public event EventHandler? ActivatedByUser;
     public event EventHandler? ChromeStateChanged;
 
     private Canvas? _host;
     private MainViewModel? _vm;
-    private OpenMapDocument? _document;
+    private OpenWorldSession? _session;
     private bool _dragging;
     private bool _resizing;
     private bool _suppressFit;
@@ -35,72 +34,42 @@ public partial class FloatingMapWindow : UserControl
     private const double TitleBarHeight = 28;
     private const double HostMargin = 8;
 
-    public MapViewport Viewport => MapViewportControl;
-    public OpenMapDocument? BoundDocument => _document;
+    public WorldViewport Viewport => WorldViewportControl;
+    public OpenWorldSession? BoundSession => _session;
     public bool IsMinimized => _isMinimized;
-    public string TaskbarTitle => _document?.WindowTitle ?? "Mapa";
+    public string TaskbarTitle => _session?.WindowTitle ?? "Mundo";
 
-    public FloatingMapWindow()
+    public FloatingWorldWindow()
     {
         InitializeComponent();
         Loaded += OnLoaded;
-        DataContextChanged += OnDataContextChanged;
         PreviewMouseMove += OnPreviewMouseMove;
         PreviewMouseLeftButtonUp += OnPreviewMouseLeftButtonUp;
         SizeChanged += OnFloatingSizeChanged;
         PreviewMouseDown += (_, _) => ActivateThis();
     }
 
-    public void AttachDocument(MainViewModel vm, OpenMapDocument document)
+    public void AttachSession(MainViewModel vm, OpenWorldSession session)
     {
-        if (_document is not null)
-            _document.PropertyChanged -= DocumentOnPropertyChanged;
-        if (_vm is not null)
-            _vm.MapPublishQueue.QueueChanged -= OnQueueChanged;
+        if (_session is not null)
+            _session.PropertyChanged -= SessionOnPropertyChanged;
 
         _vm = vm;
-        _document = document;
+        _session = session;
         DataContext = vm;
-        MapViewportControl.DataContext = vm;
-        MapViewportControl.BoundDocument = document;
-        document.PropertyChanged += DocumentOnPropertyChanged;
-        vm.MapPublishQueue.QueueChanged += OnQueueChanged;
-        TitleText.Text = document.WindowTitle;
-        ApplyCascadeOffset(document.CascadeIndex);
-        RefreshQueueButton();
+        WorldViewportControl.DataContext = session.Vm;
+        session.PropertyChanged += SessionOnPropertyChanged;
+        TitleText.Text = session.WindowTitle;
+        ApplyCascadeOffset(session.CascadeIndex);
     }
 
-    private void OnQueueChanged() => Dispatcher.BeginInvoke(RefreshQueueButton);
-
-    private void RefreshQueueButton()
+    private void SessionOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (_vm is null || _document is null || QueueAddButton is null) return;
-        var mapId = _document.MapId;
-        QueueAddButton.Content = _vm.MapPublishQueue.GetHeaderGlyph(mapId);
-        QueueAddButton.ToolTip = _vm.MapPublishQueue.GetHeaderTooltip(mapId);
-    }
-
-    private async void QueueAdd_Click(object sender, RoutedEventArgs e)
-    {
-        e.Handled = true;
-        if (_vm is null || _document is null) return;
-        ActivateThis();
-        await _vm.MapPublishQueue.AddMapAsync(_document.MapId).ConfigureAwait(true);
-        RefreshQueueButton();
-    }
-
-    private void DocumentOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName is nameof(OpenMapDocument.WindowTitle) or nameof(OpenMapDocument.MapImage))
-            TitleText.Text = _document?.WindowTitle ?? "Map";
+        if (e.PropertyName is nameof(OpenWorldSession.WindowTitle))
+        {
+            TitleText.Text = _session?.WindowTitle ?? "Mundo";
             ChromeStateChanged?.Invoke(this, EventArgs.Empty);
-        if (e.PropertyName is nameof(OpenMapDocument.WindowTitle))
-            RefreshQueueButton(); // dirty * changes status when queued
-    }
-
-    private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
-    {
-        _vm = e.NewValue as MainViewModel;
+        }
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
@@ -108,15 +77,13 @@ public partial class FloatingMapWindow : UserControl
         _host = FindParent<Canvas>(this);
         if (!_layoutApplied)
             ApplyDefaultLayout();
-        // Layout may still be settling — fit once the viewport has real size.
         Dispatcher.BeginInvoke(() => FitViewport(), System.Windows.Threading.DispatcherPriority.Loaded);
     }
 
     private void OnFloatingSizeChanged(object sender, SizeChangedEventArgs e)
     {
-        if (_suppressFit || _isMinimized || _document?.MapImage is null) return;
-        // Do NOT FitMap() here — that resets zoom/pan on every layout tick.
-        Viewport.NotifyViewportSizeChanged();
+        if (_suppressFit || _isMinimized) return;
+        // Keep camera; only note size via viewport SizeChanged handler.
     }
 
     private void ApplyCascadeOffset(int index)
@@ -144,8 +111,8 @@ public partial class FloatingMapWindow : UserControl
         _suppressFit = true;
         try
         {
-            if (_document is not null)
-                ApplyCascadeOffset(_document.CascadeIndex);
+            if (_session is not null)
+                ApplyCascadeOffset(_session.CascadeIndex);
             else
             {
                 Width = Math.Clamp(720, MinWidth, Math.Max(MinWidth, hostW - HostMargin * 2));
@@ -176,6 +143,8 @@ public partial class FloatingMapWindow : UserControl
             if (_isMaximized)
             {
                 ApplyMaximized(hostW, hostH);
+                Dispatcher.BeginInvoke(() => FitViewport(fillToEdges: true),
+                    System.Windows.Threading.DispatcherPriority.Loaded);
                 return;
             }
 
@@ -193,37 +162,17 @@ public partial class FloatingMapWindow : UserControl
         finally
         {
             _suppressFit = false;
-            FitViewport();
         }
     }
 
-    public void SaveLayoutToSettings()
-    {
-        // Per-window layout is in-memory for multi-doc; persist active geometry to shared settings.
-        if (_vm is null || _host is null || !_layoutApplied) return;
-        if (!ReferenceEquals(_document, _vm.ActiveDocument)) return;
-
-        var layout = _vm.UiLayout;
-        layout.MapWindowMaximized = _isMaximized;
-        layout.MapWindowMinimized = _isMinimized;
-
-        if (!_isMaximized)
-        {
-            layout.MapWindowWidth = Width;
-            layout.MapWindowHeight = _isMinimized ? _savedHeight : Height;
-            layout.MapWindowLeft = GetCanvasLeft();
-            layout.MapWindowTop = GetCanvasTop();
-        }
-
-        LayoutChanged?.Invoke(this, EventArgs.Empty);
-    }
+    public void ActivateFromTaskbar() => ActivateThis();
 
     private void ActivateThis()
     {
-        if (_vm is null || _document is null) return;
+        if (_vm is null || _session is null) return;
         BringToFront();
-        if (!ReferenceEquals(_vm.ActiveDocument, _document))
-            _vm.ActivateDocument(_document);
+        if (!ReferenceEquals(_vm.World, _session.Vm))
+            _vm.ActivateWorldSession(_session);
         ActivatedByUser?.Invoke(this, EventArgs.Empty);
     }
 
@@ -237,7 +186,6 @@ public partial class FloatingMapWindow : UserControl
         if (e.ClickCount == 2)
         {
             ToggleMaximize();
-            SaveLayoutToSettings();
             e.Handled = true;
             return;
         }
@@ -270,7 +218,6 @@ public partial class FloatingMapWindow : UserControl
         _dragging = false;
         ReleaseMouseCapture();
         ClampPositionToHost();
-        SaveLayoutToSettings();
         e.Handled = true;
     }
 
@@ -280,25 +227,14 @@ public partial class FloatingMapWindow : UserControl
             RestoreFromMinimize();
         else
             Minimize();
-        SaveLayoutToSettings();
     }
 
-    private void Maximize_Click(object sender, RoutedEventArgs e)
-    {
-        ToggleMaximize();
-        SaveLayoutToSettings();
-    }
+    private void Maximize_Click(object sender, RoutedEventArgs e) => ToggleMaximize();
 
     private void Close_Click(object sender, RoutedEventArgs e)
     {
-        if (_vm is null || _document is null) return;
-        if (_document.IsDirty)
-        {
-            _vm.ActivateDocument(_document);
-            if (!_vm.ConfirmDiscardMapOnly())
-                return;
-        }
-        _vm.CloseDocument(_document);
+        if (_vm is null || _session is null) return;
+        _vm.CloseWorldSession(_session);
     }
 
     private void Minimize()
@@ -365,10 +301,11 @@ public partial class FloatingMapWindow : UserControl
         _isMinimized = false;
         ApplyMaximized(_host.ActualWidth, _host.ActualHeight);
         UpdateChromeState();
-        FitViewport();
+        Dispatcher.BeginInvoke(() => FitViewport(fillToEdges: true),
+            System.Windows.Threading.DispatcherPriority.Loaded);
     }
 
-    /// <summary>Abre el mapa a pantalla completa del área de trabajo.</summary>
+    /// <summary>Abre el mundo a pantalla completa del área de trabajo.</summary>
     public void MaximizeToHost() => Maximize();
 
     private void RestoreFromMaximize()
@@ -391,7 +328,7 @@ public partial class FloatingMapWindow : UserControl
         finally
         {
             _suppressFit = false;
-            FitViewport();
+            FitViewport(fillToEdges: false);
         }
     }
 
@@ -414,18 +351,15 @@ public partial class FloatingMapWindow : UserControl
         MaximizeButton.ToolTip = _isMaximized ? "Restaurar tamaño" : "Maximizar";
         TitleBar.Cursor = _isMaximized ? Cursors.Arrow : Cursors.SizeAll;
 
-        var isActive = _vm is not null && ReferenceEquals(_document, _vm.ActiveDocument);
+        var isActive = _vm is not null && _session is not null
+                       && ReferenceEquals(_vm.World, _session.Vm);
         ChromeBorder.BorderBrush = isActive
             ? (Brush)FindResource("BrandAccent")
             : (Brush)FindResource("Border");
         ChromeBorder.BorderThickness = new Thickness(isActive ? 2 : 1);
     }
 
-    public void RefreshActiveChrome()
-    {
-        UpdateChromeState();
-        RefreshQueueButton();
-    }
+    public void RefreshActiveChrome() => UpdateChromeState();
 
     private void ResizeGrip_DragStarted(object sender, DragStartedEventArgs e)
     {
@@ -449,14 +383,10 @@ public partial class FloatingMapWindow : UserControl
         Height = newHeight;
         _savedWidth = newWidth;
         _savedHeight = newHeight;
-        FitViewport();
     }
 
-    private void ResizeGrip_DragCompleted(object sender, DragCompletedEventArgs e)
-    {
+    private void ResizeGrip_DragCompleted(object sender, DragCompletedEventArgs e) =>
         _resizing = false;
-        SaveLayoutToSettings();
-    }
 
     private void SetPosition(double left, double top)
     {
@@ -473,10 +403,7 @@ public partial class FloatingMapWindow : UserControl
         Canvas.SetTop(this, Math.Clamp(top, 0, maxTop));
     }
 
-    private void ClampPositionToHost()
-    {
-        SetPosition(GetCanvasLeft(), GetCanvasTop());
-    }
+    private void ClampPositionToHost() => SetPosition(GetCanvasLeft(), GetCanvasTop());
 
     private void BringToFront()
     {
@@ -485,11 +412,13 @@ public partial class FloatingMapWindow : UserControl
         Canvas.SetZIndex(this, maxZ + 1);
     }
 
-    private void FitViewport()
+    private void FitViewport(bool fillToEdges)
     {
-        if (_isMinimized || _document?.MapImage is null) return;
-        Viewport.FitMap();
+        if (_isMinimized || _session?.Vm.World is null) return;
+        WorldViewportControl.SetFillToEdges(fillToEdges);
     }
+
+    private void FitViewport() => FitViewport(fillToEdges: _isMaximized);
 
     private double GetCanvasLeft()
     {

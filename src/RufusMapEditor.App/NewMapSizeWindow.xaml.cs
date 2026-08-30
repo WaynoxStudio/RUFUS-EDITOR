@@ -10,13 +10,25 @@ public partial class NewMapSizeWindow : Window
     public int ResultWidth { get; private set; }
     public int ResultHeight { get; private set; }
 
-    public NewMapSizeWindow()
+    private readonly int? _lockWidth;
+    private readonly int? _lockHeight;
+
+    public NewMapSizeWindow(int? lockWidth = null, int? lockHeight = null, string? lockReason = null)
     {
+        _lockWidth = lockWidth;
+        _lockHeight = lockHeight;
         InitializeComponent();
         ThemeService.ApplyToWindow(this);
-        ApplyPresetFields();
+
+        if (_lockWidth is int lw && _lockHeight is int lh)
+            ApplySizeLock(lw, lh, lockReason);
+        else
+            ApplyPresetFields();
+
         Loaded += (_, _) =>
         {
+            if (_lockWidth is not null)
+                return;
             if (PresetCustom.IsChecked == true)
                 WidthBox.Focus();
             else
@@ -24,7 +36,62 @@ public partial class NewMapSizeWindow : Window
         };
     }
 
-    private void Preset_Changed(object sender, RoutedEventArgs e) => ApplyPresetFields();
+    private void ApplySizeLock(int width, int height, string? reason)
+    {
+        var sizeName = DescribeSize(width, height);
+        LockBanner.Visibility = Visibility.Visible;
+        LockBannerText.Text =
+            reason
+            ?? $"Estás trabajando en modo {sizeName} ({width}×{height}). En este combinado solo puedes crear mapas de ese tamaño.";
+
+        IntroText.Text = $"Tamaño fijado al del combinado: {sizeName} ({width}×{height}).";
+        FooterHint.Text =
+            "Grande / personalizado quedan bloqueados para no romper el mosaico. Al guardar (Ctrl+S) eliges el Map ID.";
+
+        WidthBox.Text = width.ToString();
+        HeightBox.Text = height.ToString();
+        WidthBox.IsEnabled = false;
+        HeightBox.IsEnabled = false;
+
+        PresetMedio.IsChecked = width == BlankMapFactory.MedioWidth && height == BlankMapFactory.MedioHeight;
+        PresetGrande.IsChecked = width == BlankMapFactory.GrandeWidth && height == BlankMapFactory.GrandeHeight;
+        PresetCustom.IsChecked = PresetMedio.IsChecked != true && PresetGrande.IsChecked != true;
+
+        PresetMedio.IsEnabled = PresetMedio.IsChecked == true;
+        PresetGrande.IsEnabled = PresetGrande.IsChecked == true;
+        PresetCustom.IsEnabled = PresetCustom.IsChecked == true;
+
+        if (PresetMedio.IsEnabled)
+            PresetMedio.ToolTip = null;
+        else
+            PresetMedio.ToolTip = $"Bloqueado: el combinado es {sizeName} ({width}×{height}).";
+
+        if (PresetGrande.IsEnabled)
+            PresetGrande.ToolTip = null;
+        else
+            PresetGrande.ToolTip = $"Bloqueado: el combinado es {sizeName} ({width}×{height}).";
+
+        if (PresetCustom.IsEnabled)
+            PresetCustom.ToolTip = null;
+        else
+            PresetCustom.ToolTip = $"Bloqueado: el combinado es {sizeName} ({width}×{height}).";
+    }
+
+    public static string DescribeSize(int width, int height)
+    {
+        if (width == BlankMapFactory.MedioWidth && height == BlankMapFactory.MedioHeight)
+            return "Medio";
+        if (width == BlankMapFactory.GrandeWidth && height == BlankMapFactory.GrandeHeight)
+            return "Grande";
+        return "Personalizado";
+    }
+
+    private void Preset_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_lockWidth is not null)
+            return;
+        ApplyPresetFields();
+    }
 
     private void ApplyPresetFields()
     {
@@ -53,6 +120,14 @@ public partial class NewMapSizeWindow : Window
 
     private void Ok_Click(object sender, RoutedEventArgs e)
     {
+        if (_lockWidth is int lw && _lockHeight is int lh)
+        {
+            ResultWidth = lw;
+            ResultHeight = lh;
+            DialogResult = true;
+            return;
+        }
+
         if (!int.TryParse(WidthBox.Text.Trim(), out var w) || w < 1 || w > 100)
         {
             MessageBox.Show(this, "Ancho inválido (1–100).", Title);

@@ -170,16 +170,16 @@ public sealed class LicenseAuthService
         await _db.ExecuteInTransactionAsync(async innerCt =>
         {
             var session = await _db.Sessions.GetByTokenHashAsync(tokenHash, innerCt);
-            if (session is null || session.Status != SessionStatus.Active)
+            // Closed / Terminated = explicit end. Active or soft-Expired can be renewed for the same device.
+            if (session is null
+                || session.Status is SessionStatus.Closed or SessionStatus.Terminated)
             {
                 result = LicenseOperationResult.Fail(LicenseErrorCodes.SessionInvalid);
                 return;
             }
 
-            if (session.LeaseExpiresAtUtc <= now)
+            if (session.Status is not (SessionStatus.Active or SessionStatus.Expired))
             {
-                session.Status = SessionStatus.Expired;
-                await _db.Sessions.UpdateAsync(session, innerCt);
                 result = LicenseOperationResult.Fail(LicenseErrorCodes.SessionInvalid);
                 return;
             }
@@ -209,6 +209,8 @@ public sealed class LicenseAuthService
                 return;
             }
 
+            // Soft lease expiry (app closed > lease window): renew instead of forcing re-type of license code.
+            session.Status = SessionStatus.Active;
             session.LastRenewedAtUtc = now;
             session.LeaseExpiresAtUtc = now.AddSeconds(_lease.LeaseSeconds);
             await _db.Sessions.UpdateAsync(session, innerCt);

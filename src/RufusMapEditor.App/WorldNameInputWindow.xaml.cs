@@ -13,7 +13,7 @@ public partial class WorldNameInputWindow : Window
         ThemeService.ApplyToWindow(this);
         PromptText.Text = prompt;
         NameBox.Text = string.IsNullOrWhiteSpace(suggestedName) ? "Mundo" : suggestedName.Trim();
-        HintText.Text = $"Se guardará en:\n{geopositionsRoot}\\<nombre>\\<nombre>.rufworld";
+        HintText.Text = $"Se guardará en:\n{geopositionsRoot}\\<nombre>\\<nombre>.rufworld\n(+ <nombre>.png y <nombre>_Mode.png)";
         Loaded += (_, _) =>
         {
             NameBox.Focus();

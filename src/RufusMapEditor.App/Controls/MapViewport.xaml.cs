@@ -22,6 +22,9 @@ public partial class MapViewport : UserControl
     private bool _erasing;
     private bool _rectDragging;
     private bool _leftPressPending;
+    private bool _movePending;
+    private bool _movingSelection;
+    private int? _moveGrabCellId;
     private Point _panLast;
     private Point _leftPressPos;
     private bool _spaceDown;
@@ -39,6 +42,14 @@ public partial class MapViewport : UserControl
         new(Color.FromArgb(255, 255, 180, 40));
     private static readonly SolidColorBrush SecondarySelectionFill =
         new(Color.FromArgb(50, 255, 200, 40));
+    private static readonly SolidColorBrush MoveValidFill =
+        new(Color.FromArgb(90, 70, 200, 120));
+    private static readonly SolidColorBrush MoveValidStroke =
+        new(Color.FromArgb(230, 80, 220, 140));
+    private static readonly SolidColorBrush MoveOutsideFill =
+        new(Color.FromArgb(110, 220, 50, 50));
+    private static readonly SolidColorBrush MoveOutsideStroke =
+        new(Color.FromArgb(255, 255, 70, 70));
     private static readonly SolidColorBrush GfxBoundsStroke =
         new(Color.FromArgb(255, 255, 255, 255));
     private static readonly SolidColorBrush GfxHighlightStroke =
@@ -52,6 +63,10 @@ public partial class MapViewport : UserControl
         SelectionFill.Freeze();
         SelectionStroke.Freeze();
         SecondarySelectionFill.Freeze();
+        MoveValidFill.Freeze();
+        MoveValidStroke.Freeze();
+        MoveOutsideFill.Freeze();
+        MoveOutsideStroke.Freeze();
         GfxBoundsStroke.Freeze();
         GfxHighlightStroke.Freeze();
         GroundHighlightStroke.Freeze();
@@ -190,6 +205,9 @@ public partial class MapViewport : UserControl
             case nameof(MainViewModel.HighlightedInspectorLayer):
             case nameof(MainViewModel.Tool):
             case nameof(MainViewModel.CurrentMap):
+            case nameof(MainViewModel.IsMovingSelection):
+            case nameof(MainViewModel.MovePreviewItems):
+            case nameof(MainViewModel.IsPasteArmed):
                 if (!IsBoundActive)
                     return;
                 RedrawOverlays();
@@ -315,6 +333,9 @@ public partial class MapViewport : UserControl
         if (e.ChangedButton == MouseButton.Right)
         {
             var rightPos = e.GetPosition(this);
+            var (rcx, rcy) = _camera.ViewportToContent(rightPos.X, rightPos.Y);
+            _lastHitContentX = rcx;
+            _lastHitContentY = rcy;
             var eraseCell = HitCell(rightPos);
             if (eraseCell is int eraseId)
             {
@@ -327,26 +348,30 @@ public partial class MapViewport : UserControl
                 }
                 else if (_vm.Tool == EditorTool.Paint && _vm.SelectedGfxId is int)
                 {
-                    // MAP-PAINT.1 — right-click in paint with active brush:
-                    // only remove the active GFX on the active layer (mistaken stamp).
-                    // Never delete unrelated GFX on other cells/layers.
+                    // Paint only: right-click removes the active brush GFX on the active layer.
                     if (_vm.TryEraseActiveBrushAtCell(eraseId))
                     {
                         _erasing = true;
                         CaptureMouse();
                     }
-                    // else: safe no-op
                 }
                 else if (_vm.Tool == EditorTool.Erase)
                 {
+                    // Matching erase when "solo GFX activo" is on and a brush is selected.
                     _erasing = true;
                     _vm.BeginEraseStroke();
                     _vm.EraseCell(eraseId, isDrag: false);
                     CaptureMouse();
                 }
+                else if (_vm.Tool is EditorTool.Select or EditorTool.RectSelect or EditorTool.Pan or EditorTool.Eyedropper)
+                {
+                    // Select / pan / eyedropper: never paint or erase with right-click.
+                    if (_vm.Tool == EditorTool.Select)
+                        _vm.HandleCellClick(eraseId, isDrag: false, ctrl: false, _lastHitContentX, _lastHitContentY);
+                }
                 else
                 {
-                    // Select / no brush: pick up GFX into paint brush (existing behaviour).
+                    // Other tools: legacy pick-up into paint brush.
                     _erasing = true;
                     _vm.DeleteGfxAndEnterBuildMode(eraseId);
                     CaptureMouse();
@@ -367,9 +392,26 @@ public partial class MapViewport : UserControl
         _lastHitContentX = cx;
         _lastHitContentY = cy;
 
-        // Rect select needs drag for the marquee — keep immediate behaviour.
+        // Paste-on-click lived here (IsPasteArmed) and stamped in Select. Stamping is Paint-only.
+
+        // Rect select: drag on existing selection = move; otherwise marquee.
         if (_vm.Tool == EditorTool.RectSelect)
         {
+            var ctrlRect = (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control;
+            var rectHit = HitCell(pos);
+            if (!ctrlRect &&
+                rectHit is int rectId &&
+                _vm.HasSelection &&
+                _vm.SelectedCellIds.Contains(rectId))
+            {
+                _movePending = true;
+                _moveGrabCellId = rectId;
+                _leftPressPos = pos;
+                CaptureMouse();
+                e.Handled = true;
+                return;
+            }
+
             _rectDragging = true;
             _vm.BeginRectSelect(cx, cy);
             CaptureMouse();
@@ -377,7 +419,67 @@ public partial class MapViewport : UserControl
             return;
         }
 
-        // Hold + drag anywhere = pan. Short click (release without dragging) = tool action.
+        // Select: drag on selection = move; Ctrl+click toggles; else pan-on-drag / click select.
+        if (_vm.Tool == EditorTool.Select)
+        {
+            var ctrlSel = (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control;
+            var selHit = HitCell(pos);
+            if (!ctrlSel &&
+                selHit is int selId &&
+                _vm.HasSelection &&
+                _vm.SelectedCellIds.Contains(selId))
+            {
+                _movePending = true;
+                _moveGrabCellId = selId;
+                _leftPressPos = pos;
+                CaptureMouse();
+                e.Handled = true;
+                return;
+            }
+
+            _leftPressPending = true;
+            _leftPressPos = pos;
+            CaptureMouse();
+            e.Handled = true;
+            return;
+        }
+
+        // Paint / Erase / cell-mode: left-drag strokes (pan with Space / Alt / middle / hand).
+        if (_vm.Tool is EditorTool.Paint or EditorTool.Erase || _vm.IsCellModeTool)
+        {
+            var strokeCell = _vm.HoveredCellId ?? HitCell(pos);
+            if (strokeCell is int strokeId)
+            {
+                _stroking = true;
+                if (_vm.IsCellModeTool)
+                {
+                    _vm.BeginCellModeStroke();
+                    _vm.PaintCellMode(strokeId, isDrag: false, erase: false);
+                }
+                else if (_vm.Tool == EditorTool.Paint && _vm.SelectedGfxId is int)
+                {
+                    _vm.BeginPaintStroke();
+                    _vm.PaintCell(strokeId, isDrag: false);
+                }
+                else if (_vm.Tool == EditorTool.Erase)
+                {
+                    _vm.BeginEraseStroke();
+                    _vm.EraseCell(strokeId, isDrag: false);
+                }
+                else if (_vm.Tool == EditorTool.Paint)
+                {
+                    _stroking = false;
+                    _vm.HandleCellClick(strokeId, isDrag: false, ctrl: false);
+                }
+
+                CaptureMouse();
+            }
+
+            e.Handled = true;
+            return;
+        }
+
+        // Eyedropper / Pan / etc.: short click or pan-on-drag.
         _leftPressPending = true;
         _leftPressPos = pos;
         CaptureMouse();
@@ -419,30 +521,23 @@ public partial class MapViewport : UserControl
             _vm.PaintCellMode(id, isDrag: false, erase: false);
             _vm.FinishStroke();
         }
+        else if (_vm.Tool == EditorTool.Paint && _vm.SelectedGfxId is int)
+        {
+            // Paint stamps ONLY in Paint tool — never while Select is active.
+            _vm.BeginPaintStroke();
+            _vm.PaintCell(id, isDrag: false);
+            _vm.FinishStroke();
+        }
+        else if (_vm.Tool == EditorTool.Erase)
+        {
+            _vm.BeginEraseStroke();
+            _vm.EraseCell(id, isDrag: false);
+            _vm.FinishStroke();
+        }
         else
         {
-            var paintWithGfx = _vm.SelectedGfxId is int
-                && _vm.Tool is not EditorTool.RectSelect
-                && _vm.Tool is not EditorTool.Eyedropper
-                && _vm.Tool is not EditorTool.Pan
-                && !(_vm.Tool == EditorTool.Select && ctrl);
-
-            if (paintWithGfx)
-            {
-                _vm.BeginPaintStroke();
-                _vm.PaintCell(id, isDrag: false);
-                _vm.FinishStroke();
-            }
-            else if (_vm.Tool is EditorTool.Paint or EditorTool.Erase)
-            {
-                _vm.BeginStroke();
-                _vm.HandleCellClick(id, isDrag: false, ctrl);
-                _vm.FinishStroke();
-            }
-            else
-            {
-                _vm.HandleCellClick(id, isDrag: false, ctrl);
-            }
+            // Select / Eyedropper / Pan / etc. — no GFX stamp.
+            _vm.HandleCellClick(id, isDrag: false, ctrl, _lastHitContentX, _lastHitContentY);
         }
 
         RedrawOverlays();
@@ -450,13 +545,40 @@ public partial class MapViewport : UserControl
 
     private void Viewport_MouseUp(object sender, MouseButtonEventArgs e)
     {
+        if (e.ChangedButton == MouseButton.Left && _movingSelection)
+        {
+            _movingSelection = false;
+            _movePending = false;
+            _moveGrabCellId = null;
+            _vm?.CommitSelectionMove();
+            ReleaseMouseCapture();
+            Cursor = Cursors.Arrow;
+            RedrawOverlays();
+            e.Handled = true;
+            return;
+        }
+
+        if (e.ChangedButton == MouseButton.Left && _movePending)
+        {
+            // Click on selection without dragging — inspect GFX / layer, no pan, no paste.
+            var grab = _moveGrabCellId;
+            _movePending = false;
+            _moveGrabCellId = null;
+            ReleaseMouseCapture();
+            if (grab is int grabId)
+                _vm?.InspectCellGfx(grabId, _lastHitContentX, _lastHitContentY);
+            RedrawOverlays();
+            e.Handled = true;
+            return;
+        }
+
         if (e.ChangedButton == MouseButton.Left && _leftPressPending)
         {
             _leftPressPending = false;
             var clickPos = _leftPressPos;
             ReleaseMouseCapture();
             PerformLeftClickAction(clickPos);
-            if (!_stroking && !_erasing && !_rectDragging && !_panning)
+            if (!_stroking && !_erasing && !_rectDragging && !_panning && !_movingSelection)
                 ReleaseMouseCapture();
             e.Handled = true;
             return;
@@ -507,6 +629,34 @@ public partial class MapViewport : UserControl
     private void Viewport_MouseMove(object sender, MouseEventArgs e)
     {
         var pos = e.GetPosition(this);
+
+        if (_movePending && e.LeftButton == MouseButtonState.Pressed &&
+            ExceededPanDragThreshold(_leftPressPos, pos) &&
+            _moveGrabCellId is int grabId &&
+            _vm is not null)
+        {
+            if (_vm.TryBeginSelectionMove(grabId))
+            {
+                _movePending = false;
+                _movingSelection = true;
+                Cursor = Cursors.SizeAll;
+                var (mx, my) = _camera.ViewportToContent(pos.X, pos.Y);
+                _vm.UpdateSelectionMove(mx, my);
+                RedrawOverlays();
+                return;
+            }
+
+            _movePending = false;
+            _moveGrabCellId = null;
+        }
+
+        if (_movingSelection && e.LeftButton == MouseButtonState.Pressed && _vm is not null)
+        {
+            var (mx, my) = _camera.ViewportToContent(pos.X, pos.Y);
+            _vm.UpdateSelectionMove(mx, my);
+            RedrawOverlays();
+            return;
+        }
 
         if (_leftPressPending && e.LeftButton == MouseButtonState.Pressed &&
             ExceededPanDragThreshold(_leftPressPos, pos))
@@ -567,7 +717,8 @@ public partial class MapViewport : UserControl
 
     private void Viewport_MouseLeave(object sender, MouseEventArgs e)
     {
-        if (_panning || _stroking || _erasing || _rectDragging || _leftPressPending) return;
+        if (_panning || _stroking || _erasing || _rectDragging || _leftPressPending ||
+            _movePending || _movingSelection) return;
         if (!IsBoundActive) return;
         _vm?.ClearHover();
         RedrawOverlays();
@@ -578,11 +729,26 @@ public partial class MapViewport : UserControl
         if (e.Key == Key.Space)
         {
             _spaceDown = true;
-            if (!_panning && !_stroking && !_erasing && !_rectDragging)
+            if (!_panning && !_stroking && !_erasing && !_rectDragging && !_movingSelection)
                 Cursor = Cursors.SizeAll;
             e.Handled = true;
         }
         if (IsTextInputFocused()) return;
+
+        if (e.Key == Key.Escape && (_movingSelection || _vm?.IsMovingSelection == true || _vm?.IsPasteArmed == true))
+        {
+            if (_vm?.IsPasteArmed == true)
+                _vm.CancelPasteArmed();
+            _movingSelection = false;
+            _movePending = false;
+            _moveGrabCellId = null;
+            _vm?.CancelSelectionMove();
+            ReleaseMouseCapture();
+            Cursor = Cursors.Arrow;
+            RedrawOverlays();
+            e.Handled = true;
+            return;
+        }
 
         if (e.Key == Key.Delete)
         {
@@ -638,16 +804,28 @@ public partial class MapViewport : UserControl
         if (!IsBoundActive)
             return;
 
-        foreach (var sel in _vm.SelectedCellIds)
+        // Paint / Erase: chrome follows the cursor only. Sticky selection from the last
+        // stamp would leave a ghost diamond + occupancy box after deleting the GFX.
+        var hideStickySelection = _vm.Tool is EditorTool.Paint or EditorTool.Erase;
+        if (!hideStickySelection)
         {
-            if (!tester.TryGetCellCornersInHitSpace(sel, out var corners)) continue;
-            var isPrimary = sel == _vm.PrimarySelectedCellId;
-            OverlayCanvas.Children.Add(CreateDiamond(corners,
-                isPrimary ? SelectionFill : SecondarySelectionFill,
-                SelectionStroke, isPrimary ? 2.0 : 1.2));
+            foreach (var sel in _vm.SelectedCellIds)
+            {
+                if (!tester.TryGetCellCornersInHitSpace(sel, out var corners)) continue;
+                var isPrimary = sel == _vm.PrimarySelectedCellId;
+                var fill = _vm.IsMovingSelection
+                    ? SecondarySelectionFill
+                    : isPrimary ? SelectionFill : SecondarySelectionFill;
+                OverlayCanvas.Children.Add(CreateDiamond(corners, fill,
+                    SelectionStroke, isPrimary ? 2.0 : 1.2));
 
-            DrawSelectedCellGfxBounds(sel, isPrimary);
+                if (!_vm.IsMovingSelection && !_vm.IsCellModeTool)
+                    DrawSelectedCellGfxBounds(sel, isPrimary);
+            }
         }
+
+        if (_vm.IsMovingSelection)
+            DrawSelectionMovePreview(tester);
 
         var paintTarget = _vm.Tool is EditorTool.Paint or EditorTool.Erase or EditorTool.Unwalkable
             or EditorTool.LineOfSight or EditorTool.FightCell1 or EditorTool.FightCell2
@@ -705,9 +883,9 @@ public partial class MapViewport : UserControl
         }
         else if (_vm.HoveredCellId is int hoverSelected &&
                  _vm.SelectedCellIds.Contains(hoverSelected) &&
-                 _vm.Tool is EditorTool.Paint or EditorTool.Eyedropper)
+                 _vm.Tool == EditorTool.Eyedropper)
         {
-            DrawBrushPreview(hoverSelected);
+            DrawHoverGfxBounds(hoverSelected);
         }
 
         if (_vm.IsRectSelecting && _vm.RectSelectBounds is { } b)
@@ -734,13 +912,6 @@ public partial class MapViewport : UserControl
     {
         if (_vm is null || !isPrimary) return;
 
-        if (_vm.Tool == EditorTool.Paint && _vm.SelectedGfxId is not null &&
-            cellId == _vm.PrimarySelectedCellId)
-        {
-            DrawBrushPreviewBounds(cellId);
-            return;
-        }
-
         var highlight = _vm.HighlightedInspectorLayer;
         if (highlight != InspectorLayerHighlight.None)
         {
@@ -751,12 +922,9 @@ public partial class MapViewport : UserControl
                 _ => PaintLayer.Object2,
             };
             DrawLayerBounds(cellId, layer, highlighted: true);
-            return;
         }
-
-        DrawLayerBounds(cellId, PaintLayer.Ground, highlighted: false);
-        DrawLayerBounds(cellId, PaintLayer.Object1, highlighted: false);
-        DrawLayerBounds(cellId, PaintLayer.Object2, highlighted: false);
+        // No automatic white AABB on every selection — only when a Capas thumbnail is clicked.
+        // Hover still shows bounds so you can see which cell owns a large overhanging sprite.
     }
 
     private void DrawHoverGfxBounds(int cellId)
@@ -827,7 +995,7 @@ public partial class MapViewport : UserControl
             Width = visual.Bounds.Width,
             Height = visual.Bounds.Height,
             Stretch = Stretch.Fill,
-            Opacity = 0.55,
+            Opacity = 0.82,
             IsHitTestVisible = false,
             SnapsToDevicePixels = true,
         };
@@ -1156,6 +1324,48 @@ public partial class MapViewport : UserControl
             Fill = Brushes.Transparent,
             IsHitTestVisible = false,
         };
+
+    private void DrawSelectionMovePreview(IsoHitTester tester)
+    {
+        if (_vm is null || _vm.MovePreviewItems.Count == 0) return;
+
+        // Template diamond from any known cell (grab or first selection).
+        var templateId = _moveGrabCellId
+            ?? _vm.PrimarySelectedCellId
+            ?? (_vm.SelectedCellIds.Count > 0 ? _vm.SelectedCellIds[0] : (int?)null);
+        if (templateId is null || !tester.TryGetCellCornersInHitSpace(templateId.Value, out var template))
+            return;
+
+        var tox = (template.A.X + template.C.X) / 2.0;
+        var toy = (template.B.Y + template.D.Y) / 2.0;
+
+        foreach (var item in _vm.MovePreviewItems)
+        {
+            var dx = item.CenterX - tox;
+            var dy = item.CenterY - toy;
+            var shifted = new IsoGeometry.CellCorners
+            {
+                A = new IsoGeometry.Point((int)Math.Round(template.A.X + dx), (int)Math.Round(template.A.Y + dy)),
+                B = new IsoGeometry.Point((int)Math.Round(template.B.X + dx), (int)Math.Round(template.B.Y + dy)),
+                C = new IsoGeometry.Point((int)Math.Round(template.C.X + dx), (int)Math.Round(template.C.Y + dy)),
+                D = new IsoGeometry.Point((int)Math.Round(template.D.X + dx), (int)Math.Round(template.D.Y + dy)),
+            };
+
+            if (item.IsOutside)
+            {
+                OverlayCanvas.Children.Add(CreateDiamond(shifted, MoveOutsideFill, MoveOutsideStroke, 2.4));
+            }
+            else if (item.TargetCellId is int tid &&
+                     tester.TryGetCellCornersInHitSpace(tid, out var realCorners))
+            {
+                OverlayCanvas.Children.Add(CreateDiamond(realCorners, MoveValidFill, MoveValidStroke, 2.2));
+            }
+            else
+            {
+                OverlayCanvas.Children.Add(CreateDiamond(shifted, MoveValidFill, MoveValidStroke, 2.2));
+            }
+        }
+    }
 
     private static Polygon CreateDiamond(IsoGeometry.CellCorners c, Brush fill, Brush stroke, double thickness) =>
         new()

@@ -17,10 +17,14 @@ public partial class MapsEditorView : UserControl
 {
     private readonly MainViewModel _vm;
     private readonly Dictionary<string, FloatingMapWindow> _mapWindows = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, FloatingWorldWindow> _worldWindows = new(StringComparer.Ordinal);
     private int _hoverMapPreviewId = -1;
     private bool _catalogCollapsed;
     private bool _mapsCollapsed;
     private const double MapsCollapsedWidth = 22;
+    private Point _mapListDragStart;
+    private MapPickerItemVm? _mapListDragItem;
+    private bool _mapListDragStarted;
 
     public MapsEditorView() : this(deferLibraryLoad: false)
     {
@@ -35,6 +39,9 @@ public partial class MapsEditorView : UserControl
         _vm.DocumentOpened += OnDocumentOpened;
         _vm.DocumentClosed += OnDocumentClosed;
         _vm.DocumentActivated += OnDocumentActivated;
+        _vm.WorldSessionOpened += OnWorldSessionOpened;
+        _vm.WorldSessionClosed += OnWorldSessionClosed;
+        _vm.WorldSessionActivated += OnWorldSessionActivated;
         _vm.MapMonsters.RequestFocusPanel += OnMonstersFocusRequested;
         _vm.RequestResetPanels += ResetPanels;
         _vm.RequestApplyLayout += ApplyLayoutFromSettings;
@@ -93,11 +100,16 @@ public partial class MapsEditorView : UserControl
         var window = new FloatingMapWindow();
         window.AttachDocument(_vm, doc);
         window.LayoutChanged += (_, _) => _vm.PersistUiLayout();
+        window.ChromeStateChanged += (_, _) => RefreshMapTaskbar();
         MapWorkspaceCanvas.Children.Add(window);
         _mapWindows[doc.DocumentId] = window;
         RefreshAllWindowChrome();
+        RefreshMapTaskbar();
+        var maximize = _vm.ConsumeMaximizeNextMapWindow();
         Dispatcher.BeginInvoke(() =>
         {
+            if (maximize)
+                window.MaximizeToHost();
             window.Viewport.FitMap();
         }, System.Windows.Threading.DispatcherPriority.Loaded);
     }
@@ -107,6 +119,7 @@ public partial class MapsEditorView : UserControl
         if (!_mapWindows.Remove(doc.DocumentId, out var window)) return;
         MapWorkspaceCanvas.Children.Remove(window);
         RefreshAllWindowChrome();
+        RefreshMapTaskbar();
     }
 
     private void OnDocumentActivated(OpenMapDocument doc)
@@ -122,10 +135,117 @@ public partial class MapsEditorView : UserControl
         RefreshAllWindowChrome();
     }
 
+    private void OnWorldSessionOpened(OpenWorldSession session)
+    {
+        if (_worldWindows.ContainsKey(session.SessionId)) return;
+
+        var window = new FloatingWorldWindow();
+        window.AttachSession(_vm, session);
+        window.ChromeStateChanged += (_, _) => RefreshWorldTaskbar();
+        WorldWorkspaceCanvas.Children.Add(window);
+        _worldWindows[session.SessionId] = window;
+        RefreshAllWorldWindowChrome();
+        RefreshWorldTaskbar();
+        Dispatcher.BeginInvoke(() =>
+        {
+            window.MaximizeToHost();
+            window.Viewport.FitAll();
+        }, System.Windows.Threading.DispatcherPriority.Loaded);
+    }
+
+    private void OnWorldSessionClosed(OpenWorldSession session)
+    {
+        if (!_worldWindows.Remove(session.SessionId, out var window)) return;
+        WorldWorkspaceCanvas.Children.Remove(window);
+        RefreshAllWorldWindowChrome();
+        RefreshWorldTaskbar();
+    }
+
+    private void OnWorldSessionActivated(OpenWorldSession session)
+    {
+        if (_worldWindows.TryGetValue(session.SessionId, out var window))
+        {
+            var maxZ = WorldWorkspaceCanvas.Children.OfType<UIElement>()
+                .Select(Canvas.GetZIndex).DefaultIfEmpty(0).Max();
+            Canvas.SetZIndex(window, maxZ + 1);
+            window.RefreshActiveChrome();
+            if (_vm.ConsumeMaximizeNextWorldWindow())
+            {
+                Dispatcher.BeginInvoke(() =>
+                {
+                    if (window.IsMinimized)
+                        window.RestoreFromMinimize();
+                    window.MaximizeToHost();
+                }, System.Windows.Threading.DispatcherPriority.Loaded);
+            }
+        }
+        RefreshAllWorldWindowChrome();
+    }
+
     private void RefreshAllWindowChrome()
     {
         foreach (var w in _mapWindows.Values)
             w.RefreshActiveChrome();
+    }
+
+    private void RefreshAllWorldWindowChrome()
+    {
+        foreach (var w in _worldWindows.Values)
+            w.RefreshActiveChrome();
+    }
+
+    private static Button CreateTaskbarChip(string title, Action restore)
+    {
+        var btn = new Button
+        {
+            Content = title,
+            Padding = new Thickness(10, 4, 10, 4),
+            Margin = new Thickness(0, 0, 6, 0),
+            MaxWidth = 220,
+            ToolTip = "Restaurar ventana",
+        };
+        btn.Click += (_, _) => restore();
+        return btn;
+    }
+
+    private void RefreshMapTaskbar()
+    {
+        if (MapTaskbarPanel is null || MapTaskbarBar is null) return;
+        MapTaskbarPanel.Children.Clear();
+        var hasChips = false;
+
+        if (_vm.ShowCombinedMinimizedBar)
+        {
+            MapTaskbarPanel.Children.Add(CreateTaskbarChip("Combinado", () =>
+            {
+                if (_vm.RestoreCombinedMapsCommand.CanExecute(null))
+                    _vm.RestoreCombinedMapsCommand.Execute(null);
+            }));
+            hasChips = true;
+        }
+
+        var minimized = _mapWindows.Values.Where(w => w.IsMinimized).ToList();
+        foreach (var w in minimized)
+        {
+            var window = w;
+            MapTaskbarPanel.Children.Add(CreateTaskbarChip(window.TaskbarTitle, window.RestoreFromMinimize));
+            hasChips = true;
+        }
+
+        MapTaskbarBar.Visibility = hasChips ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void RefreshWorldTaskbar()
+    {
+        if (WorldTaskbarPanel is null || WorldTaskbarBar is null) return;
+        WorldTaskbarPanel.Children.Clear();
+        var minimized = _worldWindows.Values.Where(w => w.IsMinimized).ToList();
+        WorldTaskbarBar.Visibility = minimized.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        foreach (var w in minimized)
+        {
+            var window = w;
+            WorldTaskbarPanel.Children.Add(CreateTaskbarChip(window.TaskbarTitle, window.RestoreFromMinimize));
+        }
     }
 
     private void ForEachMapWindow(Action<FloatingMapWindow> action)
@@ -229,6 +349,15 @@ public partial class MapsEditorView : UserControl
         MapWorkspaceCanvas.Height = e.NewSize.Height;
         if (_vm.HasMap)
             ForEachMapWindow(w => w.OnHostSizeChanged());
+    }
+
+    private void WorldWorkspaceHost_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (WorldWorkspaceCanvas is null) return;
+        WorldWorkspaceCanvas.Width = e.NewSize.Width;
+        WorldWorkspaceCanvas.Height = e.NewSize.Height;
+        foreach (var w in _worldWindows.Values)
+            w.OnHostSizeChanged();
     }
 
     private void Host_SizeChanged(object sender, SizeChangedEventArgs e)
@@ -413,6 +542,9 @@ public partial class MapsEditorView : UserControl
         _vm.DocumentOpened -= OnDocumentOpened;
         _vm.DocumentClosed -= OnDocumentClosed;
         _vm.DocumentActivated -= OnDocumentActivated;
+        _vm.WorldSessionOpened -= OnWorldSessionOpened;
+        _vm.WorldSessionClosed -= OnWorldSessionClosed;
+        _vm.WorldSessionActivated -= OnWorldSessionActivated;
         _vm.MapMonsters.RequestFocusPanel -= OnMonstersFocusRequested;
         _vm.Logs.PropertyChanged -= LogsOnPropertyChanged;
         _vm.PropertyChanged -= VmOnPropertyChanged;
@@ -427,29 +559,72 @@ public partial class MapsEditorView : UserControl
         if (Keyboard.FocusedElement is TextBox)
             return;
 
+        var ctrl = (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control;
+        var shift = (Keyboard.Modifiers & ModifierKeys.Shift) == ModifierKeys.Shift;
+
+        if (ctrl && e.Key == Key.Z)
+        {
+            if (shift)
+            {
+                if (_vm.RedoCommand.CanExecute(null))
+                    _vm.RedoCommand.Execute(null);
+            }
+            else if (_vm.UndoCommand.CanExecute(null))
+            {
+                _vm.UndoCommand.Execute(null);
+            }
+
+            e.Handled = true;
+            return;
+        }
+
+        if (ctrl && e.Key == Key.Y)
+        {
+            if (_vm.RedoCommand.CanExecute(null))
+                _vm.RedoCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
+        if (ctrl && e.Key == Key.C)
+        {
+            if (_vm.CopyCommand.CanExecute(null))
+                _vm.CopyCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
+        if (ctrl && e.Key == Key.V)
+        {
+            if (_vm.PasteCommand.CanExecute(null))
+                _vm.PasteCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
         switch (e.Key)
         {
-            case Key.V when (Keyboard.Modifiers & ModifierKeys.Control) == 0:
+            case Key.V when !ctrl:
                 _vm.Tool = EditorTool.Select;
                 e.Handled = true;
                 break;
-            case Key.R when (Keyboard.Modifiers & ModifierKeys.Control) == 0:
+            case Key.R when !ctrl:
                 _vm.Tool = EditorTool.RectSelect;
                 e.Handled = true;
                 break;
-            case Key.B when (Keyboard.Modifiers & ModifierKeys.Control) == 0:
+            case Key.B when !ctrl:
                 _vm.Tool = EditorTool.Paint;
                 e.Handled = true;
                 break;
-            case Key.E when (Keyboard.Modifiers & ModifierKeys.Control) == 0:
+            case Key.E when !ctrl:
                 _vm.Tool = EditorTool.Erase;
                 e.Handled = true;
                 break;
-            case Key.I when (Keyboard.Modifiers & ModifierKeys.Control) == 0:
+            case Key.I when !ctrl:
                 _vm.Tool = EditorTool.Eyedropper;
                 e.Handled = true;
                 break;
-            case Key.H when (Keyboard.Modifiers & ModifierKeys.Control) == 0:
+            case Key.H when !ctrl:
                 _vm.Tool = EditorTool.Pan;
                 e.Handled = true;
                 break;
@@ -457,6 +632,13 @@ public partial class MapsEditorView : UserControl
                 // Keep Space available for map pan (MapViewport tracks Space while focused).
                 break;
             case Key.Escape:
+                if (_vm.IsPasteArmed)
+                {
+                    _vm.CancelPasteArmed();
+                    e.Handled = true;
+                    break;
+                }
+
                 if (_vm.HasSelection && _vm.ClearMapSelectionCommand.CanExecute(null))
                 {
                     _vm.ClearMapSelectionCommand.Execute(null);
@@ -474,9 +656,60 @@ public partial class MapsEditorView : UserControl
 
     private async void MapList_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_vm.IsLoading) return;
+        if (_vm.IsLoading || _mapListDragStarted) return;
+        // En combinado visible: clic selecciona para arrastrar; doble clic abre ventana.
+        if (_vm.IsMapCombinedMode && !_vm.IsMapCombinedMinimized) return;
         if (_vm.SelectedMapId is int id && _vm.HasLibrary)
             await _vm.LoadMapAsync(id);
+    }
+
+    private void MapList_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        _mapListDragStart = e.GetPosition(null);
+        _mapListDragItem = FindMapPickerItem(e.OriginalSource as DependencyObject);
+        _mapListDragStarted = false;
+    }
+
+    private void MapList_PreviewMouseMove(object sender, MouseEventArgs e)
+    {
+        if (_mapListDragItem is null || e.LeftButton != MouseButtonState.Pressed || _mapListDragStarted)
+            return;
+
+        var pos = e.GetPosition(null);
+        if (Math.Abs(pos.X - _mapListDragStart.X) < SystemParameters.MinimumHorizontalDragDistance &&
+            Math.Abs(pos.Y - _mapListDragStart.Y) < SystemParameters.MinimumVerticalDragDistance)
+            return;
+
+        if (!(_vm.IsMapCombinedMode && !_vm.IsMapCombinedMinimized) &&
+            !(_vm.IsWorldTab && _vm.World.World is not null))
+            return;
+
+        _mapListDragStarted = true;
+        _hoverMapPreviewId = -1;
+        MapHoverPopup.IsOpen = false;
+
+        var data = new DataObject(MainViewModel.MapIdDragFormat, _mapListDragItem.MapId);
+        DragDrop.DoDragDrop(MapList, data, DragDropEffects.Copy);
+        _mapListDragItem = null;
+        _mapListDragStarted = false;
+    }
+
+    private void MapList_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        _mapListDragItem = null;
+        _mapListDragStarted = false;
+    }
+
+    private static MapPickerItemVm? FindMapPickerItem(DependencyObject? source)
+    {
+        while (source is not null)
+        {
+            if (source is FrameworkElement { DataContext: MapPickerItemVm item })
+                return item;
+            source = VisualTreeHelper.GetParent(source);
+        }
+
+        return null;
     }
 
     private void FolderTree_OnSelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
@@ -616,8 +849,58 @@ public partial class MapsEditorView : UserControl
         GfxHoverPopup.IsOpen = false;
     }
 
-    private void ReplaceGfx_Click(object sender, RoutedEventArgs e)
+    private void ReplaceGfx_Click(object sender, RoutedEventArgs e) =>
+        OpenReplaceGfxDialog(preferWholeMap: false);
+
+    private void ReplaceAllFocusGfx_Click(object sender, RoutedEventArgs e) =>
+        OpenReplaceGfxDialog(preferWholeMap: true);
+
+    private void OpenReplaceGfxDialog(bool preferWholeMap)
     {
+        if (_vm.IsMapCombinedMode && preferWholeMap)
+        {
+            if (_vm.FocusGfxId is null && _vm.SelectedGfxId is null)
+            {
+                MessageBox.Show(
+                    "Selecciona una celda con un objeto, o elige un GFX en el catálogo.",
+                    "Reemplazar todos");
+                return;
+            }
+
+            var combinedDlg = new ReplaceGfxWindow(
+                UiDisplayLabels.LayerTarget(_vm.PaintLayer),
+                suggestedFind: _vm.FocusGfxId ?? _vm.SelectedGfxId,
+                brushRotation: _vm.BrushRotation,
+                brushFlip: _vm.BrushFlip,
+                activeLayer: _vm.PaintLayer,
+                preferWholeMap: true) { Owner = Window.GetWindow(this) };
+            if (combinedDlg.ShowDialog() != true) return;
+
+            var mmCount = _vm.CountReplaceFocusAcrossCombinedMaps(
+                combinedDlg.FindId,
+                combinedDlg.TargetLayers);
+            if (mmCount == 0)
+            {
+                MessageBox.Show("Ninguna instancia coincide en los mapas seleccionados.", "Reemplazar GFX");
+                return;
+            }
+
+            if (MessageBox.Show(
+                    $"{mmCount} instancias serán modificadas en los mapas con borde amarillo.\n\n¿Aplicar?",
+                    "Reemplazar GFX",
+                    MessageBoxButton.OKCancel,
+                    MessageBoxImage.Question) != MessageBoxResult.OK)
+                return;
+
+            _vm.ApplyReplaceFocusAcrossCombinedMaps(
+                combinedDlg.FindId,
+                combinedDlg.ReplaceId,
+                combinedDlg.TargetLayers,
+                combinedDlg.ForceRotation,
+                combinedDlg.ForceFlip);
+            return;
+        }
+
         if (_vm.World.IsMultiMapEditMode)
         {
             if (_vm.MultiMap.Selection.Count == 0)
@@ -626,8 +909,15 @@ public partial class MapsEditorView : UserControl
                 return;
             }
 
-            var mmDlg = new ReplaceGfxWindow(_vm.PaintLayer.ToString(), _vm.SelectedGfxId) { Owner = Window.GetWindow(this) };
+            var mmDlg = new ReplaceGfxWindow(
+                UiDisplayLabels.LayerTarget(_vm.PaintLayer),
+                suggestedFind: _vm.FocusGfxId ?? _vm.SelectedGfxId,
+                brushRotation: _vm.BrushRotation,
+                brushFlip: _vm.BrushFlip,
+                activeLayer: _vm.PaintLayer,
+                preferWholeMap: false) { Owner = Window.GetWindow(this) };
             if (mmDlg.ShowDialog() != true) return;
+            // Multimap path keeps selection-scoped replace on active layer for now.
             var mmCount = _vm.MultiMap.CountReplace(mmDlg.FindId, _vm.PaintLayer);
             if (mmCount == 0)
             {
@@ -642,27 +932,55 @@ public partial class MapsEditorView : UserControl
             return;
         }
 
-        if (!_vm.HasSelection)
+        if (_vm.CurrentMap is null)
         {
-            MessageBox.Show("Selecciona celdas primero.", "Reemplazar GFX");
+            MessageBox.Show("Abre un mapa primero.", "Reemplazar GFX");
             return;
         }
 
-        var dlg = new ReplaceGfxWindow(_vm.PaintLayer.ToString(), _vm.SelectedGfxId) { Owner = Window.GetWindow(this) };
+        if (preferWholeMap && _vm.FocusGfxId is null && _vm.SelectedGfxId is null)
+        {
+            MessageBox.Show(
+                "Selecciona una celda que tenga un objeto (capa Suelo / Capa 1 / Capa 2),\n" +
+                "o elige un GFX en el catálogo.",
+                "Reemplazar todos");
+            return;
+        }
+
+        var dlg = new ReplaceGfxWindow(
+            UiDisplayLabels.LayerTarget(_vm.PaintLayer),
+            suggestedFind: _vm.FocusGfxId ?? _vm.SelectedGfxId,
+            brushRotation: _vm.BrushRotation,
+            brushFlip: _vm.BrushFlip,
+            activeLayer: _vm.PaintLayer,
+            preferWholeMap: preferWholeMap) { Owner = Window.GetWindow(this) };
         if (dlg.ShowDialog() != true) return;
 
-        var count = _vm.ReplaceGfx(dlg.FindId, dlg.ReplaceId);
-        if (count == 0)
+        if (!dlg.WholeMap && !_vm.HasSelection)
         {
-            MessageBox.Show("Ninguna celda de la selección coincide.", "Reemplazar GFX");
+            MessageBox.Show("Selecciona celdas primero, o elige «Todo el mapa».", "Reemplazar GFX");
             return;
         }
 
-        if (MessageBox.Show($"{count} celdas serán modificadas.\n\n¿Aplicar?", "Reemplazar GFX",
+        var count = _vm.CountReplaceGfx(dlg.FindId, dlg.ReplaceId, dlg.WholeMap, dlg.TargetLayers);
+        if (count == 0)
+        {
+            MessageBox.Show("Ninguna instancia coincide con esos criterios.", "Reemplazar GFX");
+            return;
+        }
+
+        var scope = dlg.WholeMap ? "todo el mapa" : "la selección";
+        if (MessageBox.Show($"{count} instancias serán modificadas en {scope}.\n\n¿Aplicar?", "Reemplazar GFX",
                 MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
             return;
 
-        _vm.ApplyReplace(dlg.FindId, dlg.ReplaceId);
+        _vm.ApplyReplace(
+            dlg.FindId,
+            dlg.ReplaceId,
+            dlg.WholeMap,
+            dlg.TargetLayers,
+            dlg.ForceRotation,
+            dlg.ForceFlip);
     }
 
     private void ApplyToSelection_Click(object sender, RoutedEventArgs e) =>
@@ -693,6 +1011,15 @@ public partial class MapsEditorView : UserControl
             or nameof(MainViewModel.ShowStatusBar))
         {
             ApplyLayoutFromSettings();
+        }
+
+        if (e.PropertyName is nameof(MainViewModel.ShowCombinedMinimizedBar)
+            or nameof(MainViewModel.IsMapCombinedMode)
+            or nameof(MainViewModel.IsMapCombinedMinimized))
+        {
+            RefreshMapTaskbar();
+            if (_vm.IsMapCombinedMode && !_vm.IsMapCombinedMinimized)
+                _vm.ScheduleCombinedViewportFit();
         }
     }
 

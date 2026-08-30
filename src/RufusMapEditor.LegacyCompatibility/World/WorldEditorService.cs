@@ -292,6 +292,86 @@ public sealed class WorldEditorService
         };
     }
 
+    /// <summary>Inserts an empty column at <paramref name="x"/>, shifting placements with WorldX &gt;= x to the right.</summary>
+    public WorldGridResizeResult InsertColumnAt(WorldDocument world, int x)
+    {
+        if (!world.HasGrid)
+            return WorldGridResizeResult.NoGrid;
+
+        foreach (var p in world.Placements.Where(p => p.WorldX >= x))
+            p.WorldX++;
+
+        if (x < world.OriginX)
+            world.OriginX = x;
+        world.GridWidth++;
+        Touch(world);
+        return WorldGridResizeResult.Ok;
+    }
+
+    /// <summary>Inserts an empty row at <paramref name="y"/>, shifting placements with WorldY &gt;= y down.</summary>
+    public WorldGridResizeResult InsertRowAt(WorldDocument world, int y)
+    {
+        if (!world.HasGrid)
+            return WorldGridResizeResult.NoGrid;
+
+        foreach (var p in world.Placements.Where(p => p.WorldY >= y))
+            p.WorldY++;
+
+        if (y < world.OriginY)
+            world.OriginY = y;
+        world.GridHeight++;
+        Touch(world);
+        return WorldGridResizeResult.Ok;
+    }
+
+    /// <summary>Removes column <paramref name="x"/> (maps → tray) and shifts columns to the right leftward.</summary>
+    public WorldGridResizeResult DeleteColumnAt(
+        WorldDocument world,
+        int x,
+        out IReadOnlyList<string> removedDocumentKeys)
+    {
+        removedDocumentKeys = Array.Empty<string>();
+        if (!world.HasGrid)
+            return WorldGridResizeResult.NoGrid;
+        if (world.GridWidth <= 1)
+            return WorldGridResizeResult.MinSize;
+        if (x < world.OriginX || x >= world.OriginX + world.GridWidth)
+            return WorldGridResizeResult.NoGrid;
+
+        var removed = new List<string>();
+        CollectAndUnplaceColumn(world, x, removed);
+        foreach (var p in world.Placements.Where(p => p.WorldX > x))
+            p.WorldX--;
+        world.GridWidth--;
+        removedDocumentKeys = removed;
+        Touch(world);
+        return WorldGridResizeResult.Ok;
+    }
+
+    /// <summary>Removes row <paramref name="y"/> (maps → tray) and shifts rows below upward.</summary>
+    public WorldGridResizeResult DeleteRowAt(
+        WorldDocument world,
+        int y,
+        out IReadOnlyList<string> removedDocumentKeys)
+    {
+        removedDocumentKeys = Array.Empty<string>();
+        if (!world.HasGrid)
+            return WorldGridResizeResult.NoGrid;
+        if (world.GridHeight <= 1)
+            return WorldGridResizeResult.MinSize;
+        if (y < world.OriginY || y >= world.OriginY + world.GridHeight)
+            return WorldGridResizeResult.NoGrid;
+
+        var removed = new List<string>();
+        CollectAndUnplaceRow(world, y, removed);
+        foreach (var p in world.Placements.Where(p => p.WorldY > y))
+            p.WorldY--;
+        world.GridHeight--;
+        removedDocumentKeys = removed;
+        Touch(world);
+        return WorldGridResizeResult.Ok;
+    }
+
     private void CollectAndUnplaceColumn(WorldDocument world, int x, List<string> removed)
     {
         foreach (var p in world.Placements.Where(p => p.WorldX == x).ToList())

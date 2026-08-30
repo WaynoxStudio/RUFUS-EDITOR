@@ -16,6 +16,13 @@ public sealed class LicenseSessionLocalState
     public int? AiMonthlyLimit { get; set; }
     public int? AiUsageToday { get; set; }
     public int? AiUsageMonth { get; set; }
+
+    /// <summary>
+    /// License code kept only in the DPAPI local blob so the Editor can silently re-activate
+    /// after a soft-expired server lease without prompting every launch.
+    /// Cleared on manual logout. Never sent except via Activate.
+    /// </summary>
+    public string? LicenseCode { get; set; }
 }
 
 public interface ISessionStore

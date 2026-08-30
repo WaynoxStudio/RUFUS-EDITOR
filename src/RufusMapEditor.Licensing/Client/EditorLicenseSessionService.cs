@@ -60,7 +60,12 @@ public sealed class EditorLicenseSessionService
     {
         var local = await _store.LoadAsync(ct);
         if (local is null || string.IsNullOrWhiteSpace(local.SessionToken))
+        {
+            // No live session token — still try silent activate if we kept the license code.
+            if (!string.IsNullOrWhiteSpace(local?.LicenseCode))
+                return await TrySilentReactivateAsync(local!.LicenseCode!, ct);
             return NeedActivation();
+        }
 
         var deviceId = _deviceId.GetDeviceId();
         if (!string.IsNullOrWhiteSpace(local.DeviceId)
@@ -76,15 +81,26 @@ public sealed class EditorLicenseSessionService
             DeviceId = deviceId,
         }, ct);
 
-        return await ApplyRemoteResultAsync(result, deviceId, clearOnExplicitFailure: true, ct);
+        var applied = await ApplyRemoteResultAsync(
+            result, deviceId, clearOnExplicitFailure: true, ct, preserveLicenseCode: local.LicenseCode);
+
+        if (applied.Outcome == LicenseGateOutcome.Authorized)
+            return applied;
+
+        // Soft-expired / wiped server session: re-activate with the saved code (same device).
+        if (CanSilentReactivate(applied.ErrorCode) && !string.IsNullOrWhiteSpace(local.LicenseCode))
+            return await TrySilentReactivateAsync(local.LicenseCode!, ct);
+
+        return applied;
     }
 
     public async Task<LicenseGateResult> ActivateAsync(string licenseCode, CancellationToken ct = default)
     {
         var deviceId = _deviceId.GetDeviceId();
+        var normalizedCode = licenseCode.Trim();
         var result = await _client.ActivateAsync(new ActivateLicenseRequest
         {
-            LicenseCode = licenseCode.Trim(),
+            LicenseCode = normalizedCode,
             DeviceId = deviceId,
             ClientVersion = _clientVersion,
         }, ct);
@@ -106,6 +122,7 @@ public sealed class EditorLicenseSessionService
         }
 
         var state = LicenseSessionMapper.FromSuccess(result.Session, deviceId);
+        state.LicenseCode = normalizedCode;
         await _store.SaveAsync(state, ct);
         return new LicenseGateResult
         {
@@ -145,11 +162,12 @@ public sealed class EditorLicenseSessionService
                 };
             }
 
-            await _store.ClearAsync(ct);
+            await PreserveLicenseCodeOnlyAsync(local, ct);
             return Denied(LicenseErrorCodes.SessionInvalid);
         }
 
-        return await ApplyRemoteResultAsync(result, deviceId, clearOnExplicitFailure: true, ct);
+        return await ApplyRemoteResultAsync(
+            result, deviceId, clearOnExplicitFailure: true, ct, preserveLicenseCode: local.LicenseCode);
     }
 
     public async Task LogoutBestEffortAsync(CancellationToken ct = default)
@@ -177,11 +195,55 @@ public sealed class EditorLicenseSessionService
 
     public Task ClearLocalAsync(CancellationToken ct = default) => _store.ClearAsync(ct);
 
+    private async Task<LicenseGateResult> TrySilentReactivateAsync(string licenseCode, CancellationToken ct)
+    {
+        var reactivated = await ActivateAsync(licenseCode, ct);
+        if (reactivated.Outcome == LicenseGateOutcome.Authorized)
+            return reactivated;
+
+        // Keep the code in store for the next attempt unless the license itself is dead.
+        if (reactivated.Outcome == LicenseGateOutcome.Denied
+            && IsFatalLicenseRejection(reactivated.ErrorCode))
+            await _store.ClearAsync(ct);
+
+        return reactivated;
+    }
+
+    private static bool CanSilentReactivate(string? errorCode) =>
+        string.IsNullOrWhiteSpace(errorCode)
+        || string.Equals(errorCode, LicenseErrorCodes.SessionInvalid, StringComparison.Ordinal);
+
+    private static bool IsFatalLicenseRejection(string? code) =>
+        code is LicenseErrorCodes.LicenseExpired
+            or LicenseErrorCodes.LicenseRevoked
+            or LicenseErrorCodes.LicenseSuspended
+            or LicenseErrorCodes.LicenseNotFound
+            or LicenseErrorCodes.EditorNotAllowed
+            or LicenseErrorCodes.DeviceMismatch
+            or LicenseErrorCodes.DeviceLimitReached;
+
+    private async Task PreserveLicenseCodeOnlyAsync(LicenseSessionLocalState previous, CancellationToken ct)
+    {
+        if (!string.IsNullOrWhiteSpace(previous.LicenseCode))
+        {
+            await _store.SaveAsync(new LicenseSessionLocalState
+            {
+                LicenseCode = previous.LicenseCode,
+                DeviceId = previous.DeviceId,
+            }, ct);
+        }
+        else
+        {
+            await _store.ClearAsync(ct);
+        }
+    }
+
     private async Task<LicenseGateResult> ApplyRemoteResultAsync(
         LicenseOperationClientResult result,
         string deviceId,
         bool clearOnExplicitFailure,
-        CancellationToken ct)
+        CancellationToken ct,
+        string? preserveLicenseCode = null)
     {
         if (result.Success && result.Session is not null)
         {
@@ -193,6 +255,8 @@ public sealed class EditorLicenseSessionService
             }
 
             var state = LicenseSessionMapper.FromSuccess(result.Session, deviceId);
+            state.LicenseCode = preserveLicenseCode
+                ?? (await _store.LoadAsync(ct))?.LicenseCode;
             await _store.SaveAsync(state, ct);
             return new LicenseGateResult
             {
@@ -205,7 +269,30 @@ public sealed class EditorLicenseSessionService
             return Transient(result.ErrorCode);
 
         if (clearOnExplicitFailure && LicenseUserMessages.IsExplicitRejection(result.ErrorCode))
-            await _store.ClearAsync(ct);
+        {
+            // Fatal license states wipe everything. Soft session loss keeps the code for silent re-activate.
+            if (IsFatalLicenseRejection(result.ErrorCode))
+            {
+                await _store.ClearAsync(ct);
+            }
+            else
+            {
+                var previous = await _store.LoadAsync(ct);
+                var code = preserveLicenseCode ?? previous?.LicenseCode;
+                if (!string.IsNullOrWhiteSpace(code))
+                {
+                    await _store.SaveAsync(new LicenseSessionLocalState
+                    {
+                        LicenseCode = code,
+                        DeviceId = previous?.DeviceId ?? deviceId,
+                    }, ct);
+                }
+                else
+                {
+                    await _store.ClearAsync(ct);
+                }
+            }
+        }
 
         return Denied(result.ErrorCode);
     }

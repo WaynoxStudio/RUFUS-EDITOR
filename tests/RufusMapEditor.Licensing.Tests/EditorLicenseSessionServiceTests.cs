@@ -11,11 +11,12 @@ namespace RufusMapEditor.Licensing.Tests;
 
 public sealed class EditorLicenseSessionServiceTests
 {
-    private static (SqliteLicenseUnitOfWork db, FakeServerClock clock, EditorLicenseSessionService editor, AdminLicenseService admin, MemorySessionStore store) Create()
+    private static (SqliteLicenseUnitOfWork db, FakeServerClock clock, EditorLicenseSessionService editor, AdminLicenseService admin, MemorySessionStore store) Create(
+        LicenseLeaseOptions? lease = null)
     {
         var db = SqliteLicenseUnitOfWork.CreateInMemory();
         var clock = new FakeServerClock(new DateTimeOffset(2026, 9, 5, 12, 0, 0, TimeSpan.Zero));
-        var lease = new LicenseLeaseOptions { LeaseSeconds = 900, HeartbeatSeconds = 300 };
+        lease ??= new LicenseLeaseOptions { LeaseSeconds = 900, HeartbeatSeconds = 300 };
         var auth = new LicenseAuthService(db, clock, lease);
         var admin = new AdminLicenseService(db, clock);
         var store = new MemorySessionStore();
@@ -181,6 +182,43 @@ public sealed class EditorLicenseSessionServiceTests
             var local = await store.LoadAsync();
             Assert.NotNull(local);
             Assert.False(string.IsNullOrWhiteSpace(local!.SessionToken));
+            Assert.Equal(code, local.LicenseCode);
+        }
+    }
+
+    [Fact]
+    public async Task TryResume_silently_reactivates_when_lease_soft_expired()
+    {
+        var lease = new LicenseLeaseOptions { LeaseSeconds = 30, HeartbeatSeconds = 10 };
+        var (db, clock, editor, admin, store) = Create(lease);
+        await using (db)
+        {
+            var code = (await admin.CreateAsync(new CreateLicenseRequest
+            {
+                DurationDays = 1,
+                MaxDevices = 1,
+                MaxConcurrentSessions = 1,
+                PermissionEditor = true,
+                PermissionAi = false,
+            })).LicenseCode;
+
+            Assert.Equal(LicenseGateOutcome.Authorized, (await editor.ActivateAsync(code)).Outcome);
+            Assert.Equal(code, (await store.LoadAsync())!.LicenseCode);
+
+            // Simulate pre-fix backend that killed the lease (or closed session via activate rotate).
+            clock.UtcNow = clock.UtcNow.AddMinutes(10);
+            // Force SESSION_INVALID path: close session on server while keeping local token+code.
+            var auth = new LicenseAuthService(db, clock, lease);
+            await auth.LogoutAsync(new LogoutRequest
+            {
+                SessionToken = (await store.LoadAsync())!.SessionToken,
+                DeviceId = "dev-a",
+            });
+
+            var resume = await editor.TryResumeAsync();
+            Assert.Equal(LicenseGateOutcome.Authorized, resume.Outcome);
+            Assert.False(string.IsNullOrWhiteSpace(resume.Session?.SessionToken));
+            Assert.Equal(code, (await store.LoadAsync())!.LicenseCode);
         }
     }
 

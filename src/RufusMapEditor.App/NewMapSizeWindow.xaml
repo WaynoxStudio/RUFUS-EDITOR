@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Nuevo mapa"
-        Width="440"
+        Width="460"
         SizeToContent="Height"
         MinHeight="300"
         WindowStartupLocation="CenterOwner"
@@ -18,13 +18,21 @@
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
     </Grid.RowDefinitions>
 
-    <TextBlock Text="Elige el tamaño de la plantilla. El Map ID se pide al guardar."
+    <Border x:Name="LockBanner" Grid.Row="0" Margin="0,0,0,14" Padding="10,8"
+            Background="#33FF9800" BorderBrush="#FFFF9800" BorderThickness="1" CornerRadius="4"
+            Visibility="Collapsed">
+      <TextBlock x:Name="LockBannerText" TextWrapping="Wrap" Foreground="#FFFFE0B2" FontWeight="SemiBold"/>
+    </Border>
+
+    <TextBlock x:Name="IntroText" Grid.Row="1"
+               Text="Elige el tamaño de la plantilla. El Map ID se pide al guardar."
                TextWrapping="Wrap" Margin="0,0,0,14"
                Foreground="#FFFFFFFF"/>
 
-    <StackPanel Grid.Row="1" Margin="0,0,0,14">
+    <StackPanel Grid.Row="2" Margin="0,0,0,14">
       <RadioButton x:Name="PresetMedio" GroupName="Size" IsChecked="True"
                    Foreground="#FFFFFFFF"
                    Content="Medio — 15 × 17 (estándar, 479 celdas)"
@@ -39,7 +47,7 @@
                    Margin="0,0,0,10" Checked="Preset_Changed"/>
     </StackPanel>
 
-    <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,14">
+    <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,0,0,14">
       <TextBlock Text="Ancho" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="#FFFFFFFF"/>
       <TextBox x:Name="WidthBox" Width="56" FontFamily="Consolas" Text="15" IsEnabled="False"
                Foreground="#FF222222" Background="#FFFFFFFF" BorderBrush="#FFCCCCCC" Padding="4,2"/>
@@ -49,12 +57,12 @@
                Foreground="#FF222222" Background="#FFFFFFFF" BorderBrush="#FFCCCCCC" Padding="4,2"/>
     </StackPanel>
 
-    <TextBlock Grid.Row="3"
+    <TextBlock x:Name="FooterHint" Grid.Row="4"
                Text="Se abre una plantilla vacía. Al guardar (Ctrl+S) eliges el Map ID y se crea Library\Maps\&lt;ID&gt;."
                TextWrapping="Wrap" FontSize="12" Margin="0,0,0,16"
                Foreground="#FFE0E0E0"/>
 
-    <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
+    <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right">
       <Button Content="Cancelar" Width="90" Margin="0,0,8,0" Padding="8,4" IsCancel="True" Click="Cancel_Click"/>
       <Button Content="Crear" Width="90" Padding="8,4" IsDefault="True" Click="Ok_Click"/>
     </StackPanel>

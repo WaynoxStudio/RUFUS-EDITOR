@@ -16,10 +16,38 @@
             IsDefault="True" Click="Ok_Click"/>
     <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
       <TextBlock x:Name="PromptText" Text="Selecciona un mapa:" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,6"/>
-      <TextBox x:Name="SearchBox" Padding="6,4"
+      <Button x:Name="NewMapButton" Content="Nuevo mapa…" Margin="0,0,0,8" Padding="10,5"
+              HorizontalAlignment="Left"
+              Style="{StaticResource PrimaryButton}"
+              Click="NewMap_Click"
+              Visibility="Collapsed"
+              ToolTip="Crear un mapa vacío y colocarlo aquí"/>
+      <TextBox x:Name="SearchBox" Padding="6,4" Margin="0,0,0,6"
                Background="{DynamicResource InputBackground}" BorderBrush="{DynamicResource InputBorder}"
-               TextChanged="SearchBox_TextChanged"
-               ToolTip="Filtrar por Map ID"/>
+               TextChanged="FilterChanged"
+               ToolTip="Filtrar por Map ID (texto)"/>
+      <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
+        <TextBlock Text="Orden" VerticalAlignment="Center" Margin="0,0,6,4"
+                   Foreground="{DynamicResource TextSecondary}"/>
+        <ComboBox x:Name="SortBox" Width="130" Margin="0,0,16,4" Padding="4,2"
+                  SelectionChanged="FilterChanged"
+                  ToolTip="Ordenar por número de mapa">
+          <ComboBoxItem Content="Ascendente" Tag="asc"/>
+          <ComboBoxItem Content="Descendente" Tag="desc"/>
+        </ComboBox>
+        <TextBlock Text="Desde" VerticalAlignment="Center" Margin="0,0,6,4"
+                   Foreground="{DynamicResource TextSecondary}"/>
+        <TextBox x:Name="RangeFromBox" Width="80" Padding="4,2" Margin="0,0,10,4"
+                 Background="{DynamicResource InputBackground}" BorderBrush="{DynamicResource InputBorder}"
+                 TextChanged="FilterChanged"
+                 ToolTip="Map ID mínimo (ej. 30000)"/>
+        <TextBlock Text="Hasta" VerticalAlignment="Center" Margin="0,0,6,4"
+                   Foreground="{DynamicResource TextSecondary}"/>
+        <TextBox x:Name="RangeToBox" Width="80" Padding="4,2" Margin="0,0,0,4"
+                 Background="{DynamicResource InputBackground}" BorderBrush="{DynamicResource InputBorder}"
+                 TextChanged="FilterChanged"
+                 ToolTip="Map ID máximo (ej. 31000)"/>
+      </WrapPanel>
     </StackPanel>
     <ListBox x:Name="MapGrid"
              Background="{DynamicResource SurfaceBackground}"

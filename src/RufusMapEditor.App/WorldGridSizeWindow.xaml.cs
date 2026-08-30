@@ -9,9 +9,21 @@ public partial class WorldGridSizeWindow : Window
     public int ResultOriginX { get; private set; }
     public int ResultOriginY { get; private set; }
 
-    public WorldGridSizeWindow()
+    public WorldGridSizeWindow(
+        int? suggestWidth = null,
+        int? suggestHeight = null,
+        int? suggestOriginX = null,
+        int? suggestOriginY = null)
     {
         InitializeComponent();
+        if (suggestWidth is int w && w > 0)
+            WidthBox.Text = w.ToString();
+        if (suggestHeight is int h && h > 0)
+            HeightBox.Text = h.ToString();
+        if (suggestOriginX is int ox)
+            OriginXBox.Text = ox.ToString();
+        if (suggestOriginY is int oy)
+            OriginYBox.Text = oy.ToString();
         Loaded += (_, _) => WidthBox.Focus();
     }
 

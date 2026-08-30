@@ -413,4 +413,28 @@ public sealed class LicenseAuthServiceTests
             Assert.Equal(clock.UtcNow.AddSeconds(100), hb.Session!.ExpiresAt);
         }
     }
+
+    [Fact]
+    public async Task Heartbeat_renews_after_soft_lease_expiry()
+    {
+        var lease = new LicenseLeaseOptions { LeaseSeconds = 60, HeartbeatSeconds = 30 };
+        var (db, clock, auth, admin) = Create(lease);
+        await using (db)
+        {
+            var code = await CreateCodeAsync(admin);
+            var a = await auth.ActivateAsync(new ActivateLicenseRequest { LicenseCode = code, DeviceId = "dev-a" });
+            Assert.True(a.Success);
+
+            // Past lease without heartbeat — previously returned SESSION_INVALID every relaunch.
+            clock.UtcNow = clock.UtcNow.AddSeconds(120);
+            var hb = await auth.HeartbeatAsync(new HeartbeatRequest
+            {
+                SessionToken = a.Session!.SessionToken,
+                DeviceId = "dev-a",
+            });
+            Assert.True(hb.Success);
+            Assert.Equal(a.Session.SessionToken, hb.Session!.SessionToken);
+            Assert.Equal(clock.UtcNow.AddSeconds(60), hb.Session.ExpiresAt);
+        }
+    }
 }

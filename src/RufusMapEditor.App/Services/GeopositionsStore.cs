@@ -49,6 +49,42 @@ public static class GeopositionsStore
         return Path.Combine(ProjectDirectory(libraryRoot, safe), safe + RufworldFormat.FileExtension);
     }
 
+    /// <summary>
+    /// Astria layout: Géopositions/{Name}/{Name}.rufworld.
+    /// Moves a flat Géopositions/{Name}.rufworld into its project folder.
+    /// </summary>
+    public static string EnsureProjectFolderLayout(string filePath)
+    {
+        var full = Path.GetFullPath(filePath);
+        var dir = Path.GetDirectoryName(full);
+        if (string.IsNullOrEmpty(dir))
+            return full;
+
+        var fileName = Path.GetFileNameWithoutExtension(full);
+        var parentName = Path.GetFileName(dir);
+
+        if (string.Equals(parentName, fileName, StringComparison.OrdinalIgnoreCase))
+            return full;
+
+        if (!string.Equals(parentName, FolderName, StringComparison.OrdinalIgnoreCase))
+            return full;
+
+        var destDir = Path.Combine(dir, fileName);
+        var dest = Path.Combine(destDir, Path.GetFileName(full));
+        Directory.CreateDirectory(destDir);
+
+        TryMove(full, dest);
+        TryMove(full + ".bak", dest + ".bak");
+        return dest;
+    }
+
+    private static void TryMove(string source, string dest)
+    {
+        if (!File.Exists(source) || File.Exists(dest)) return;
+        try { File.Move(source, dest); }
+        catch { /* keep writing to dest anyway */ }
+    }
+
     public static IReadOnlyList<WorldProjectInfo> ListProjects(string libraryRoot)
     {
         var root = EnsureRoot(libraryRoot);
