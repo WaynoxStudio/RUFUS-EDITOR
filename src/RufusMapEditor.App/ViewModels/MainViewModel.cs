@@ -44,7 +44,6 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     private readonly SemaphoreSlim _mapThumbGate = new(3);
     private readonly AutosaveStore _autosave = new();
     private readonly DispatcherTimer _autosaveTimer;
-    private readonly DispatcherTimer _gfxSearchDebounce;
     private readonly MapPickerFilterState _mapListFilter = new();
     private FileSystemWatcher? _imagesWatcher;
     private DispatcherTimer? _imagesReloadDebounce;
@@ -68,7 +67,6 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     private string _renderTimeText = "—";
     private string _editLatencyText = "—";
     private string _windowTitle = "RUFUS Map Editor";
-    private string _gfxSearch = "";
     private string _activeLayerLabel = "Capa: SUELO";
     private string _selectedGfxLabel = "Gfx: —";
     private string _catalogHeaderTitle = "CATÁLOGO · SUELOS";
@@ -258,6 +256,9 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         ExportCombinedWorldCommand = new RelayCommand(
             () => MosaicHost.SaveWorldAsCommand.Execute(null),
             () => MosaicHost.World is not null);
+        OpenGfxVisualSearchCommand = new RelayCommand(
+            OpenGfxVisualSearch,
+            () => _library.IsLoaded && _library.Catalog is not null);
 
         SetToolSelectCommand = new RelayCommand(() => Tool = EditorTool.Select);
         SetToolRectSelectCommand = new RelayCommand(() => Tool = EditorTool.RectSelect);
@@ -410,13 +411,6 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         ReloadOriginalCommand = new RelayCommand(ReloadOriginal, () =>
             CurrentMap is not null && IsAstriaImport);
 
-        _gfxSearchDebounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
-        _gfxSearchDebounce.Tick += (_, _) =>
-        {
-            _gfxSearchDebounce.Stop();
-            RefreshVisibleGfx(force: true);
-        };
-
         _autosaveTimer = new DispatcherTimer
         {
             Interval = TimeSpan.FromSeconds(Math.Max(30, _settings.AutosaveIntervalSeconds)),
@@ -564,11 +558,11 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             var sizePrefix = size is null ? "Combinado" : $"Combinado · {size}";
 
             if (Tool is EditorTool.Paint or EditorTool.Erase)
-                return $"{sizePrefix} · Clic = pintar · Clic derecho = borrar · Márgenes / Alt / Espacio = mover vista";
+                return $"{sizePrefix} · Clic = pintar · Clic derecho = borrar capa activa · Márgenes / Alt / Espacio = mover vista";
 
             return _combinedMapsMultiSelect
-                ? $"{sizePrefix} · Varios mapas · Arrastrar selección = mover GFX · Arrastra mapa de la lista o + · Alt+arrastrar = intercambiar"
-                : $"{sizePrefix} · Clic = celda · Arrastra mapa de la lista o + · Alt+arrastrar mapa = intercambiar · Márgenes = vista";
+                ? $"{sizePrefix} · Varios mapas · Arrastrar selección = mover GFX · Arrastra mapa de la lista o + · Ctrl+arrastrar = mover mapa"
+                : $"{sizePrefix} · Clic = celda · Arrastra mapa de la lista o + · Ctrl+arrastrar mapa = mover · Márgenes = vista";
         }
     }
 
@@ -664,6 +658,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     public RelayCommand SaveAllCombinedMapsCommand { get; }
     public RelayCommand AddCombinedMapsToPublishQueueCommand { get; }
     public RelayCommand ExportCombinedWorldCommand { get; }
+    public RelayCommand OpenGfxVisualSearchCommand { get; }
     public RelayCommand ClearMapListFilterCommand { get; }
     public RelayCommand SetToolSelectCommand { get; }
     public RelayCommand SetToolRectSelectCommand { get; }
@@ -1013,19 +1008,6 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             : SelectedGfxId is int
               || (_session?.Clipboard is not null && CurrentMap is not null)
               || (IsMapCombinedMode && MultiMap.HasClipboard);
-
-    public string GfxSearch
-    {
-        get => _gfxSearch;
-        set
-        {
-            if (SetProperty(ref _gfxSearch, value))
-            {
-                _gfxSearchDebounce.Stop();
-                _gfxSearchDebounce.Start();
-            }
-        }
-    }
 
     public InspectorLayerHighlight HighlightedInspectorLayer
     {
@@ -2302,22 +2284,46 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     }
 
     /// <summary>
-    /// MAP-PAINT.1 — in paint mode, right-click removes only the active brush GFX on the active layer.
-    /// Keeps <see cref="SelectedGfxId"/> so the user can keep painting. Returns false = no-op.
+    /// Right-click in Paint: erase on the active layer.
+    /// Respects <see cref="EraseOnlySelectedGfx"/> — default clears the whole layer.
     /// </summary>
     public bool TryEraseActiveBrushAtCell(int cellId)
     {
         if (CurrentMap is null || _session is null) return false;
         if (cellId < 0 || cellId >= CurrentMap.Cells.Count) return false;
-        if (SelectedGfxId is not int brushId) return false;
 
-        var cell = CurrentMap.Cells[cellId];
-        if (GetLayerGfx(cell, PaintLayer) != brushId)
+        var layerGfx = GetLayerGfx(CurrentMap.Cells[cellId], PaintLayer);
+        if (layerGfx <= 0)
+        {
+            StatusText = $"Nada que borrar en {UiDisplayLabels.LayerTarget(PaintLayer)}";
             return false;
+        }
 
-        BeginMatchingEraseStroke(brushId);
+        if (EraseOnlySelectedGfx)
+        {
+            if (SelectedGfxId is not int brushId)
+            {
+                StatusText = "Borrar solo GFX · selecciona un GFX del catálogo primero";
+                return false;
+            }
+
+            if (layerGfx != brushId)
+            {
+                StatusText = $"Esta casilla no tiene GFX {brushId} en {UiDisplayLabels.LayerTarget(PaintLayer)}";
+                return false;
+            }
+
+            BeginMatchingEraseStroke(brushId);
+        }
+        else
+        {
+            BeginEraseStroke();
+        }
+
         EraseCell(cellId, isDrag: false);
-        StatusText = $"Retirado GFX {brushId} — sigue activo (arrastra para borrar más)";
+        StatusText = EraseOnlySelectedGfx && SelectedGfxId is int id
+            ? $"Retirado GFX {id} — sigue activo (arrastra para borrar más)"
+            : $"Capa {UiDisplayLabels.LayerTarget(PaintLayer)} vaciada — arrastra para borrar más";
         return true;
     }
 
@@ -4554,7 +4560,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         FinishStroke();
         BindActiveDocument(doc, clearSelection: false);
         DocumentActivated?.Invoke(doc);
-        RequestFitMap?.Invoke();
+        // Zoom/pan stays per window; only Fit on open (DocumentOpened), not on every activation.
     }
 
     private WorldViewModel CreateWorldViewModel()
@@ -6634,6 +6640,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         _effectiveLibraryPath = Path.GetFullPath(path);
         _librarySource = source;
         HasLibrary = true;
+        OpenGfxVisualSearchCommand.RaiseCanExecuteChanged();
         var label = source == LibrarySource.SiblingExecutable ? "Biblioteca RUFUS (portable)" : "Biblioteca RUFUS";
         LibraryStatusMessage = $"{label}\n{_effectiveLibraryPath}\n{MapIds.Count} mapas · Catálogo: {_library.Catalog?.TotalCount ?? 0} GFX.";
         OnPropertyChanged(nameof(EffectiveLibraryPath));
@@ -7001,7 +7008,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     }
 
     private string BuildVisibleGfxFilterKey() =>
-        $"{_showUnifiedFavorites}|{SelectedCategory}|{SelectedFolder}|{GfxSearch.Trim()}|cols:{GfxColumns}";
+        $"{_showUnifiedFavorites}|{SelectedCategory}|{SelectedFolder}|cols:{GfxColumns}";
 
     private IEnumerable<GfxResource> QueryVisibleResources()
     {
@@ -7047,12 +7054,6 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             }
         }
 
-        if (!string.IsNullOrWhiteSpace(GfxSearch))
-        {
-            var q = GfxSearch.Trim();
-            source = source.Where(r => r.Id.ToString().Contains(q, StringComparison.Ordinal));
-        }
-
         foreach (var res in source.OrderBy(r => r.Id))
             yield return res;
     }
@@ -7069,12 +7070,6 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             })
             .Where(res => res is not null)
             .Cast<GfxResource>();
-
-        if (!string.IsNullOrWhiteSpace(GfxSearch))
-        {
-            var q = GfxSearch.Trim();
-            source = source.Where(r => r.Id.ToString().Contains(q, StringComparison.Ordinal));
-        }
 
         return source.OrderBy(r => r.Category).ThenBy(r => r.Id);
     }
@@ -7165,18 +7160,51 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
         var gfxId = GetLayerGfx(CurrentMap.Cells[cellId], layer);
         var category = layer.ToGfxCategory();
-        if (_library.Catalog is null || !_library.Catalog.TryGet(category, gfxId, out var res) || res is null)
+        LocateGfxInCatalog(category, gfxId);
+    }
+
+    public void LocateGfxInCatalog(GfxCategory category, int gfxId)
+    {
+        if (gfxId <= 0 || _library.Catalog is null) return;
+        if (!_library.Catalog.TryGet(category, gfxId, out var res) || res is null)
             return;
 
-        PaintLayer = layer;
+        PaintLayer = category switch
+        {
+            GfxCategory.Ground => PaintLayer.Ground,
+            GfxCategory.Object => PaintLayer == PaintLayer.Object2 ? PaintLayer.Object2 : PaintLayer.Object1,
+            _ => PaintLayer,
+        };
         SelectedCategory = category;
         var folderName = string.IsNullOrEmpty(res.Folder) ? "(raíz)" : res.Folder;
         SelectedFolder = folderName;
-        GfxSearch = gfxId.ToString();
         SelectedGfxId = gfxId;
+        if (Tool is EditorTool.Select or EditorTool.RectSelect or EditorTool.Eyedropper)
+            Tool = EditorTool.Paint;
         RefreshVisibleGfx(force: true);
         ScrollCatalogToGfxId?.Invoke(gfxId);
         StatusText = $"Catálogo: {category} {gfxId}";
+    }
+
+    private void OpenGfxVisualSearch()
+    {
+        if (_library.Catalog is null)
+        {
+            StatusText = "Catálogo no cargado";
+            return;
+        }
+
+        var dlg = new GfxVisualSearchWindow(_library, PaintLayer.ToGfxCategory())
+        {
+            Owner = Application.Current.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive)
+                    ?? Application.Current.MainWindow,
+        };
+        if (dlg.ShowDialog() != true || dlg.SelectedResource is null)
+            return;
+
+        LocateGfxInCatalog(dlg.SelectedResource.Category, dlg.SelectedResource.Id);
+        PushRecent(CategoryKey(dlg.SelectedResource.Category), dlg.SelectedResource.Id);
+        StatusText = $"GFX {dlg.SelectedResource.Id} seleccionado desde búsqueda visual";
     }
 
     private void RaiseLocateCommands()
@@ -8691,20 +8719,43 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             paintMarksUnwalkable: PaintMarksUnwalkable,
             paintSeam: PaintSeam && IsMapCombinedMode);
 
-    /// <summary>Right-click in Construir: remove the brush GFX on the active layer (combinado).</summary>
+    /// <summary>
+    /// Right-click in Paint (combinado): erase on the active layer.
+    /// Respects <see cref="EraseOnlySelectedGfx"/> — default clears the whole layer.
+    /// </summary>
     public bool TryEraseActiveBrushAtWorldCell(WorldCellRef cell)
     {
-        if (SelectedGfxId is not int brushId)
-            return false;
         var doc = MultiMap.GetDocument(cell.DocumentKey);
         if (doc is null || cell.CellId < 0 || cell.CellId >= doc.Cells.Count)
             return false;
-        if (GetLayerGfx(doc.Cells[cell.CellId], PaintLayer) != brushId)
-            return false;
 
-        BeginMultiMapEraseStroke(matchBrushOnly: true);
-        HandleMultiMapEraseClick(cell, matchBrushOnly: true);
-        StatusText = $"Retirado GFX {brushId} — sigue activo (arrastra para borrar más)";
+        var layerGfx = GetLayerGfx(doc.Cells[cell.CellId], PaintLayer);
+        if (layerGfx <= 0)
+        {
+            StatusText = $"Nada que borrar en {UiDisplayLabels.LayerTarget(PaintLayer)}";
+            return false;
+        }
+
+        if (EraseOnlySelectedGfx)
+        {
+            if (SelectedGfxId is not int brushId)
+            {
+                StatusText = "Borrar solo GFX · selecciona un GFX del catálogo primero";
+                return false;
+            }
+
+            if (layerGfx != brushId)
+            {
+                StatusText = $"Esta casilla no tiene GFX {brushId} en {UiDisplayLabels.LayerTarget(PaintLayer)}";
+                return false;
+            }
+        }
+
+        BeginMultiMapEraseStroke(matchBrushOnly: EraseOnlySelectedGfx);
+        HandleMultiMapEraseClick(cell, matchBrushOnly: EraseOnlySelectedGfx);
+        StatusText = EraseOnlySelectedGfx && SelectedGfxId is int id
+            ? $"Retirado GFX {id} — sigue activo (arrastra para borrar más)"
+            : $"Capa {UiDisplayLabels.LayerTarget(PaintLayer)} vaciada — arrastra para borrar más";
         return true;
     }
 
@@ -9029,7 +9080,6 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         _mapListFilter.Changed -= OnMapListFilterChangedFromPicker;
         DisposeImagesWatcher();
         _autosaveTimer.Stop();
-        _gfxSearchDebounce.Stop();
         Logs.Dispose();
         _overlayCache.Dispose();
         _mapPreviews.Clear();

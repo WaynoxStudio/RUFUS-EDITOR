@@ -116,7 +116,8 @@ public partial class MapViewport : UserControl
     {
         if (e.PropertyName is nameof(OpenMapDocument.MapImage))
         {
-            _hasFittedContent = false;
+            // Keep zoom/pan when the map re-renders after paint/erase.
+            // Only auto-fit the first time content appears.
             SyncFromViewModel();
             TryFitContentIfNeeded();
             ApplyTransform();

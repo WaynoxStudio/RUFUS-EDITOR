@@ -130,7 +130,7 @@ public partial class MapsEditorView : UserControl
                 .Select(Canvas.GetZIndex).DefaultIfEmpty(0).Max();
             Canvas.SetZIndex(window, maxZ + 1);
             window.RefreshActiveChrome();
-            window.Viewport.FitMap();
+            // Do not FitMap here — clicking/painting must keep the user's zoom/pan.
         }
         RefreshAllWindowChrome();
     }

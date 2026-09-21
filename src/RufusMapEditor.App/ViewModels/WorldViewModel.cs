@@ -1024,7 +1024,7 @@ public sealed class WorldViewModel : ViewModelBase
             _editor.RemoveFromWorld(_world, key);
         _selectedKeys.Clear();
         if (scratch)
-            CompactCombinedPlacements();
+            EnsureCombinedNeighborSlots();
         if (scratch && _world.Placements.Count > 0)
             SelectKey(_world.Placements[0].DocumentKey);
         SyncTray();
@@ -1052,7 +1052,7 @@ public sealed class WorldViewModel : ViewModelBase
         _editor.RemoveFromWorld(_world, documentKey);
         _selectedKeys.Remove(documentKey);
         if (scratch)
-            CompactCombinedPlacements();
+            EnsureCombinedNeighborSlots();
         if (scratch && _world.Placements.Count > 0)
             SelectKey(_world.Placements[0].DocumentKey);
         SyncTray();

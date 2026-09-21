@@ -2,17 +2,69 @@
   "version": 2,
   "items": [
     {
-      "mapId": 10420,
-      "rufmapSha256": "6e4545b3bdbb3d5d2ce874667d54553a8ccbdbbf87936c720e2491d408e1973a",
+      "mapId": 30001,
+      "rufmapSha256": "41e2bc66ab7662ab91e4ed642d9ea8d22dcedc8896274b56cd1d060a97aeafe2",
       "dateMapSnapshot": "AME",
-      "rufmapUtcTicks": 639235435461741531,
-      "queuedUtc": "2026-08-25T00:21:54.9406605+00:00",
+      "rufmapUtcTicks": 639237854185996218,
+      "queuedUtc": "2026-08-30T18:19:03.2669993+00:00",
       "subAreaDefined": false,
       "subArea": 0,
       "ep": 2,
       "worldX": 0,
       "worldY": 0,
       "worldCoordinatesSet": false
+    },
+    {
+      "mapId": 30002,
+      "rufmapSha256": "b85ff61819629c2d12fbf4b8b3700dddd9ed2386926c869811f52189c456071f",
+      "dateMapSnapshot": "AME",
+      "rufmapUtcTicks": 639237852660558014,
+      "queuedUtc": "2026-08-30T18:19:03.2913038+00:00",
+      "subAreaDefined": false,
+      "subArea": 0,
+      "ep": 2,
+      "worldX": 0,
+      "worldY": 0,
+      "worldCoordinatesSet": false
+    },
+    {
+      "mapId": 30003,
+      "rufmapSha256": "463ab8a4a082cd25237f0a1170a1832248aa387f42ae606b591b450b8b97f723",
+      "dateMapSnapshot": "AME",
+      "rufmapUtcTicks": 639237852663044175,
+      "queuedUtc": "2026-08-30T18:19:03.3209479+00:00",
+      "subAreaDefined": false,
+      "subArea": 0,
+      "ep": 2,
+      "worldX": 0,
+      "worldY": 0,
+      "worldCoordinatesSet": false
+    },
+    {
+      "mapId": 30004,
+      "rufmapSha256": "e6b235b904374a38d1673038364356374821a5559cc5e2b050a8e23013902bc9",
+      "dateMapSnapshot": "AME",
+      "rufmapUtcTicks": 639237852665434920,
+      "queuedUtc": "2026-08-30T18:19:03.3559065+00:00",
+      "subAreaDefined": false,
+      "subArea": 0,
+      "ep": 2,
+      "worldX": 0,
+      "worldY": 0,
+      "worldCoordinatesSet": false
+    },
+    {
+      "mapId": 30017,
+      "rufmapSha256": "6316cc80a7c67cf9568d5c9dd3e2d79d4aa366b142476d83745abb22030ca912",
+      "dateMapSnapshot": "AME",
+      "rufmapUtcTicks": 639237852667896342,
+      "queuedUtc": "2026-08-30T17:22:14.5359527+00:00",
+      "subAreaDefined": true,
+      "subArea": 0,
+      "ep": 2,
+      "worldX": -47,
+      "worldY": -35,
+      "worldCoordinatesSet": true
     }
   ]
 }

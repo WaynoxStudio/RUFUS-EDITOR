@@ -477,18 +477,6 @@ public partial class WorldViewport : UserControl
             var top = ry - _contentOffsetY;
             DrawPlacedMapChrome(p, entry, left, top, w, h);
 
-            if (!mm.EditableKeys.Contains(entry.Key)) continue;
-            var tester = mm.GetHitTester(entry.Key);
-            if (tester is null) continue;
-            var ox = left;
-            var oy = top;
-
-            if (host.ShowGrid)
-                DrawMapGrid(tester, ox, oy);
-
-            if (host.ShowCellIds && host.ShowCellIdsEffective)
-                DrawMapCellIds(tester, ox, oy);
-
             if (_vm.ShowMapIds && _camera.Zoom >= 0.2)
             {
                 var label = new TextBlock
@@ -500,10 +488,22 @@ public partial class WorldViewport : UserControl
                     FontSize = 11,
                     Padding = new Thickness(4, 2, 4, 2),
                 };
-                Canvas.SetLeft(label, ox + 4);
-                Canvas.SetTop(label, oy + 4);
+                Canvas.SetLeft(label, left + 4);
+                Canvas.SetTop(label, top + 4);
                 OverlayCanvas.Children.Add(label);
             }
+
+            if (!mm.EditableKeys.Contains(entry.Key)) continue;
+            var tester = mm.GetHitTester(entry.Key);
+            if (tester is null) continue;
+            var ox = left;
+            var oy = top;
+
+            if (host.ShowGrid)
+                DrawMapGrid(tester, ox, oy);
+
+            if (host.ShowCellIds && host.ShowCellIdsEffective)
+                DrawMapCellIds(tester, ox, oy);
         }
 
         if (host.Tool is not (EditorTool.Paint or EditorTool.Erase))
@@ -1902,12 +1902,36 @@ public partial class WorldViewport : UserControl
 
         // In MAPA combinado:
         // - Seleccionar: clic = celda · arrastrar selección = mover GFX · arrastrar vacío = pan
-        // - Alt+clic = añadir/quitar mapa del alcance · Alt+arrastrar = mover mapa
+        // - Ctrl+arrastrar = mover mapa · Alt+clic = alcance · Alt+arrastrar = mover mapa
         // - Pintar / resto: igual que mapa suelto
         if (mapCombined && tool == EditorTool.Select)
         {
             var alt = (Keyboard.Modifiers & ModifierKeys.Alt) == ModifierKeys.Alt;
             _mapPressPos = Mouse.GetPosition(this);
+
+            if (ctrl)
+            {
+                var mapKey = _vm.HitTestDocumentKey(wx, wy);
+                if (mapKey is not null)
+                {
+                    if (!_vm.SelectedKeys.Contains(mapKey))
+                        _vm.SelectKey(mapKey);
+                    SetHoveredMapKey(null);
+                    _dragKey = mapKey;
+                    _draggingMap = true;
+                    _mapDragMoved = false;
+                    _dragTargetCell = null;
+                    _combinedSelectPending = false;
+                    _combinedPendingCell = null;
+                    _combinedAltMapPending = false;
+                    _combinedAltMapKey = null;
+                    _movePending = false;
+                    _moveGrabCellId = null;
+                    _moveDocKey = null;
+                    CaptureMouse();
+                    return;
+                }
+            }
 
             if (alt)
             {

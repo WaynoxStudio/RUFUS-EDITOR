@@ -267,6 +267,22 @@
               </Grid>
             </Border>
 
+            <Border DockPanel.Dock="Bottom"
+                    BorderBrush="{DynamicResource Divider}" BorderThickness="0,1,0,0"
+                    Padding="8,6" Background="{DynamicResource SurfaceBackground}">
+              <Button Command="{Binding OpenGfxVisualSearchCommand}"
+                      HorizontalAlignment="Left" Padding="10,5"
+                      ToolTip="Buscar GFX por imagen: pega captura del juego, recorta el ítem y compara con el catálogo local (gratis, sin IA)">
+                <StackPanel Orientation="Horizontal">
+                  <Viewbox Width="14" Height="14" Margin="0,0,8,0">
+                    <Path Data="{StaticResource IconSearchGeom}"
+                          Stroke="{DynamicResource TextPrimary}" StrokeThickness="1.4" Fill="Transparent"/>
+                  </Viewbox>
+                  <TextBlock Text="Buscar por imagen" VerticalAlignment="Center" FontSize="12"/>
+                </StackPanel>
+              </Button>
+            </Border>
+
             <Grid Margin="0,0,0,2">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition x:Name="CategoriesTreeCol" Width="148" MinWidth="100" MaxWidth="260"/>
@@ -877,8 +893,11 @@
                                       Padding="8,2" Margin="0,0,4,0" FontSize="11"
                                       ToolTip="Marca todos los mapas del combinado"/>
                               <Button Content="Borrar" Command="{Binding ClearCombinedMapChipsKeepFirstCommand}"
-                                      Padding="8,2" Margin="0,0,10,0" FontSize="11"
+                                      Padding="8,2" Margin="0,0,4,0" FontSize="11"
                                       ToolTip="Deja solo el primer mapa de la fila marcado"/>
+                              <ToggleButton Content="ID mapa" Padding="8,2" Margin="0,0,10,0" FontSize="11"
+                                            IsChecked="{Binding CombinedMaps.ShowMapIds, Mode=TwoWay}"
+                                            ToolTip="Muestra el ID de cada mapa encima del mosaico"/>
                               <ItemsControl ItemsSource="{Binding CombinedMapChips}">
                                 <ItemsControl.ItemsPanel>
                                   <ItemsPanelTemplate>

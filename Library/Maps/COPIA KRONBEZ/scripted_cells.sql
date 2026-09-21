@@ -1,0 +1,14 @@
+DELETE FROM `scripted_cells` WHERE `MapID`=1 AND `CellID`=15 AND `ActionsArgs`='1,421';
+INSERT INTO `scripted_cells` VALUES(1, 15, 0, 1, '1,421', -1);
+DELETE FROM `scripted_cells` WHERE `MapID`=20000 AND `CellID`=137 AND `ActionsArgs`='20000,168';
+INSERT INTO `scripted_cells` VALUES(20000, 137, 0, 1, '20000,168', -1);
+DELETE FROM `scripted_cells` WHERE `MapID`=3373 AND `CellID`=26 AND `ActionsArgs`='3373,315';
+INSERT INTO `scripted_cells` VALUES(3373, 26, 0, 1, '3373,315', -1);
+DELETE FROM `scripted_cells` WHERE `MapID`=3373 AND `CellID`=315 AND `ActionsArgs`='3373,315';
+INSERT INTO `scripted_cells` VALUES(3373, 315, 0, 1, '3373,315', -1);
+DELETE FROM `scripted_cells` WHERE `MapID`=7409 AND `CellID`=338 AND `ActionsArgs`='7409,338';
+INSERT INTO `scripted_cells` VALUES(7409, 338, 0, 1, '7409,338', -1);
+DELETE FROM `scripted_cells` WHERE `MapID`=7409 AND `CellID`=338 AND `ActionsArgs`='7409,338';
+INSERT INTO `scripted_cells` VALUES(7409, 338, 0, 1, '7409,338', -1);
+DELETE FROM `scripted_cells` WHERE `MapID`=30001 AND `CellID`=84 AND `ActionsArgs`='30001,99';
+INSERT INTO `scripted_cells` VALUES(30001, 84, 0, 1, '30001,99', -1);
