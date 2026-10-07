@@ -4740,20 +4740,15 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         if (!HasLibrary || IsLoading)
             return;
 
-        var canonicalId = _library.ResolveCanonicalMapId(mapId);
-        var existing = FindOpenDocument(canonicalId) ?? FindOpenDocument(mapId);
+        var existing = FindOpenDocument(mapId);
         if (existing is not null)
         {
             ActivateDocument(existing);
-            if (canonicalId != mapId)
-                StatusText = $"Mapa {canonicalId} (alias {mapId}) ya estaba abierto";
             return;
         }
 
         IsLoading = true;
-        StatusText = canonicalId != mapId
-            ? $"Cargando mapa {canonicalId} (alias {mapId})..."
-            : "Cargando mapa...";
+        StatusText = "Cargando mapa...";
         HoveredCellId = null;
         FinishStroke();
 
@@ -4766,7 +4761,6 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
                 return (doc, meta, render);
             });
 
-            // Another path may have opened the canonical id while we were loading.
             existing = FindOpenDocument(map.Id);
             if (existing is not null)
             {
@@ -4779,11 +4773,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             ApplyRenderResult(map, swf, result);
             SelectedMapId = map.Id;
             RequestFitMap?.Invoke();
-            RufusLog.Info(canonicalId != mapId
-                ? $"Mapa {map.Id} cargado (solicitado alias {mapId})"
-                : $"Mapa {mapId} cargado");
-            if (canonicalId != mapId)
-                StatusText = $"Mapa {map.Id} abierto (alias {mapId} → {map.Id})";
+            RufusLog.Info($"Mapa {mapId} cargado");
         }
         catch (Exception ex)
         {

@@ -74,7 +74,7 @@ public sealed class AstriaLibraryService : IDisposable
 
     /// <summary>
     /// Discovers map IDs from Maps/{id}/ folders that contain {id}.rufmap, {id}.sql, or an Astria .swf.
-    /// Skips staging sidecars (.id.tmp- / .id.old-). Does not treat .png/.txt as map sources.
+    /// Folder name is the map id (no SWF-embedded-id aliasing). Skips staging sidecars.
     /// </summary>
     public IReadOnlyList<int> DiscoverMapIds()
     {
@@ -96,8 +96,13 @@ public sealed class AstriaLibraryService : IDisposable
 
             var rufmap = Path.Combine(dir, $"{id}.rufmap");
             var sql = Path.Combine(dir, $"{id}.sql");
-            if (File.Exists(rufmap) || File.Exists(sql) ||
-                FlasmSwfMetadataReader.ResolvePreferredSwf(dir, id) is not null)
+            if (File.Exists(rufmap) || File.Exists(sql))
+            {
+                ids.Add(id);
+                continue;
+            }
+
+            if (FlasmSwfMetadataReader.ResolvePreferredSwf(dir, id) is not null)
                 ids.Add(id);
         }
 
@@ -107,47 +112,9 @@ public sealed class AstriaLibraryService : IDisposable
     }
 
     /// <summary>
-    /// Resolves aliases such as Maps/10337/*.swf whose embedded id is 30037 and
-    /// Maps/30037/*.rufmap already exists — open the canonical folder instead.
+    /// Folder id is always canonical. Kept for call-site compatibility.
     /// </summary>
-    public int ResolveCanonicalMapId(int mapId)
-    {
-        if (RootPath is null || mapId <= 0)
-            return mapId;
-
-        var mapFolder = LibraryMapPaths.GetOfficialMapDirectory(RootPath, mapId);
-        var rufmapPath = Path.Combine(mapFolder, $"{mapId}.rufmap");
-        var sqlPath = Path.Combine(mapFolder, $"{mapId}.sql");
-        if (File.Exists(rufmapPath) || File.Exists(sqlPath))
-            return mapId;
-
-        var swfPath = FlasmSwfMetadataReader.ResolvePreferredSwf(mapFolder, mapId);
-        if (swfPath is null)
-            return mapId;
-
-        var flasm = SwfMapExporter.ResolveFlasmExe(RootPath);
-        if (string.IsNullOrWhiteSpace(flasm) || !File.Exists(flasm))
-            return mapId;
-
-        try
-        {
-            var meta = FlasmSwfMetadataReader.Read(swfPath, flasm, includeMapData: false);
-            if (meta.Id <= 0 || meta.Id == mapId)
-                return mapId;
-
-            var canonicalFolder = LibraryMapPaths.GetOfficialMapDirectory(RootPath, meta.Id);
-            var canonicalRufmap = Path.Combine(canonicalFolder, $"{meta.Id}.rufmap");
-            var canonicalSql = Path.Combine(canonicalFolder, $"{meta.Id}.sql");
-            if (File.Exists(canonicalRufmap) || File.Exists(canonicalSql))
-                return meta.Id;
-        }
-        catch
-        {
-            // Keep folder id when SWF metadata cannot be read.
-        }
-
-        return mapId;
-    }
+    public int ResolveCanonicalMapId(int mapId) => mapId;
 
     public MapDocument LoadMapDocument(int mapId) => LoadMapDocument(mapId, out _);
 
@@ -156,10 +123,6 @@ public sealed class AstriaLibraryService : IDisposable
         swfMeta = null;
         if (RootPath is null)
             throw new InvalidOperationException("No hay biblioteca cargada.");
-
-        var canonicalId = ResolveCanonicalMapId(mapId);
-        if (canonicalId != mapId)
-            return LoadMapDocument(canonicalId, out swfMeta);
 
         var mapFolder = LibraryMapPaths.GetOfficialMapDirectory(RootPath, mapId);
         var rufmapPath = Path.Combine(mapFolder, $"{mapId}.rufmap");
@@ -189,8 +152,6 @@ public sealed class AstriaLibraryService : IDisposable
 
             swfMeta = FlasmSwfMetadataReader.Read(swfPath, flasm, includeMapData: true);
             map = FlasmSwfMetadataReader.CreateDocument(swfMeta, fallbackMapId: mapId);
-            // Folder id wins for SWF-only loads. If the SWF declared another id that already
-            // has a .rufmap/.sql, ResolveCanonicalMapId redirected before we got here.
             map.Id = mapId;
             FightPlacesCodec.ApplyToCells(map.Cells, map.FightPlaces);
             return map;
@@ -200,6 +161,9 @@ public sealed class AstriaLibraryService : IDisposable
             throw new FileNotFoundException(
                 $"Mapa {mapId} no encontrado (ni {mapId}.rufmap, ni {mapId}.sql, ni .swf) en: {mapFolder}");
         }
+
+        // Folder name wins over any id embedded in rufmap/sql/SWF.
+        map.Id = mapId;
 
         if (swfPath is not null && !string.IsNullOrWhiteSpace(flasm) && File.Exists(flasm))
         {
@@ -212,6 +176,7 @@ public sealed class AstriaLibraryService : IDisposable
                     FlasmSwfMetadataReader.ApplyToDocument(map, swfMeta);
                 else if (map.Outdoor is null)
                     FlasmSwfMetadataReader.ApplyToDocument(map, swfMeta);
+                map.Id = mapId;
             }
             catch
             {
