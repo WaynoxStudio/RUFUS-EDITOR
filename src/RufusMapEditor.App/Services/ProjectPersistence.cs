@@ -1,8 +1,9 @@
 using System.IO;
 using RufusMapEditor.Domain.Maps;
 using RufusMapEditor.Domain.World;
-using RufusMapEditor.LegacyCompatibility.Rufmap;
 using RufusMapEditor.LegacyCompatibility.MapData;
+using RufusMapEditor.LegacyCompatibility.Rufmap;
+using RufusMapEditor.LegacyCompatibility.Swf;
 using RufusMapEditor.Rendering;
 
 namespace RufusMapEditor.App.Services;
@@ -61,19 +62,68 @@ public static class ProjectPersistence
 
     public static (MapDocument Document, MapEditSession Session) OpenFile(string path)
     {
+        path = Path.GetFullPath(path);
+        if (path.EndsWith(".swf", StringComparison.OrdinalIgnoreCase))
+            return OpenSwfFile(path);
+
         var loaded = RufmapIo.LoadFile(path);
         FightPlacesCodec.ApplyToCells(loaded.Document.Cells, loaded.Document.FightPlaces);
         var hit = new IsoHitTester(loaded.Document.Width, loaded.Document.Height);
         var session = new MapEditSession(loaded.Document, hit)
         {
             DocumentId = loaded.File.DocumentId,
-            FilePath = Path.GetFullPath(path),
+            FilePath = path,
             CreatedUtc = loaded.File.CreatedUtc == default ? DateTimeOffset.UtcNow : loaded.File.CreatedUtc,
             ProjectName = loaded.File.ProjectName ?? Path.GetFileNameWithoutExtension(path),
             Source = loaded.File.Source,
         };
         session.MarkSaved();
         return (loaded.Document, session);
+    }
+
+    private static (MapDocument Document, MapEditSession Session) OpenSwfFile(string path)
+    {
+        var flasm = ResolveFlasmNear(path)
+                    ?? throw new FileNotFoundException(
+                        "No se encontró Flasm/flasm.exe para leer el SWF. Colócalo en Library/Flasm/.");
+
+        var meta = FlasmSwfMetadataReader.Read(path, flasm, includeMapData: true);
+        var fallbackId = 0;
+        var folderName = Path.GetFileName(Path.GetDirectoryName(path));
+        _ = int.TryParse(folderName, out fallbackId);
+        if (fallbackId <= 0)
+            _ = int.TryParse(Path.GetFileNameWithoutExtension(path).Split('_')[0], out fallbackId);
+
+        var map = FlasmSwfMetadataReader.CreateDocument(meta, fallbackMapId: fallbackId);
+        FightPlacesCodec.ApplyToCells(map.Cells, map.FightPlaces);
+        var hit = new IsoHitTester(map.Width, map.Height);
+        var session = new MapEditSession(map, hit)
+        {
+            DocumentId = Guid.NewGuid().ToString("N"),
+            FilePath = path,
+            CreatedUtc = DateTimeOffset.UtcNow,
+            ProjectName = Path.GetFileNameWithoutExtension(path),
+            Source = new RufmapSourceDto { Kind = "AstriaSwf", OriginalMapId = map.Id },
+        };
+        session.MarkSaved();
+        return (map, session);
+    }
+
+    private static string? ResolveFlasmNear(string swfPath)
+    {
+        var dir = Path.GetDirectoryName(swfPath);
+        // Library/Maps/<id>/<file>.swf → Library
+        var maps = dir is null ? null : Directory.GetParent(dir);
+        var library = maps?.Parent;
+        if (library is not null)
+        {
+            var fromLib = SwfMapExporter.ResolveFlasmExe(library.FullName);
+            if (fromLib is not null)
+                return fromLib;
+        }
+
+        return SwfMapExporter.ResolveFlasmExe(Path.GetDirectoryName(swfPath) ?? "")
+               ?? SwfMapExporter.ResolveFlasmExe(AppContext.BaseDirectory);
     }
 
     public static (MapDocument Document, MapEditSession Session) OpenAutosave(

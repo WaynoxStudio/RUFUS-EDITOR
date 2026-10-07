@@ -61,7 +61,8 @@
         <RadioButton x:Name="LayerObject1" Content="Solo Capa 1" Margin="0,0,0,4" Foreground="#FFF5F0E6"/>
         <RadioButton x:Name="LayerObject2" Content="Solo Capa 2" Margin="0,0,0,4" Foreground="#FFF5F0E6"/>
         <RadioButton x:Name="LayerObjects" Content="Capa 1 + Capa 2" Margin="0,0,0,4" Foreground="#FFF5F0E6"/>
-        <RadioButton x:Name="LayerAll" Content="Todas (Suelo + C1 + C2)" Foreground="#FFF5F0E6"/>
+        <RadioButton x:Name="LayerAll" Content="Todas las capas del catálogo activo" Foreground="#FFF5F0E6"
+                     ToolTip="Solo capas del mismo catálogo (Suelo o Objetos). Nunca mezcla homónimos Ground/Object."/>
       </StackPanel>
     </GroupBox>
 

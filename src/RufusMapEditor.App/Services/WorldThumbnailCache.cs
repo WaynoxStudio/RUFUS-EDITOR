@@ -1,9 +1,6 @@
 using System.Collections.Concurrent;
 using System.Windows.Media;
-using RufusMapEditor.App.Services;
 using RufusMapEditor.Domain.Maps;
-using RufusMapEditor.LegacyCompatibility.MapData;
-
 using RufusMapEditor.Rendering;
 
 namespace RufusMapEditor.App.Services;
@@ -14,8 +11,9 @@ public sealed class WorldThumbnailCache : IDisposable
 
     public static string Fingerprint(MapDocument map, MapRenderOptions? options = null)
     {
-        MapCellEditor.SyncMapDataString(map);
-        var baseKey = $"{map.Id}:{map.Width}x{map.Height}:{map.MapData.Length}:{map.MapData.GetHashCode()}";
+        // Do not re-encode MapData here — Invalidate() already drops stale thumbs after edits.
+        var data = map.MapData ?? string.Empty;
+        var baseKey = $"{map.Id}:{map.Width}x{map.Height}:{data.Length}:{data.GetHashCode()}";
         if (options is null) return baseKey;
         return $"{baseKey}|bg{options.DrawBackground}|g{options.DrawGround}|o1{options.DrawObjectLayer1}|o2{options.DrawObjectLayer2}";
     }
@@ -29,16 +27,23 @@ public sealed class WorldThumbnailCache : IDisposable
         if (!library.IsLoaded)
             return null;
 
-        var result = library.Render(map, options);
         try
         {
-            var src = BitmapConversion.ToBitmapSource(result.Image);
-            _cache[key] = src;
-            return src;
+            var result = library.Render(map, options);
+            try
+            {
+                var src = BitmapConversion.ToBitmapSource(result.Image);
+                _cache[key] = src;
+                return src;
+            }
+            finally
+            {
+                result.Image.Dispose();
+            }
         }
-        finally
+        catch
         {
-            result.Image.Dispose();
+            return null;
         }
     }
 

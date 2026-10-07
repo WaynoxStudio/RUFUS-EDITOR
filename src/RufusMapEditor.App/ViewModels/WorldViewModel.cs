@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Threading;
 using Microsoft.Win32;
 using RufusMapEditor.App.Services;
 using RufusMapEditor.Domain.Maps;
@@ -41,6 +42,11 @@ public sealed class WorldViewModel : ViewModelBase
     private HashSet<string> _selectedKeys = new(StringComparer.Ordinal);
     private string? _clipboardDocumentKey;
     private readonly MapPickerFilterState _mapPickerFilter;
+    private readonly HashSet<string> _pendingThumbInvalidations = new(StringComparer.Ordinal);
+    private readonly DispatcherTimer _thumbInvalidateDebounce = new()
+    {
+        Interval = TimeSpan.FromMilliseconds(120),
+    };
     private int _lastAdjacentDx;
     private int _lastAdjacentDy;
 
@@ -62,6 +68,12 @@ public sealed class WorldViewModel : ViewModelBase
         _libraryMapIds = libraryMapIds;
         _setStatus = setStatus;
         _mapPickerFilter = mapPickerFilter ?? new MapPickerFilterState();
+
+        _thumbInvalidateDebounce.Tick += (_, _) =>
+        {
+            _thumbInvalidateDebounce.Stop();
+            FlushPendingThumbnailInvalidations();
+        };
 
         _multiMap.ThumbnailInvalidateRequested += key => NotifyMapEdited(key);
         _multiMap.StateChanged += () =>
@@ -109,6 +121,16 @@ public sealed class WorldViewModel : ViewModelBase
     }
 
     public event Action? RequestOverlayRedraw;
+
+    public void RequestMosaicOverlayRefresh() => RequestOverlayRedraw?.Invoke();
+
+    public void RequestMosaicContentRefresh() => RequestRedraw?.Invoke();
+
+    public void RequestMosaicFullRefresh()
+    {
+        RequestRedraw?.Invoke();
+        RequestOverlayRedraw?.Invoke();
+    }
 
     public event Action? WorldChanged;
     public event Action? RequestRedraw;
@@ -290,8 +312,9 @@ public sealed class WorldViewModel : ViewModelBase
         bool isDrag,
         bool ctrl,
         double? mapLocalX = null,
-        double? mapLocalY = null) =>
-        _editorHost?.HandleMultiMapCellClick(cell, isDrag, ctrl, mapLocalX, mapLocalY);
+        double? mapLocalY = null,
+        bool cellModeErase = false) =>
+        _editorHost?.HandleMultiMapCellClick(cell, isDrag, ctrl, mapLocalX, mapLocalY, cellModeErase);
 
     public void DispatchMultiMapBeginStroke() => _editorHost?.BeginMultiMapStroke();
     public void DispatchMultiMapFinishStroke() => _editorHost?.FinishMultiMapStroke();
@@ -1118,15 +1141,33 @@ public sealed class WorldViewModel : ViewModelBase
     {
         if (_world?.Documents.ContainsKey(documentKey) == true)
             _editor.MarkMapDocumentEdited(_world, documentKey);
-        InvalidateThumbnail(documentKey);
+        QueueThumbnailInvalidation(documentKey);
     }
 
     public void NotifyMultiMapEdited(string documentKey) => NotifyMapEdited(documentKey);
 
-    public void InvalidateThumbnail(string documentKey)
+    public void InvalidateThumbnail(string documentKey) =>
+        QueueThumbnailInvalidation(documentKey);
+
+    private void QueueThumbnailInvalidation(string documentKey)
     {
-        if (_world?.Documents.TryGetValue(documentKey, out var entry) == true)
-            _thumbs.Invalidate(entry.Document);
+        _pendingThumbInvalidations.Add(documentKey);
+        _thumbInvalidateDebounce.Stop();
+        _thumbInvalidateDebounce.Start();
+    }
+
+    private void FlushPendingThumbnailInvalidations()
+    {
+        if (_pendingThumbInvalidations.Count == 0)
+            return;
+
+        foreach (var key in _pendingThumbInvalidations)
+        {
+            if (_world?.Documents.TryGetValue(key, out var entry) == true)
+                _thumbs.Invalidate(entry.Document);
+        }
+
+        _pendingThumbInvalidations.Clear();
         RequestRedraw?.Invoke();
     }
 

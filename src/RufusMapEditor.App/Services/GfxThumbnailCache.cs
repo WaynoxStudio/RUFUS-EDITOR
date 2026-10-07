@@ -16,21 +16,36 @@ public sealed class GfxThumbnailCache
     public ImageSource? GetThumbnail(GfxResource resource, int decodeWidth = 64)
     {
         ArgumentNullException.ThrowIfNull(resource);
-        if (!File.Exists(resource.FilePath))
+        if (string.IsNullOrWhiteSpace(resource.FilePath))
             return null;
 
-        return _cache.GetOrAdd((resource.Category, resource.Id, decodeWidth), _ =>
+        try
         {
-            var bi = new BitmapImage();
-            bi.BeginInit();
-            bi.UriSource = new Uri(resource.FilePath, UriKind.Absolute);
-            bi.CacheOption = BitmapCacheOption.OnLoad;
-            bi.CreateOptions = BitmapCreateOptions.IgnoreColorProfile;
-            bi.DecodePixelWidth = decodeWidth;
-            bi.EndInit();
-            bi.Freeze();
-            return bi;
-        });
+            return _cache.GetOrAdd((resource.Category, resource.Id, decodeWidth), _ =>
+            {
+                var bi = new BitmapImage();
+                bi.BeginInit();
+                bi.UriSource = new Uri(resource.FilePath, UriKind.Absolute);
+                bi.CacheOption = BitmapCacheOption.OnLoad;
+                bi.CreateOptions = BitmapCreateOptions.IgnoreColorProfile;
+                bi.DecodePixelWidth = decodeWidth;
+                bi.EndInit();
+                bi.Freeze();
+                return bi;
+            });
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return null;
+        }
+        catch (NotSupportedException)
+        {
+            return null;
+        }
     }
 
     public void Clear() => _cache.Clear();

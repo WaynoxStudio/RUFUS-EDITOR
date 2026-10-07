@@ -90,7 +90,12 @@ public partial class ReplaceGfxWindow : Window
         if (LayerObject2.IsChecked == true) return new[] { PaintLayer.Object2 };
         if (LayerObjects.IsChecked == true) return new[] { PaintLayer.Object1, PaintLayer.Object2 };
         if (LayerAll.IsChecked == true)
-            return new[] { PaintLayer.Ground, PaintLayer.Object1, PaintLayer.Object2 };
+        {
+            // Same category only — Ground 1710 ≠ Object 1710.
+            return _activeLayer == PaintLayer.Ground
+                ? new[] { PaintLayer.Ground }
+                : new[] { PaintLayer.Object1, PaintLayer.Object2 };
+        }
         return new[] { _activeLayer };
     }
 

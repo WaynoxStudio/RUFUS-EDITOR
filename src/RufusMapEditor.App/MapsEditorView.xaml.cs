@@ -21,6 +21,8 @@ public partial class MapsEditorView : UserControl
     private int _hoverMapPreviewId = -1;
     private bool _catalogCollapsed;
     private bool _mapsCollapsed;
+    private bool _catalogFloating;
+    private FloatingCatalogWindow? _floatingCatalog;
     private const double MapsCollapsedWidth = 22;
     private Point _mapListDragStart;
     private MapPickerItemVm? _mapListDragItem;
@@ -46,6 +48,7 @@ public partial class MapsEditorView : UserControl
         _vm.RequestResetPanels += ResetPanels;
         _vm.RequestApplyLayout += ApplyLayoutFromSettings;
         _vm.ScrollCatalogToGfxId += ScrollCatalogToGfx;
+        _vm.RequestFocusLayersPanel += OnLayersFocusRequested;
         _vm.PropertyChanged += VmOnPropertyChanged;
         _vm.Logs.PropertyChanged += LogsOnPropertyChanged;
         PreviewKeyDown += Window_PreviewKeyDown;
@@ -90,6 +93,21 @@ public partial class MapsEditorView : UserControl
             if (MonstersExpander is not null)
                 MonstersExpander.BringIntoView();
             InspectorScrollViewer?.ScrollToHome();
+        }, System.Windows.Threading.DispatcherPriority.Loaded);
+    }
+
+    private void OnLayersFocusRequested()
+    {
+        _vm.ShowInspectorPanel = true;
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (LayersExpander is not null)
+            {
+                LayersExpander.IsExpanded = true;
+                LayersExpander.BringIntoView();
+            }
+
+            UpdateInspectorHighlights();
         }, System.Windows.Threading.DispatcherPriority.Loaded);
     }
 
@@ -310,7 +328,7 @@ public partial class MapsEditorView : UserControl
         RightCol.Width = _vm.ShowInspectorPanel ? new GridLength(rightWidth) : new GridLength(0);
         InspectorSplitter.Visibility = _vm.ShowInspectorPanel ? Visibility.Visible : Visibility.Collapsed;
 
-        var showCategoriesHost = _vm.ShowCategoriesPanel || _vm.ShowCatalogPanel;
+        var showCategoriesHost = !_catalogFloating && (_vm.ShowCategoriesPanel || _vm.ShowCatalogPanel);
         var bottomWidth = BottomSideBySideGrid.ActualWidth > 0
             ? BottomSideBySideGrid.ActualWidth
             : (LogsDockHost.ActualWidth > 0 ? LogsDockHost.ActualWidth : workspaceWidth);
@@ -413,6 +431,42 @@ public partial class MapsEditorView : UserControl
         _vm.UiLayout.CatalogCollapsed = _catalogCollapsed;
         ApplyLayoutFromSettings();
         _vm.PersistUiLayout();
+    }
+
+    private void UndockCatalog_Click(object sender, RoutedEventArgs e)
+    {
+        if (_catalogFloating && _floatingCatalog is not null)
+        {
+            _floatingCatalog.Activate();
+            return;
+        }
+
+        _catalogFloating = true;
+        ApplyLayoutFromSettings();
+        ForEachMapWindow(w => w.OnHostSizeChanged());
+
+        _floatingCatalog = new FloatingCatalogWindow(_vm)
+        {
+            Owner = Window.GetWindow(this),
+        };
+        _floatingCatalog.DockRequested += DockCatalog;
+        _floatingCatalog.Show();
+        _floatingCatalog.Activate();
+    }
+
+    private void DockCatalog()
+    {
+        if (_floatingCatalog is not null)
+        {
+            _floatingCatalog.DockRequested -= DockCatalog;
+            _floatingCatalog = null;
+        }
+
+        if (!_catalogFloating) return;
+        _catalogFloating = false;
+        ApplyLayoutFromSettings();
+        UpdateCatalogColumns();
+        ForEachMapWindow(w => w.OnHostSizeChanged());
     }
 
     private void UpdateCollapseCatalogButton()
@@ -536,6 +590,13 @@ public partial class MapsEditorView : UserControl
 
     public void DisposeWorkspace()
     {
+        if (_floatingCatalog is not null)
+        {
+            _floatingCatalog.DockRequested -= DockCatalog;
+            _floatingCatalog.Close();
+            _floatingCatalog = null;
+            _catalogFloating = false;
+        }
         if (_disposed) return;
         _disposed = true;
         ThemeService.ThemeChanged -= OnThemeChanged;
@@ -551,6 +612,7 @@ public partial class MapsEditorView : UserControl
         _vm.RequestResetPanels -= ResetPanels;
         _vm.RequestApplyLayout -= ApplyLayoutFromSettings;
         _vm.ScrollCatalogToGfxId -= ScrollCatalogToGfx;
+        _vm.RequestFocusLayersPanel -= OnLayersFocusRequested;
         _vm.Dispose();
     }
 
@@ -770,55 +832,63 @@ public partial class MapsEditorView : UserControl
 
     private async void MapListItem_MouseEnter(object sender, MouseEventArgs e)
     {
-        if (sender is not Border border || border.DataContext is not MapPickerItemVm item)
-            return;
-
-        var mapId = item.MapId;
-        _hoverMapPreviewId = mapId;
-        MapHoverPreviewId.Text = $"Mapa {mapId}";
-
-        var cached = _vm.TryGetMapHoverPreview(mapId);
-        if (cached is not null)
+        try
         {
-            MapHoverPreviewDims.Text = $"{cached.Width} × {cached.Height} celdas";
+            if (sender is not Border border || border.DataContext is not MapPickerItemVm item)
+                return;
+
+            var mapId = item.MapId;
+            _hoverMapPreviewId = mapId;
+            MapHoverPreviewId.Text = $"Mapa {mapId}";
+
+            var cached = _vm.TryGetMapHoverPreview(mapId);
+            if (cached is not null)
+            {
+                MapHoverPreviewDims.Text = $"{cached.Width} × {cached.Height} celdas";
+                MapHoverPreviewDims.Visibility = Visibility.Visible;
+                MapHoverPreviewImage.Source = cached.Image;
+                MapHoverLoading.Visibility = Visibility.Collapsed;
+            }
+            else
+            {
+                MapHoverPreviewDims.Visibility = Visibility.Collapsed;
+                MapHoverPreviewImage.Source = null;
+                MapHoverLoading.Text = "Cargando…";
+                MapHoverLoading.Visibility = Visibility.Visible;
+            }
+
+            MapHoverPopup.PlacementTarget = border;
+            MapHoverPopup.IsOpen = true;
+
+            if (cached is not null)
+                return;
+
+            var preview = await _vm.GetMapHoverPreviewAsync(mapId);
+            if (_hoverMapPreviewId != mapId)
+                return;
+
+            if (preview is null)
+            {
+                MapHoverLoading.Text = "Sin vista previa";
+                MapHoverLoading.Visibility = Visibility.Visible;
+                return;
+            }
+
+            MapHoverPreviewDims.Text = $"{preview.Width} × {preview.Height} celdas";
             MapHoverPreviewDims.Visibility = Visibility.Visible;
-            MapHoverPreviewImage.Source = cached.Image;
+            MapHoverPreviewImage.Source = preview.Image;
             MapHoverLoading.Visibility = Visibility.Collapsed;
+
+            if (!item.HasThumbnail)
+            {
+                item.Thumbnail = preview.Image;
+                item.IsLoading = false;
+            }
         }
-        else
-        {
-            MapHoverPreviewDims.Visibility = Visibility.Collapsed;
-            MapHoverPreviewImage.Source = null;
-            MapHoverLoading.Text = "Cargando…";
-            MapHoverLoading.Visibility = Visibility.Visible;
-        }
-
-        MapHoverPopup.PlacementTarget = border;
-        MapHoverPopup.IsOpen = true;
-
-        if (cached is not null)
-            return;
-
-        var preview = await _vm.GetMapHoverPreviewAsync(mapId);
-        if (_hoverMapPreviewId != mapId)
-            return;
-
-        if (preview is null)
+        catch
         {
             MapHoverLoading.Text = "Sin vista previa";
             MapHoverLoading.Visibility = Visibility.Visible;
-            return;
-        }
-
-        MapHoverPreviewDims.Text = $"{preview.Width} × {preview.Height} celdas";
-        MapHoverPreviewDims.Visibility = Visibility.Visible;
-        MapHoverLoading.Visibility = Visibility.Collapsed;
-        MapHoverPreviewImage.Source = preview.Image;
-
-        if (!item.HasThumbnail)
-        {
-            item.Thumbnail = preview.Image;
-            item.IsLoading = false;
         }
     }
 
@@ -1032,24 +1102,77 @@ public partial class MapsEditorView : UserControl
 
     private void ScrollCatalogToGfx(int gfxId)
     {
+        // Ensure categories/catalog host is visible and collapsed tree is expanded.
+        _catalogCollapsed = false;
+        _vm.UiLayout.CatalogCollapsed = false;
+        ApplyLayoutFromSettings();
+
         Dispatcher.BeginInvoke(() =>
         {
+            BringSelectedFolderIntoView();
+
             for (var rowIndex = 0; rowIndex < _vm.VisibleGfxRows.Count; rowIndex++)
             {
                 var row = _vm.VisibleGfxRows[rowIndex];
-                var colIndex = -1;
-                for (var i = 0; i < row.Items.Count; i++)
+                GfxItemVm? hit = null;
+                foreach (var item in row.Items)
                 {
-                    if (row.Items[i].Id == gfxId) { colIndex = i; break; }
+                    if (item.Id != gfxId) continue;
+                    hit = item;
+                    break;
                 }
 
-                if (colIndex < 0) continue;
+                if (hit is null) continue;
+
                 GfxCatalogList.SelectedIndex = rowIndex;
-                GfxCatalogList.ScrollIntoView(row.Items[colIndex]);
-                _vm.SelectGfx(row.Items[colIndex]);
+                GfxCatalogList.ScrollIntoView(row);
+                _vm.SelectGfx(hit);
+                hit.IsSelected = true;
                 return;
             }
         }, System.Windows.Threading.DispatcherPriority.Loaded);
+    }
+
+    private void BringSelectedFolderIntoView()
+    {
+        if (FolderTreeView is null) return;
+        var selected = FindSelectedFolderNode(_vm.FolderTree);
+        if (selected is null) return;
+
+        var container = FindTreeViewItem(FolderTreeView, selected);
+        container?.BringIntoView();
+    }
+
+    private static FolderNodeVm? FindSelectedFolderNode(IEnumerable<FolderNodeVm> nodes)
+    {
+        foreach (var node in nodes)
+        {
+            if (node.IsSelected) return node;
+            var child = FindSelectedFolderNode(node.Children);
+            if (child is not null) return child;
+        }
+
+        return null;
+    }
+
+    private static TreeViewItem? FindTreeViewItem(ItemsControl parent, object item)
+    {
+        if (parent.ItemContainerGenerator.ContainerFromItem(item) is TreeViewItem direct)
+            return direct;
+
+        foreach (var childObj in parent.Items)
+        {
+            if (parent.ItemContainerGenerator.ContainerFromItem(childObj) is not TreeViewItem childItem)
+                continue;
+
+            childItem.IsExpanded = true;
+            childItem.UpdateLayout();
+            var found = FindTreeViewItem(childItem, item);
+            if (found is not null)
+                return found;
+        }
+
+        return null;
     }
 
     private void InspectorGround_Click(object sender, MouseButtonEventArgs e) =>

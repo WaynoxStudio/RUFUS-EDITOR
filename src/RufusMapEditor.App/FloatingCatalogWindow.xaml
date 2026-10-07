@@ -1,0 +1,229 @@
+<Window x:Class="RufusMapEditor.App.FloatingCatalogWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Catálogo GFX"
+        WindowStartupLocation="CenterScreen"
+        WindowState="Maximized"
+        Width="1100" Height="720"
+        MinWidth="640" MinHeight="420"
+        Background="{DynamicResource PanelCardBackground}"
+        Foreground="{DynamicResource TextPrimary}"
+        ShowInTaskbar="True"
+        PreviewMouseWheel="Window_PreviewMouseWheel">
+  <Grid Background="{DynamicResource PanelCardBackground}">
+    <DockPanel>
+      <Border DockPanel.Dock="Top" Background="{DynamicResource SurfaceBackground}"
+              BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1"
+              Padding="12,8">
+        <Grid>
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+          </Grid.ColumnDefinitions>
+          <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+            <Border Width="3" Height="16" CornerRadius="1.5" Background="{DynamicResource BrandAccent}" Margin="0,0,10,0"/>
+            <TextBlock VerticalAlignment="Center" FontSize="15" FontWeight="SemiBold"
+                       Foreground="{DynamicResource TextPrimary}">
+              <Run Text="{Binding CatalogHeaderTitle, Mode=OneWay}"/>
+              <Run Text="  "/>
+              <Run Text="{Binding CatalogHeaderDestination, Mode=OneWay}"
+                   Foreground="{DynamicResource TextSecondary}" FontSize="12" FontWeight="Normal"/>
+            </TextBlock>
+          </StackPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+            <TextBlock Text="Zoom" VerticalAlignment="Center" Margin="0,0,8,0"
+                       Foreground="{DynamicResource TextSecondary}" FontSize="12"/>
+            <Slider x:Name="ZoomSlider" Width="160" Minimum="0" Maximum="100"
+                    VerticalAlignment="Center" Margin="0,0,8,0"
+                    ToolTip="0% = vista densa · 100% = miniaturas grandes (Ctrl + rueda)"
+                    ValueChanged="ZoomSlider_ValueChanged"/>
+            <TextBlock x:Name="ZoomLabel" Width="48" VerticalAlignment="Center" Margin="0,0,12,0"
+                       Foreground="{DynamicResource TextPrimary}" FontSize="12" FontWeight="SemiBold"
+                       Text="0%"/>
+            <Button Content="Buscar por imagen" Command="{Binding OpenGfxVisualSearchCommand}"
+                    Padding="10,5" Margin="0,0,8,0"
+                    ToolTip="Buscar GFX por imagen"/>
+            <Button Content="Anclar al editor" Click="Dock_Click" Padding="10,5"
+                    ToolTip="Cierra esta ventana y vuelve a mostrar el catálogo abajo"/>
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <Grid Margin="8" Background="{DynamicResource PanelCardBackground}">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="200" MinWidth="120" MaxWidth="360"/>
+          <ColumnDefinition Width="4"/>
+          <ColumnDefinition Width="*" MinWidth="200"/>
+        </Grid.ColumnDefinitions>
+
+        <TreeView x:Name="FolderTreeView" Grid.Column="0"
+                  ItemsSource="{Binding FolderTree}"
+                  Background="{DynamicResource PanelCardBackground}" BorderThickness="0"
+                  Foreground="{DynamicResource TextPrimary}"
+                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                  ScrollViewer.VerticalScrollBarVisibility="Auto"
+                  SelectedItemChanged="FolderTree_OnSelectedItemChanged">
+          <TreeView.ItemContainerStyle>
+            <Style TargetType="TreeViewItem">
+              <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+              <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}"/>
+              <Setter Property="Padding" Value="2,1"/>
+              <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+              <Setter Property="Background" Value="Transparent"/>
+            </Style>
+          </TreeView.ItemContainerStyle>
+          <TreeView.ItemTemplate>
+            <HierarchicalDataTemplate ItemsSource="{Binding Children}">
+              <TextBlock Text="{Binding Name}" Margin="2,3"
+                         TextTrimming="CharacterEllipsis"
+                         Foreground="{DynamicResource TextPrimary}"/>
+            </HierarchicalDataTemplate>
+          </TreeView.ItemTemplate>
+        </TreeView>
+
+        <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch"
+                      Background="{DynamicResource SplitterBrush}"/>
+
+        <ListBox x:Name="GfxCatalogList" Grid.Column="2"
+                 ItemsSource="{Binding VisibleGfxRows}"
+                 Background="{DynamicResource PanelCardBackground}" BorderThickness="0"
+                 Foreground="{DynamicResource TextPrimary}"
+                 VirtualizingPanel.IsVirtualizing="True"
+                 VirtualizingPanel.VirtualizationMode="Recycling"
+                 VirtualizingPanel.ScrollUnit="Pixel"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 Padding="6,8,6,6"
+                 SizeChanged="GfxCatalogList_SizeChanged">
+          <ListBox.ItemContainerStyle>
+            <Style TargetType="ListBoxItem">
+              <Setter Property="Background" Value="Transparent"/>
+              <Setter Property="BorderBrush" Value="Transparent"/>
+              <Setter Property="BorderThickness" Value="0"/>
+              <Setter Property="Padding" Value="0"/>
+              <Setter Property="Margin" Value="0"/>
+              <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+              <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+              <Setter Property="Template">
+                <Setter.Value>
+                  <ControlTemplate TargetType="ListBoxItem">
+                    <ContentPresenter HorizontalAlignment="Stretch"/>
+                  </ControlTemplate>
+                </Setter.Value>
+              </Setter>
+            </Style>
+          </ListBox.ItemContainerStyle>
+          <ListBox.ItemsPanel>
+            <ItemsPanelTemplate>
+              <VirtualizingStackPanel/>
+            </ItemsPanelTemplate>
+          </ListBox.ItemsPanel>
+          <ListBox.ItemTemplate>
+            <DataTemplate>
+              <ItemsControl ItemsSource="{Binding Items}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal"/>
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Border Width="{Binding TileWidth, RelativeSource={RelativeSource AncestorType=Window}}"
+                            Height="{Binding TileHeight, RelativeSource={RelativeSource AncestorType=Window}}"
+                            Margin="4" Padding="4"
+                            MouseLeftButtonUp="GfxItem_Click"
+                            MouseRightButtonUp="GfxItem_MouseRightButtonUp"
+                            MouseEnter="GfxItem_MouseEnter"
+                            MouseLeave="GfxItem_MouseLeave"
+                            Loaded="GfxThumb_Loaded"
+                            CornerRadius="6" SnapsToDevicePixels="True">
+                      <Border.Style>
+                        <Style TargetType="Border">
+                          <Setter Property="Background" Value="{DynamicResource ThumbBackground}"/>
+                          <Setter Property="BorderBrush" Value="{DynamicResource Border}"/>
+                          <Setter Property="BorderThickness" Value="1"/>
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                              <Setter Property="Background" Value="{DynamicResource ThumbSelected}"/>
+                              <Setter Property="BorderBrush" Value="{DynamicResource BrandAccent}"/>
+                              <Setter Property="BorderThickness" Value="2"/>
+                            </DataTrigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                              <Setter Property="BorderBrush" Value="{DynamicResource BrandAccentHover}"/>
+                              <Setter Property="BorderThickness" Value="2"/>
+                            </Trigger>
+                          </Style.Triggers>
+                        </Style>
+                      </Border.Style>
+                      <Grid>
+                        <DockPanel>
+                          <TextBlock DockPanel.Dock="Bottom" Text="{Binding Id}"
+                                     FontFamily="{StaticResource AppFontFamilyMono}" FontSize="11"
+                                     HorizontalAlignment="Center"
+                                     Foreground="{DynamicResource TextSecondary}" Margin="0,3,0,0"/>
+                          <Border Background="{DynamicResource CheckerA}" CornerRadius="4" ClipToBounds="True">
+                            <Image Source="{Binding Thumbnail}" Stretch="Uniform" Margin="2"/>
+                          </Border>
+                        </DockPanel>
+                        <Button Tag="FavoriteStar" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                Width="18" Height="18" Padding="0" Margin="1"
+                                Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                Click="GfxFavoriteStar_Click" ToolTip="Añadir o quitar de favoritos">
+                          <Button.Style>
+                            <Style TargetType="Button">
+                              <Setter Property="Opacity" Value="0.75"/>
+                              <Setter Property="Content">
+                                <Setter.Value>
+                                  <Viewbox Width="12" Height="12">
+                                    <Path Data="{StaticResource IconStarOutlineGeom}"
+                                          Stroke="{DynamicResource TextMuted}" StrokeThickness="1.2" Fill="Transparent"/>
+                                  </Viewbox>
+                                </Setter.Value>
+                              </Setter>
+                              <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsFavorite}" Value="True">
+                                  <Setter Property="Opacity" Value="1"/>
+                                  <Setter Property="Content">
+                                    <Setter.Value>
+                                      <Viewbox Width="12" Height="12">
+                                        <Path Data="{StaticResource IconStarFillGeom}" Fill="{DynamicResource Warning}"/>
+                                      </Viewbox>
+                                    </Setter.Value>
+                                  </Setter>
+                                </DataTrigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                  <Setter Property="Opacity" Value="1"/>
+                                </Trigger>
+                              </Style.Triggers>
+                            </Style>
+                          </Button.Style>
+                        </Button>
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Grid>
+    </DockPanel>
+
+    <Popup x:Name="GfxHoverPopup" AllowsTransparency="True" Placement="Left"
+           HorizontalOffset="-8" VerticalOffset="-16" IsHitTestVisible="False"
+           PopupAnimation="Fade">
+      <Border Background="{DynamicResource ElevatedSurface}" BorderBrush="{DynamicResource Border}"
+              BorderThickness="1" Padding="10" CornerRadius="4">
+        <StackPanel MinWidth="140">
+          <TextBlock x:Name="HoverPreviewId" FontFamily="Consolas" FontSize="13" FontWeight="SemiBold"
+                     Foreground="{DynamicResource TextPrimary}"/>
+          <TextBlock x:Name="HoverPreviewDims" FontSize="11" Margin="0,2,0,6"
+                     Foreground="{DynamicResource TextSecondary}"/>
+          <Border Background="{DynamicResource CheckerA}" Width="128" Height="128"
+                  BorderBrush="{DynamicResource Border}" BorderThickness="1">
+            <Image x:Name="HoverPreviewImage" Stretch="Uniform" Margin="4"/>
+          </Border>
+        </StackPanel>
+      </Border>
+    </Popup>
+  </Grid>
+</Window>

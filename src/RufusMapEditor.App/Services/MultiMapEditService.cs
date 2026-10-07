@@ -27,6 +27,7 @@ public sealed class MultiMapEditService
     private HashSet<string> _editableKeys = new(StringComparer.Ordinal);
     private bool _strokeOpen;
     private string _strokeName = "";
+    private bool _cellModeErase;
     private string _lastStrokeKey = "";
     private double? _lastStrokeWorldX;
     private double? _lastStrokeWorldY;
@@ -156,12 +157,26 @@ public sealed class MultiMapEditService
         NotifyState();
     }
 
-    public void BeginStroke(EditorTool tool, PaintLayer layer)
+    public void BeginStroke(EditorTool tool, PaintLayer layer, bool cellModeErase = false)
     {
         EndStrokeInternal();
-        if (tool is not (EditorTool.Paint or EditorTool.Erase)) return;
-        _strokeOpen = true;
-        _strokeName = tool == EditorTool.Paint ? PaintStrokeName(layer) : EraseStrokeName(layer);
+        if (tool is EditorTool.Paint or EditorTool.Erase)
+        {
+            _cellModeErase = false;
+            _strokeOpen = true;
+            _strokeName = tool == EditorTool.Paint ? PaintStrokeName(layer) : EraseStrokeName(layer);
+        }
+        else if (tool.IsCellModeTool())
+        {
+            _cellModeErase = cellModeErase;
+            _strokeOpen = true;
+            _strokeName = cellModeErase ? CellModeEraseStrokeName(tool) : CellModeStrokeName(tool);
+        }
+        else
+        {
+            return;
+        }
+
         _strokeBefore.Clear();
         _lastStrokeKey = "";
         _lastStrokeWorldX = null;
@@ -185,10 +200,12 @@ public sealed class MultiMapEditService
         bool mosaicMode,
         bool eraseOnlySelectedGfx = false,
         bool paintMarksUnwalkable = false,
-        bool paintSeam = false)
+        bool paintSeam = false,
+        bool cellModeErase = false)
     {
         if (!_strokeOpen || _world is null) return;
-        if (tool is not EditorTool.Paint and not EditorTool.Erase) return;
+        if (tool is not EditorTool.Paint and not EditorTool.Erase && !tool.IsCellModeTool())
+            return;
 
         if (_lastStrokeWorldX is null || _lastStrokeWorldY is null)
         {
@@ -200,7 +217,8 @@ public sealed class MultiMapEditService
                     tool, paintLayer, selectedGfxId, brushFlip, brushRotation,
                     isDrag: true, ctrl: false, eraseOnlySelectedGfx: eraseOnlySelectedGfx,
                     paintMarksUnwalkable: paintMarksUnwalkable,
-                    paintSeam: paintSeam);
+                    paintSeam: paintSeam,
+                    cellModeErase: tool.IsCellModeTool() ? cellModeErase : false);
         }
         else
         {
@@ -213,7 +231,8 @@ public sealed class MultiMapEditService
                     tool, paintLayer, selectedGfxId, brushFlip, brushRotation,
                     isDrag: true, ctrl: false, eraseOnlySelectedGfx: eraseOnlySelectedGfx,
                     paintMarksUnwalkable: paintMarksUnwalkable,
-                    paintSeam: paintSeam);
+                    paintSeam: paintSeam,
+                    cellModeErase: tool.IsCellModeTool() ? cellModeErase : false);
             }
         }
 
@@ -240,7 +259,8 @@ public sealed class MultiMapEditService
         Action<int>? onGfxPicked = null,
         bool eraseOnlySelectedGfx = false,
         bool paintMarksUnwalkable = false,
-        bool paintSeam = false)
+        bool paintSeam = false,
+        bool cellModeErase = false)
     {
         if (_world is null || !_editableKeys.Contains(cell.DocumentKey)) return;
         if (GetDocument(cell.DocumentKey) is not MapDocument doc || cell.CellId < 0 || cell.CellId >= doc.Cells.Count) return;
@@ -328,6 +348,57 @@ public sealed class MultiMapEditService
                 ApplyEyedropper(cell, paintLayer, onGfxPicked);
                 _selection.Clear();
                 _selection.Add(cell);
+                break;
+
+            case EditorTool.Unwalkable:
+                if (isDrag && cell.StrokeKey == _lastStrokeKey) return;
+                StrokeMutate(cell, c =>
+                {
+                    if (cellModeErase)
+                        MapCellEditor.SetMovement(c, MovementType.Walkable);
+                    else
+                        MapCellEditor.SetMovement(c, MovementType.Unwalkable);
+                });
+                _lastStrokeKey = cell.StrokeKey;
+                if (!isDrag)
+                {
+                    _selection.Clear();
+                    _selection.Add(cell);
+                }
+                break;
+
+            case EditorTool.LineOfSight:
+                if (isDrag && cell.StrokeKey == _lastStrokeKey) return;
+                StrokeMutate(cell, c => MapCellEditor.SetLineOfSight(c, cellModeErase));
+                _lastStrokeKey = cell.StrokeKey;
+                if (!isDrag)
+                {
+                    _selection.Clear();
+                    _selection.Add(cell);
+                }
+                break;
+
+            case EditorTool.FightCell1:
+            case EditorTool.FightCell2:
+                if (isDrag && cell.StrokeKey == _lastStrokeKey) return;
+                StrokeMutate(cell, c =>
+                {
+                    if (cellModeErase)
+                    {
+                        if (c.FightCell is 1 or 2)
+                            MapCellEditor.SetFightCell(c, 0);
+                    }
+                    else if (tool == EditorTool.FightCell1)
+                        MapCellEditor.SetFightCell(c, 1);
+                    else
+                        MapCellEditor.SetFightCell(c, 2);
+                });
+                _lastStrokeKey = cell.StrokeKey;
+                if (!isDrag)
+                {
+                    _selection.Clear();
+                    _selection.Add(cell);
+                }
                 break;
         }
 
@@ -810,6 +881,17 @@ public sealed class MultiMapEditService
         PaintLayer.Object1 => "Borrar Layer 1",
         _ => "Borrar Layer 2",
     };
+
+    private static string CellModeStrokeName(EditorTool tool) => tool switch
+    {
+        EditorTool.Unwalkable => "No transitable",
+        EditorTool.LineOfSight => "Bloquear visión",
+        EditorTool.FightCell1 => "Combate equipo 1",
+        EditorTool.FightCell2 => "Combate equipo 2",
+        _ => "Celda",
+    };
+
+    private static string CellModeEraseStrokeName(EditorTool tool) => $"{CellModeStrokeName(tool)} (quitar)";
 
     private sealed class WorldCellClipboardEntry(CellSnapshot snapshot, double offsetWorldX, double offsetWorldY)
     {

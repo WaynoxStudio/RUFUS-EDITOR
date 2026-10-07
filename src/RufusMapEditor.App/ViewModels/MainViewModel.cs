@@ -48,6 +48,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     private FileSystemWatcher? _imagesWatcher;
     private DispatcherTimer? _imagesReloadDebounce;
     private int _imagesReloadGeneration;
+    private int _softReloadBusy;
+    private long _imagesWatcherSuppressUntilTick;
 
     /// <summary>True when hosted inside ADMIN ContentHost — Exit must not close Application.MainWindow.</summary>
     public bool IsEmbeddedHost { get; set; }
@@ -122,6 +124,11 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     private int _nextTempMapId = -1;
     private EditorTool _tool = EditorTool.Select;
     private PaintLayer _paintLayer = PaintLayer.Ground;
+    private int? _pinnedSelectionGfxId;
+    private PaintLayer? _pinnedSelectionGfxLayer;
+    private SelectionGfxItemVm? _selectedSelectionGfxItem;
+    private bool _suppressSelectionGfxSelect;
+    private bool _rebuildingSelectionGfxList;
     private string? _selectedFolder;
     private GfxCategory _selectedCategory = GfxCategory.Ground;
     private bool _showUnifiedFavorites;
@@ -171,6 +178,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     private bool _combinedMapsMultiSelect;
     private bool _pasteArmed;
     private bool _multiMapStrokeIsErase;
+    private bool _multiMapCellModeErase;
     private bool _multiMapEraseMatchBrush;
     private double? _inspectContentX;
     private double? _inspectContentY;
@@ -257,7 +265,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             () => MosaicHost.SaveWorldAsCommand.Execute(null),
             () => MosaicHost.World is not null);
         OpenGfxVisualSearchCommand = new RelayCommand(
-            OpenGfxVisualSearch,
+            () => _ = OpenGfxVisualSearchAsync(),
             () => _library.IsLoaded && _library.Catalog is not null);
 
         SetToolSelectCommand = new RelayCommand(() => Tool = EditorTool.Select);
@@ -343,7 +351,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         CopyCellMapDataCodeCommand = new RelayCommand(CopyCellMapDataCode, () => CanCopyCellMapData);
         CopyFullMapDataCommand = new RelayCommand(CopyFullMapData, () => CurrentMap is not null);
 
-        OpenBackgroundPickerCommand = new RelayCommand(OpenBackgroundPicker, () => CurrentMap is not null && HasLibrary);
+        OpenBackgroundPickerCommand = new RelayCommand(() => _ = OpenBackgroundPickerAsync(), () => CurrentMap is not null && HasLibrary);
         OpenAppearanceCommand = new RelayCommand(OpenAppearance);
         OpenDatabaseSettingsCommand = new RelayCommand(OpenDatabaseSettings);
         PublishToDatabaseCommand = new RelayCommand(() => _ = PublishToDatabaseAsync(), () => CurrentMap is not null);
@@ -597,6 +605,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     public event Action? RequestResetPanels;
     public event Action? RequestApplyLayout;
     public event Action<int>? ScrollCatalogToGfxId;
+    public event Action? RequestFocusLayersPanel;
 
     /// <summary>Raised when a map document is opened into a new floating window.</summary>
     public event Action<OpenMapDocument>? DocumentOpened;
@@ -618,6 +627,33 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     public ObservableCollection<FightCellDisplayItem> FightCellDisplayOptions { get; }
     public ObservableCollection<int> RotationOptions { get; }
     public ObservableCollection<string> RecentProjects { get; }
+    public ObservableCollection<SelectionGfxItemVm> SelectionGfxItems { get; } = new();
+
+    public SelectionGfxItemVm? SelectedSelectionGfxItem
+    {
+        get => _selectedSelectionGfxItem;
+        set
+        {
+            if (ReferenceEquals(_selectedSelectionGfxItem, value)) return;
+            if (_suppressSelectionGfxSelect)
+            {
+                _selectedSelectionGfxItem = value;
+                OnPropertyChanged(nameof(SelectedSelectionGfxItem));
+                return;
+            }
+
+            if (value is null)
+            {
+                _selectedSelectionGfxItem = null;
+                OnPropertyChanged(nameof(SelectedSelectionGfxItem));
+                return;
+            }
+
+            SelectSelectionGfxItem(value);
+        }
+    }
+
+    public bool HasSelectionGfxItems => SelectionGfxItems.Count > 0;
 
     public bool IsAstriaImport =>
         _session?.Source?.Kind == "LegacyAstria" && string.IsNullOrWhiteSpace(_session.FilePath);
@@ -1064,6 +1100,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         {
             if (!SetProperty(ref _showGrid, value)) return;
             PersistMapViewVisibility();
+            RequestMosaicOverlayRefresh();
         }
     }
 
@@ -1105,6 +1142,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             if (!SetProperty(ref _showCellIds, value)) return;
             OnPropertyChanged(nameof(ShowCellIdsEffective));
             PersistMapViewVisibility();
+            RequestMosaicOverlayRefresh();
         }
     }
 
@@ -1156,10 +1194,34 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     public bool ShowMapExportLimit
     {
         get => _showMapExportLimit;
-        set => SetProperty(ref _showMapExportLimit, value);
+        set
+        {
+            if (!SetProperty(ref _showMapExportLimit, value)) return;
+            RequestMosaicOverlayRefresh();
+        }
     }
 
-    private void BumpCellModeOverlayRevision() => CellModeOverlayRevision++;
+    private void BumpCellModeOverlayRevision()
+    {
+        CellModeOverlayRevision++;
+        RequestMosaicOverlayRefresh();
+    }
+
+    private void RequestMosaicOverlayRefresh()
+    {
+        if (IsMapCombinedMode)
+            CombinedMaps.RequestMosaicOverlayRefresh();
+        else if (MosaicHost.IsMultiMapEditMode)
+            MosaicHost.RequestMosaicOverlayRefresh();
+    }
+
+    private void RequestMosaicFullRefresh()
+    {
+        if (IsMapCombinedMode)
+            CombinedMaps.RequestMosaicFullRefresh();
+        else if (MosaicHost.IsMultiMapEditMode)
+            MosaicHost.RequestMosaicFullRefresh();
+    }
 
     /// <summary>Dirty state comes only from the document session history.</summary>
     public bool IsDirty =>
@@ -1338,7 +1400,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     private bool CanMoveFocusGfxTo(PaintLayer target) =>
         CanUseFocusGfx
         && TryResolveFocusGfx(out _, out var source)
-        && source != target;
+        && source != target
+        && source.SharesGfxCategory(target);
 
     /// <summary>
     /// When true, Erase (and matching strokes) only remove the catalog brush GFX on the active
@@ -1466,6 +1529,23 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         if (CurrentMap is null)
             return false;
 
+        if (HasSelection
+            && _pinnedSelectionGfxId is int pinnedId
+            && pinnedId > 0
+            && _pinnedSelectionGfxLayer is PaintLayer pinnedLayer
+            && SelectionContainsGfx(pinnedId, pinnedLayer))
+        {
+            gfxId = pinnedId;
+            layer = pinnedLayer;
+            return true;
+        }
+
+        if (_pinnedSelectionGfxId is not null)
+        {
+            _pinnedSelectionGfxId = null;
+            _pinnedSelectionGfxLayer = null;
+        }
+
         static bool TryFromCell(
             CellData cell,
             PaintLayer prefer,
@@ -1518,6 +1598,181 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         }
 
         return false;
+    }
+
+    private bool SelectionContainsGfx(int gfxId, PaintLayer layer)
+    {
+        if (CurrentMap is null || gfxId <= 0) return false;
+        foreach (var cellId in SelectedCellIds)
+        {
+            if (cellId < 0 || cellId >= CurrentMap.Cells.Count) continue;
+            if (GetLayerGfx(CurrentMap.Cells[cellId], layer) == gfxId)
+                return true;
+        }
+
+        return false;
+    }
+
+    public void SelectSelectionGfxItem(SelectionGfxItemVm item)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+        if (CurrentMap is null || _session is null)
+            return;
+
+        var gfxId = item.Id;
+        var layer = item.Layer;
+        _pinnedSelectionGfxId = gfxId;
+        _pinnedSelectionGfxLayer = layer;
+
+        // Solo las celdas de la selección actual que tienen este GFX en su capa.
+        var matching = new List<int>();
+        foreach (var cellId in SelectedCellIds)
+        {
+            if (cellId < 0 || cellId >= CurrentMap.Cells.Count) continue;
+            if (GetLayerGfx(CurrentMap.Cells[cellId], layer) == gfxId)
+                matching.Add(cellId);
+        }
+
+        if (matching.Count == 0)
+        {
+            StatusText = $"No hay GFX {gfxId} en {UiDisplayLabels.LayerTarget(layer)} dentro de la selección";
+            return;
+        }
+
+        if (PaintLayer != layer)
+            PaintLayer = layer;
+        if (SelectedGfxId != gfxId)
+            SelectedGfxId = gfxId;
+
+        _session.SetSelection(matching);
+        PrimarySelectedCellId = matching[^1];
+        SyncSelectionFromSession();
+        PushSessionSelectionToMultiMap();
+        RaiseSelectionCommands();
+
+        var primaryId = PrimarySelectedCellId ?? matching[^1];
+        ApplyBrushTransformFromCell(CurrentMap.Cells[primaryId], layer);
+        HighlightedInspectorLayer = layer switch
+        {
+            PaintLayer.Ground => InspectorLayerHighlight.Ground,
+            PaintLayer.Object1 => InspectorLayerHighlight.Object1,
+            _ => InspectorLayerHighlight.Object2,
+        };
+
+        _suppressSelectionGfxSelect = true;
+        try
+        {
+            foreach (var row in SelectionGfxItems)
+                row.IsSelected = row.Id == gfxId && row.Layer == layer;
+
+            var selectedRow = SelectionGfxItems.FirstOrDefault(r => r.Id == gfxId && r.Layer == layer);
+            if (!ReferenceEquals(_selectedSelectionGfxItem, selectedRow))
+            {
+                _selectedSelectionGfxItem = selectedRow;
+                OnPropertyChanged(nameof(SelectedSelectionGfxItem));
+            }
+        }
+        finally
+        {
+            _suppressSelectionGfxSelect = false;
+        }
+
+        RaiseFocusGfxUi();
+        RefreshCellInspector();
+        RequestFocusLayersPanel?.Invoke();
+        StatusText =
+            matching.Count == 1
+                ? $"Ítem GFX {gfxId} · {UiDisplayLabels.LayerTarget(layer)} · celda {primaryId}"
+                : $"Ítem GFX {gfxId} · {UiDisplayLabels.LayerTarget(layer)} · {matching.Count} celdas";
+    }
+
+    private void RebuildSelectionGfxList()
+    {
+        if (_rebuildingSelectionGfxList) return;
+        _rebuildingSelectionGfxList = true;
+        _suppressSelectionGfxSelect = true;
+        try
+        {
+            SelectionGfxItems.Clear();
+
+            if (CurrentMap is null || SelectedCellIds.Count == 0)
+            {
+                _pinnedSelectionGfxId = null;
+                _pinnedSelectionGfxLayer = null;
+                _selectedSelectionGfxItem = null;
+                OnPropertyChanged(nameof(SelectedSelectionGfxItem));
+                OnPropertyChanged(nameof(HasSelectionGfxItems));
+                return;
+            }
+
+            var counts = new Dictionary<(PaintLayer Layer, int Id), int>();
+            var layers = AreGfxObjectLayersEnabled
+                ? new[] { PaintLayer.Ground, PaintLayer.Object1, PaintLayer.Object2 }
+                : new[] { PaintLayer.Ground };
+
+            foreach (var cellId in SelectedCellIds)
+            {
+                if (cellId < 0 || cellId >= CurrentMap.Cells.Count) continue;
+                var cell = CurrentMap.Cells[cellId];
+                foreach (var layer in layers)
+                {
+                    var id = GetLayerGfx(cell, layer);
+                    if (id <= 0) continue;
+                    var key = (layer, id);
+                    counts[key] = counts.TryGetValue(key, out var n) ? n + 1 : 1;
+                }
+            }
+
+            foreach (var ((layer, id), count) in counts
+                         .OrderBy(kv => kv.Key.Layer)
+                         .ThenBy(kv => kv.Key.Id))
+            {
+                GfxResource? resource = null;
+                if (_library.Catalog is not null)
+                    GfxResourceResolver.TryResolve(_library.Catalog, layer.ToGfxCategory(), id, out resource);
+
+                var row = new SelectionGfxItemVm
+                {
+                    Id = id,
+                    Layer = layer,
+                    Count = count,
+                    Resource = resource,
+                };
+                if (resource is not null)
+                    row.Thumbnail = _thumbs.GetThumbnail(resource, 40);
+                SelectionGfxItems.Add(row);
+            }
+
+            SelectionGfxItemVm? selected = null;
+            if (_pinnedSelectionGfxId is int pinnedId
+                && _pinnedSelectionGfxLayer is PaintLayer pinnedLayer)
+            {
+                selected = SelectionGfxItems.FirstOrDefault(i => i.Id == pinnedId && i.Layer == pinnedLayer);
+                if (selected is null)
+                {
+                    _pinnedSelectionGfxId = null;
+                    _pinnedSelectionGfxLayer = null;
+                }
+            }
+
+            if (selected is null
+                && TryResolveFocusGfx(out var focusId, out var focusLayer))
+            {
+                selected = SelectionGfxItems.FirstOrDefault(i => i.Id == focusId && i.Layer == focusLayer);
+            }
+
+            foreach (var row in SelectionGfxItems)
+                row.IsSelected = selected is not null && row.Id == selected.Id && row.Layer == selected.Layer;
+
+            _selectedSelectionGfxItem = selected;
+            OnPropertyChanged(nameof(SelectedSelectionGfxItem));
+            OnPropertyChanged(nameof(HasSelectionGfxItems));
+        }
+        finally
+        {
+            _suppressSelectionGfxSelect = false;
+            _rebuildingSelectionGfxList = false;
+        }
     }
 
     public bool IsRectSelecting => _rectSelecting;
@@ -1650,6 +1905,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
                         : "Herramienta: Seleccionar",
                 };
                 OnPropertyChanged(nameof(ActiveToolLabel));
+                RequestMosaicOverlayRefresh();
             }
         }
     }
@@ -1755,7 +2011,11 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             OnPropertyChanged(nameof(IsLayerObject1));
             OnPropertyChanged(nameof(IsLayerObject2));
             if (oldCategory != value.ToGfxCategory())
+            {
+                // Ground 1710 ≠ Object 1710 — never reinterpret the brush ID in another namespace.
                 SelectedGfxId = null;
+                ClearPinnedSelectionIfCategoryMismatch(value.ToGfxCategory());
+            }
             CycleBrushRotationCommand.RaiseCanExecuteChanged();
             SyncSelectedCategoryFromPaintLayer();
             RefreshLayerLabels();
@@ -1763,9 +2023,31 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             OnPropertyChanged(nameof(ActiveToolLabel));
             OnPropertyChanged(nameof(FillSelectionTooltip));
             OnPropertyChanged(nameof(ClearActiveLayerInSelectionTooltip));
+            TryAutoMigrateFocusGfxToPaintLayer(value);
             RaiseFocusGfxUi();
             RaiseMassGfxCommands();
         }
+    }
+
+    private void ClearPinnedSelectionIfCategoryMismatch(GfxCategory category)
+    {
+        if (_pinnedSelectionGfxLayer is not PaintLayer pinnedLayer)
+            return;
+        if (pinnedLayer.ToGfxCategory() == category)
+            return;
+        _pinnedSelectionGfxId = null;
+        _pinnedSelectionGfxLayer = null;
+    }
+
+    /// <summary>
+    /// CAPAS (destino): migra ESTE ÍTEM solo dentro del mismo namespace (Capa 1 ↔ Capa 2).
+    /// Ground ↔ Object nunca se migra por ID (homónimos distintos).
+    /// </summary>
+    private void TryAutoMigrateFocusGfxToPaintLayer(PaintLayer target)
+    {
+        if (!CanMoveFocusGfxTo(target))
+            return;
+        MoveFocusGfxToLayer(target);
     }
 
     public GfxCategory SelectedCategory
@@ -2833,6 +3115,28 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         RefreshVisibleGfx(force: true);
     }
 
+    /// <summary>Floating catalog zoom: columns from panel width and scaled tile outer size.</summary>
+    public void SetCatalogPanelLayout(double width, double tileOuterWidth, bool forceRefresh = false)
+    {
+        var cols = GfxCatalogLayout.ComputeColumns(width, tileOuterWidth);
+        if (cols != GfxColumns)
+        {
+            GfxColumns = cols;
+            forceRefresh = true;
+        }
+
+        if (forceRefresh)
+            RefreshVisibleGfx(force: true);
+    }
+
+    public void EnsureThumbnail(GfxItemVm item, int pixelSize = 56)
+    {
+        if (item.Thumbnail is not null && pixelSize <= 56) return;
+        // Larger floating-catalog zoom may need a sharper thumb than the docked 56px cache.
+        item.Thumbnail = _thumbs.GetThumbnail(item.Resource, Math.Clamp(pixelSize, 56, 192));
+        item.OnThumbnailChanged();
+    }
+
     public bool ConfirmDiscardIfDirty()
     {
         foreach (var doc in _openDocuments.ToList())
@@ -3468,7 +3772,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             var dlg = new OpenFileDialog
             {
                 Title = "Abrir proyecto RUFUS",
-                Filter = "Proyecto RUFUS (*.rufmap)|*.rufmap|Todos|*.*",
+                Filter = "Proyecto RUFUS (*.rufmap)|*.rufmap|Mapa Astria SWF (*.swf)|*.swf|Todos|*.*",
             };
             if (dlg.ShowDialog() != true)
                 return;
@@ -3642,6 +3946,9 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         if (CurrentMap is null || findId == replaceId || layers.Count == 0)
             return 0;
 
+        layers = FilterLayersToSingleGfxCategory(layers);
+        if (layers.Count == 0) return 0;
+
         var cellIds = ResolveMassCellIds(wholeMap);
         if (cellIds.Count == 0) return 0;
 
@@ -3676,6 +3983,9 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             return 0;
 
         layers ??= new[] { PaintLayer };
+        layers = FilterLayersToSingleGfxCategory(layers);
+        if (layers.Count == 0) return 0;
+
         var cellIds = ResolveMassCellIds(wholeMap);
         if (cellIds.Count == 0) return 0;
 
@@ -3709,6 +4019,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     {
         if (!IsMapCombinedMode || !MultiMap.IsActive || findId <= 0) return 0;
         layers ??= new[] { PaintLayer };
+        layers = FilterLayersToSingleGfxCategory(layers);
         var keys = GetEsteItemMapKeys();
         var total = 0;
         foreach (var layer in layers)
@@ -3727,6 +4038,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             return 0;
 
         layers ??= new[] { PaintLayer };
+        layers = FilterLayersToSingleGfxCategory(layers);
         var keys = GetEsteItemMapKeys();
         if (keys.Count == 0) return 0;
 
@@ -4097,36 +4409,37 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             return;
         }
 
+        if (!source.SharesGfxCategory(target))
+        {
+            StatusText =
+                $"No se puede mover {UiDisplayLabels.LayerTarget(source)} → {UiDisplayLabels.LayerTarget(target)}: " +
+                "Suelo y Objetos son catálogos distintos (mismo ID ≠ mismo recurso).";
+            RaiseFocusGfxUi();
+            return;
+        }
+
         var srcEdit = source.ToEditorLayer();
         var dstEdit = target.ToEditorLayer();
         var dstLabel = UiDisplayLabels.LayerTarget(target);
         var srcLabel = UiDisplayLabels.LayerTarget(source);
         var cmdName = $"Mover GFX {gfxId}: {srcLabel} → {dstLabel}";
 
-        void Mutate(CellData c)
-        {
-            if (GetLayerGfx(c, source) != gfxId)
-                return;
-
-            var flip = GetLayerFlip(c, source);
-            var rot = GetLayerRotation(c, source);
-            if (target == PaintLayer.Object2)
-                MapCellEditor.SetLayerGfx(c, dstEdit, gfxId, flip);
-            else
-                MapCellEditor.SetLayerGfx(c, dstEdit, gfxId, flip, rot);
-            MapCellEditor.ClearLayer(c, srcEdit);
-        }
+        void Mutate(CellData c) =>
+            GfxLayerNamespace.TryMoveGfxToLayer(c, srcEdit, dstEdit, gfxId);
 
         var moved = 0;
         if (IsMapCombinedMode && MultiMap.IsActive)
         {
             if (TryMutateFocusGfxAcrossCombinedMaps(gfxId, source, cmdName, Mutate, out moved))
             {
+                if (_pinnedSelectionGfxId == gfxId && _pinnedSelectionGfxLayer == source)
+                    _pinnedSelectionGfxLayer = target;
                 PaintLayer = target;
                 SelectedGfxId = gfxId;
                 StatusText = BuildMoveLayerStatus(gfxId, moved, srcLabel, dstLabel, source, target);
                 RaiseFocusGfxUi();
                 RefreshCellInspector();
+                RequestMosaicFullRefresh();
                 return;
             }
         }
@@ -4150,14 +4463,16 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
         if (_session.Commit(cmdName, cellIds, (_, c) =>
             {
-                Mutate(c);
-                moved++;
+                if (GfxLayerNamespace.TryMoveGfxToLayer(c, srcEdit, dstEdit, gfxId))
+                    moved++;
             }))
         {
             AfterHistoryChange();
             _ = RerenderAsync();
         }
 
+        if (_pinnedSelectionGfxId == gfxId && _pinnedSelectionGfxLayer == source)
+            _pinnedSelectionGfxLayer = target;
         PaintLayer = target;
         SelectedGfxId = gfxId;
         StatusText = BuildMoveLayerStatus(gfxId, moved, srcLabel, dstLabel, source, target);
@@ -4226,11 +4541,30 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         return true;
     }
 
+    /// <summary>
+    /// Replace/delete must never treat Ground 1710 and Object 1710 as the same resource.
+    /// Mixed-category layer lists are narrowed to the active paint category.
+    /// </summary>
+    private IReadOnlyList<PaintLayer> FilterLayersToSingleGfxCategory(IReadOnlyList<PaintLayer> layers)
+    {
+        if (layers.Count == 0) return layers;
+        var category = PaintLayer.ToGfxCategory();
+        if (TryResolveFocusGfx(out _, out var focusLayer))
+            category = focusLayer.ToGfxCategory();
+
+        var filtered = layers.Where(l => l.ToGfxCategory() == category).ToList();
+        return filtered.Count > 0 ? filtered : layers.Where(l => l.ToGfxCategory() == PaintLayer.ToGfxCategory()).ToList();
+    }
+
     private void DeleteSelectedGfxOnLayers(IReadOnlyList<PaintLayer> layers, bool wholeMap)
     {
         if (_session is null || CurrentMap is null)
             return;
         if ((FocusGfxId ?? SelectedGfxId) is not int gfxId)
+            return;
+
+        layers = FilterLayersToSingleGfxCategory(layers);
+        if (layers.Count == 0)
             return;
 
         var cellIds = ResolveMassCellIds(wholeMap);
@@ -4383,6 +4717,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         MoveFocusGfxToObject1Command.RaiseCanExecuteChanged();
         MoveFocusGfxToObject2Command.RaiseCanExecuteChanged();
         ApplyBrushToSelectionCommand.RaiseCanExecuteChanged();
+        if (!_rebuildingSelectionGfxList)
+            RebuildSelectionGfxList();
     }
 
     public void NotifyFocusGfxUi() => RaiseFocusGfxUi();
@@ -4404,15 +4740,20 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         if (!HasLibrary || IsLoading)
             return;
 
-        var existing = FindOpenDocument(mapId);
+        var canonicalId = _library.ResolveCanonicalMapId(mapId);
+        var existing = FindOpenDocument(canonicalId) ?? FindOpenDocument(mapId);
         if (existing is not null)
         {
             ActivateDocument(existing);
+            if (canonicalId != mapId)
+                StatusText = $"Mapa {canonicalId} (alias {mapId}) ya estaba abierto";
             return;
         }
 
         IsLoading = true;
-        StatusText = "Cargando mapa...";
+        StatusText = canonicalId != mapId
+            ? $"Cargando mapa {canonicalId} (alias {mapId})..."
+            : "Cargando mapa...";
         HoveredCellId = null;
         FinishStroke();
 
@@ -4425,10 +4766,24 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
                 return (doc, meta, render);
             });
 
+            // Another path may have opened the canonical id while we were loading.
+            existing = FindOpenDocument(map.Id);
+            if (existing is not null)
+            {
+                result.Image.Dispose();
+                ActivateDocument(existing);
+                StatusText = $"Mapa {map.Id} ya estaba abierto";
+                return;
+            }
+
             ApplyRenderResult(map, swf, result);
-            SelectedMapId = mapId;
+            SelectedMapId = map.Id;
             RequestFitMap?.Invoke();
-            RufusLog.Info($"Mapa {mapId} cargado");
+            RufusLog.Info(canonicalId != mapId
+                ? $"Mapa {map.Id} cargado (solicitado alias {mapId})"
+                : $"Mapa {mapId} cargado");
+            if (canonicalId != mapId)
+                StatusText = $"Mapa {map.Id} abierto (alias {mapId} → {map.Id})";
         }
         catch (Exception ex)
         {
@@ -6627,6 +6982,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     private void LoadLibraryCore(string path, LibrarySource source = LibrarySource.ManualSelection)
     {
         StatusText = "Cargando biblioteca...";
+        SuppressImagesWatcher(TimeSpan.FromSeconds(30));
+        DisposeImagesWatcher();
         _thumbs.Clear();
         _overlayCache.Clear();
         _mapPreviews.Clear();
@@ -6657,6 +7014,9 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         SetupImagesWatcher(_effectiveLibraryPath);
     }
 
+    private void SuppressImagesWatcher(TimeSpan duration) =>
+        _imagesWatcherSuppressUntilTick = Environment.TickCount64 + (long)duration.TotalMilliseconds;
+
     private void SetupImagesWatcher(string libraryRoot)
     {
         DisposeImagesWatcher();
@@ -6666,11 +7026,11 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             if (!Directory.Exists(images))
                 return;
 
-            _imagesReloadDebounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(750) };
+            _imagesReloadDebounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(2500) };
             _imagesReloadDebounce.Tick += (_, _) =>
             {
                 _imagesReloadDebounce?.Stop();
-                SoftReloadGfxCatalog("archivos Images");
+                _ = SoftReloadGfxCatalogAsync("archivos Images");
             };
 
             _imagesWatcher = new FileSystemWatcher(images)
@@ -6678,8 +7038,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
                 IncludeSubdirectories = true,
                 NotifyFilter = NotifyFilters.FileName
                                | NotifyFilters.DirectoryName
-                               | NotifyFilters.LastWrite
-                               | NotifyFilters.Size,
+                               | NotifyFilters.LastWrite,
+                InternalBufferSize = 64 * 1024,
                 EnableRaisingEvents = true,
             };
             _imagesWatcher.Changed += OnImagesFolderChanged;
@@ -6695,12 +7055,19 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
     private void OnImagesFolderChanged(object sender, FileSystemEventArgs e)
     {
-        // Ignorar temporales/ruido de editores de imagen.
+        if (Environment.TickCount64 < _imagesWatcherSuppressUntilTick)
+            return;
+
         var name = Path.GetFileName(e.Name ?? e.FullPath);
         if (string.IsNullOrEmpty(name) ||
             name.StartsWith(".", StringComparison.Ordinal) ||
             name.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase) ||
             name.EndsWith("~", StringComparison.Ordinal))
+            return;
+
+        var ext = Path.GetExtension(name);
+        if (!string.IsNullOrEmpty(ext) &&
+            !AstriaGfxLibraryLayout.SupportedExtensions.Contains(ext))
             return;
 
         var gen = Interlocked.Increment(ref _imagesReloadGeneration);
@@ -6713,34 +7080,56 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         });
     }
 
-    private void SoftReloadGfxCatalog(string reason)
+    private async Task SoftReloadGfxCatalogAsync(string reason, bool waitIfBusy = false)
     {
         if (!_library.IsLoaded || string.IsNullOrWhiteSpace(_effectiveLibraryPath))
             return;
 
+        if (waitIfBusy)
+        {
+            while (Interlocked.CompareExchange(ref _softReloadBusy, 1, 0) != 0)
+                await Task.Delay(50).ConfigureAwait(true);
+        }
+        else if (Interlocked.CompareExchange(ref _softReloadBusy, 1, 0) != 0)
+        {
+            return;
+        }
+
+        var path = _effectiveLibraryPath;
+        var gen = Volatile.Read(ref _imagesReloadGeneration);
+        SuppressImagesWatcher(TimeSpan.FromSeconds(5));
         try
         {
             StatusText = "Actualizando catálogo de imágenes…";
+            var built = await Task.Run(() => AstriaGfxCatalogBuilder.Build(path)).ConfigureAwait(true);
+            if (!string.Equals(path, _effectiveLibraryPath, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            _library.ApplyCatalog(path, built.Catalog);
             _thumbs.Clear();
             _overlayCache.Clear();
-            _worldThumbs.Clear();
-            _library.LoadLibrary(_effectiveLibraryPath);
             BuildCatalogIndex();
             RebuildFolderTree();
             RefreshVisibleGfx(force: true);
-            _ = RerenderAsync();
-            World.RequestViewRedraw();
-            foreach (var session in _openWorlds)
-                session.Vm.RequestViewRedraw();
-            if (IsMapCombinedMode)
-                CombinedMaps.RequestViewRedraw();
-            StatusText = $"Catálogo actualizado ({reason})";
+            if (CurrentMap is not null)
+                _ = RerenderAsync();
+            StatusText = $"Catálogo actualizado ({reason}) · {built.Catalog.TotalCount} GFX";
             RufusLog.Ok($"Catálogo GFX recargado: {reason}");
         }
         catch (Exception ex)
         {
             StatusText = "Error al actualizar catálogo";
             RufusLog.Error($"SoftReloadGfxCatalog: {ex.Message}");
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _softReloadBusy, 0);
+            if (gen != Volatile.Read(ref _imagesReloadGeneration) &&
+                _imagesReloadDebounce is not null)
+            {
+                _imagesReloadDebounce.Stop();
+                _imagesReloadDebounce.Start();
+            }
         }
     }
 
@@ -7169,6 +7558,9 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         if (!_library.Catalog.TryGet(category, gfxId, out var res) || res is null)
             return;
 
+        ShowCatalogPanel = true;
+        ShowCategoriesPanel = true;
+
         PaintLayer = category switch
         {
             GfxCategory.Ground => PaintLayer.Ground,
@@ -7177,22 +7569,69 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         };
         SelectedCategory = category;
         var folderName = string.IsNullOrEmpty(res.Folder) ? "(raíz)" : res.Folder;
+        RevealFolderInTree(category, folderName);
         SelectedFolder = folderName;
         SelectedGfxId = gfxId;
         if (Tool is EditorTool.Select or EditorTool.RectSelect or EditorTool.Eyedropper)
             Tool = EditorTool.Paint;
         RefreshVisibleGfx(force: true);
         ScrollCatalogToGfxId?.Invoke(gfxId);
-        StatusText = $"Catálogo: {category} {gfxId}";
+
+        var diskFolder = string.IsNullOrWhiteSpace(res.FilePath)
+            ? folderName
+            : Path.GetDirectoryName(res.FilePath) ?? folderName;
+        StatusText = $"Localizado GFX {gfxId} · {UiDisplayLabels.CategoryRoot(category)} / {folderName}";
+        RufusLog.Ok($"Catálogo · {UiDisplayLabels.CategoryRoot(category)}/{folderName} · GFX {gfxId} · {diskFolder}");
     }
 
-    private void OpenGfxVisualSearch()
+    private void RevealFolderInTree(GfxCategory category, string folderName)
+    {
+        _showUnifiedFavorites = false;
+        ClearFolderTreeSelection();
+
+        var rootName = UiDisplayLabels.CategoryRoot(category);
+        var root = FolderTree.FirstOrDefault(n =>
+            string.Equals(n.Name, rootName, StringComparison.OrdinalIgnoreCase));
+        if (root is null)
+            return;
+
+        root.IsExpanded = true;
+        var leaf = root.Children.FirstOrDefault(c =>
+            string.Equals(c.Name, folderName, StringComparison.OrdinalIgnoreCase)
+            && c.Category == category);
+
+        if (leaf is null)
+        {
+            root.IsSelected = true;
+            return;
+        }
+
+        leaf.IsSelected = true;
+    }
+
+    private void ClearFolderTreeSelection()
+    {
+        foreach (var node in FolderTree)
+            ClearFolderTreeSelectionRecursive(node);
+    }
+
+    private static void ClearFolderTreeSelectionRecursive(FolderNodeVm node)
+    {
+        node.IsSelected = false;
+        foreach (var child in node.Children)
+            ClearFolderTreeSelectionRecursive(child);
+    }
+
+    private async Task OpenGfxVisualSearchAsync()
     {
         if (_library.Catalog is null)
         {
             StatusText = "Catálogo no cargado";
             return;
         }
+
+        await SoftReloadGfxCatalogAsync("búsqueda visual", waitIfBusy: true).ConfigureAwait(true);
+        if (_library.Catalog is null) return;
 
         var dlg = new GfxVisualSearchWindow(_library, PaintLayer.ToGfxCategory())
         {
@@ -7368,14 +7807,59 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         return true;
     }
 
-    public readonly record struct LayerOverlayVisual(ImageSource Image, GfxPlacementMath.PlacementRect Bounds);
-
-    public void EnsureThumbnail(GfxItemVm item)
+    public bool TryGetMultiMapCellLayerVisual(
+        string documentKey,
+        int cellId,
+        PaintLayer layer,
+        out LayerOverlayVisual visual)
     {
-        if (item.Thumbnail is not null) return;
-        item.Thumbnail = _thumbs.GetThumbnail(item.Resource, 56);
-        item.OnThumbnailChanged();
+        visual = default;
+        if (_library.Catalog is null)
+            return false;
+
+        var doc = MultiMap.GetDocument(documentKey);
+        var tester = MultiMap.GetHitTester(documentKey);
+        if (doc is null || tester is null)
+            return false;
+        if (cellId < 0 || cellId >= doc.Cells.Count)
+            return false;
+
+        var cell = doc.Cells[cellId];
+        var gfxId = GetLayerGfx(cell, layer);
+        if (gfxId <= 0)
+            return false;
+
+        var category = layer.ToGfxCategory();
+        if (!_library.Catalog.TryGet(category, gfxId, out var resource) || resource is null)
+            return false;
+
+        var flip = layer switch
+        {
+            PaintLayer.Ground => cell.FlipGround,
+            PaintLayer.Object1 => cell.FlipObject1,
+            _ => cell.FlipObject2,
+        };
+        var rotation = layer switch
+        {
+            PaintLayer.Ground => cell.GroundRotation,
+            PaintLayer.Object1 => cell.Object1Rotation,
+            _ => 0,
+        };
+        var isObject = layer != PaintLayer.Ground;
+
+        if (!_overlayCache.TryBuildPlacementDescriptor(
+                tester, cellId, resource, flip, rotation, isObject, out var descriptor))
+            return false;
+
+        var image = _overlayCache.GetTransformedImage(resource, flip, rotation, isObject);
+        if (image is null)
+            return false;
+
+        visual = new LayerOverlayVisual(image, descriptor.HitSpace);
+        return true;
     }
+
+    public readonly record struct LayerOverlayVisual(ImageSource Image, GfxPlacementMath.PlacementRect Bounds);
 
     public ImageSource? GetCatalogHoverPreview(GfxItemVm item) =>
         _thumbs.GetThumbnail(item.Resource, 128);
@@ -7773,6 +8257,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         PrimarySelectedCellId = null;
         SelectedCellIds = Array.Empty<int>();
         HighlightedInspectorLayer = InspectorLayerHighlight.None;
+        _pinnedSelectionGfxId = null;
+        _pinnedSelectionGfxLayer = null;
         OnPropertyChanged(nameof(SelectionCount));
         OnPropertyChanged(nameof(SelectionSummaryLabel));
         OnPropertyChanged(nameof(HasSingleCellSelection));
@@ -7782,6 +8268,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         RaiseLocateCommands();
         ClearMapSelectionCommand.RaiseCanExecuteChanged();
         RaiseSelectionCommands();
+        RaiseFocusGfxUi();
     }
 
     private void RefreshMapInspector()
@@ -8035,7 +8522,14 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     private void OnLayerVisibilityChanged()
     {
         PersistMapViewVisibility();
-        _ = RerenderAsync();
+        if (IsMapCombinedMode && CombinedMaps.World is { } world)
+        {
+            foreach (var p in world.Placements)
+                CombinedMaps.InvalidateThumbnail(p.DocumentKey);
+            RequestMosaicFullRefresh();
+        }
+        else
+            _ = RerenderAsync();
     }
 
     private void PersistMapViewVisibility()
@@ -8514,9 +9008,12 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     }
 
 
-    public void OpenBackgroundPicker()
+    public async Task OpenBackgroundPickerAsync()
     {
         if (CurrentMap is null || !HasLibrary) return;
+        await SoftReloadGfxCatalogAsync("selector de fondo", waitIfBusy: true).ConfigureAwait(true);
+        if (CurrentMap is null || !HasLibrary) return;
+
         var dlg = new BackgroundPickerWindow(_library, CurrentMap.BackgroundId)
         {
             Owner = Application.Current.MainWindow,
@@ -8524,6 +9021,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         if (dlg.ShowDialog() != true || dlg.SelectedBackgroundId is not int newId) return;
         ApplyBackgroundId(newId);
     }
+
+    public void OpenBackgroundPicker() => _ = OpenBackgroundPickerAsync();
 
     public void ApplyBackgroundId(int backgroundId)
     {
@@ -8678,8 +9177,18 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     public void BeginMultiMapStroke()
     {
         _multiMapStrokeIsErase = false;
+        _multiMapCellModeErase = false;
         _multiMapEraseMatchBrush = false;
         MultiMap.BeginStroke(Tool, PaintLayer);
+        MultiMap.ResetStrokePointer();
+    }
+
+    public void BeginMultiMapCellModeStroke(bool erase)
+    {
+        _multiMapStrokeIsErase = false;
+        _multiMapEraseMatchBrush = false;
+        _multiMapCellModeErase = erase;
+        MultiMap.BeginStroke(Tool, PaintLayer, cellModeErase: erase);
         MultiMap.ResetStrokePointer();
     }
 
@@ -8695,6 +9204,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     {
         MultiMap.FinishStroke();
         _multiMapStrokeIsErase = false;
+        _multiMapCellModeErase = false;
         _multiMapEraseMatchBrush = false;
         foreach (var key in MultiMap.DirtyDocumentKeys)
             MarkOpenDocumentDirtyFromMultiMap(key);
@@ -8717,7 +9227,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             mosaicMode: true,
             eraseOnlySelectedGfx: _multiMapEraseMatchBrush || EraseOnlySelectedGfx,
             paintMarksUnwalkable: PaintMarksUnwalkable,
-            paintSeam: PaintSeam && IsMapCombinedMode);
+            paintSeam: PaintSeam && IsMapCombinedMode,
+            cellModeErase: _multiMapCellModeErase);
 
     /// <summary>
     /// Right-click in Paint (combinado): erase on the active layer.
@@ -8779,10 +9290,30 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         bool isDrag,
         bool ctrl,
         double? mapLocalX = null,
-        double? mapLocalY = null)
+        double? mapLocalY = null,
+        bool cellModeErase = false)
     {
         _inspectContentX = mapLocalX;
         _inspectContentY = mapLocalY;
+
+        if (Tool.IsCellModeTool() && !cellModeErase &&
+            Tool is EditorTool.FightCell1 or EditorTool.FightCell2)
+        {
+            var doc = MultiMap.GetDocument(cell.DocumentKey);
+            if (doc is not null && cell.CellId >= 0 && cell.CellId < doc.Cells.Count &&
+                doc.Cells[cell.CellId].Movement == MovementType.Unwalkable)
+            {
+                if (!isDrag)
+                {
+                    var msg =
+                        $"Celda {cell.CellId}: esta celda es no transitable.\nNo se puede colocar combate aquí.";
+                    StatusText = msg;
+                    MessageBox.Show(msg, "Combate", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
+
+                return;
+            }
+        }
 
         MultiMap.HandleCellClick(
             cell,
@@ -8796,7 +9327,11 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             gfx => ApplyMultiMapEyedropper(cell, gfx),
             eraseOnlySelectedGfx: EraseOnlySelectedGfx,
             paintMarksUnwalkable: PaintMarksUnwalkable,
-            paintSeam: PaintSeam && IsMapCombinedMode);
+            paintSeam: PaintSeam && IsMapCombinedMode,
+            cellModeErase: cellModeErase);
+
+        if (Tool.IsCellModeTool())
+            BumpCellModeOverlayRevision();
 
         if (!isDrag)
             SyncUiFromMultiMapSelection(cell.DocumentKey);

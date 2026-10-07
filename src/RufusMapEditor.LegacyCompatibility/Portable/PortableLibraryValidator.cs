@@ -94,7 +94,8 @@ public static class PortableLibraryValidator
                 continue;
             // Official Save uses .rufmap; legacy portable packs may still ship .sql.
             if (File.Exists(Path.Combine(dir, $"{id}.rufmap"))
-                || File.Exists(Path.Combine(dir, $"{id}.sql")))
+                || File.Exists(Path.Combine(dir, $"{id}.sql"))
+                || Directory.EnumerateFiles(dir, "*.swf").Any())
                 count++;
         }
 

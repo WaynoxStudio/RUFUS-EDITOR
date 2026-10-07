@@ -220,7 +220,27 @@ public partial class MapPickerWindow : Window
 
     private void MapGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        if (MapGrid.SelectedItem is MapPickerItemVm)
-            Ok_Click(sender, e);
+        var item = FindMapItemFromSource(e.OriginalSource as DependencyObject)
+                   ?? MapGrid.SelectedItem as MapPickerItemVm;
+        if (item is null) return;
+
+        MapGrid.SelectedItem = item;
+        NewMapRequested = false;
+        SelectedMapId = item.MapId;
+        SavePersistState();
+        DialogResult = true;
+        e.Handled = true;
+    }
+
+    private static MapPickerItemVm? FindMapItemFromSource(DependencyObject? source)
+    {
+        while (source is not null)
+        {
+            if (source is FrameworkElement { DataContext: MapPickerItemVm item })
+                return item;
+            source = System.Windows.Media.VisualTreeHelper.GetParent(source);
+        }
+
+        return null;
     }
 }

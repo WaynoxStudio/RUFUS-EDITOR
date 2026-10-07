@@ -260,6 +260,10 @@
                             Fill="{DynamicResource Warning}" Stroke="{DynamicResource Warning}" StrokeThickness="0.6"/>
                     </Viewbox>
                   </Button>
+                  <Button Content="⧉" Width="28" Margin="0,0,4,0"
+                          Click="UndockCatalog_Click"
+                          Style="{StaticResource IconButtonCompact}"
+                          ToolTip="Abrir catálogo en otra ventana (segunda pantalla)"/>
                   <Button x:Name="CollapseCatalogButton" Content="◂" Width="28"
                           Click="CollapseCatalog_Click"
                           Style="{StaticResource IconButtonCompact}" ToolTip="Ocultar árbol de categorías"/>
@@ -296,6 +300,13 @@
                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                         ScrollViewer.VerticalScrollBarVisibility="Auto"
                         SelectedItemChanged="FolderTree_OnSelectedItemChanged">
+                <TreeView.ItemContainerStyle>
+                  <Style TargetType="TreeViewItem">
+                    <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+                    <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}"/>
+                    <Setter Property="Padding" Value="2,1"/>
+                  </Style>
+                </TreeView.ItemContainerStyle>
                 <TreeView.ItemTemplate>
                   <HierarchicalDataTemplate ItemsSource="{Binding Children}">
                     <TextBlock Text="{Binding Name}" Margin="2,3"
@@ -1204,6 +1215,54 @@
                           ToolTip="Quita el resaltado. No modifica GFX."
                           Padding="10,5" Margin="0,0,0,10" HorizontalAlignment="Stretch"/>
 
+                  <TextBlock Text="ÍTEMS EN SELECCIÓN" FontWeight="SemiBold" FontSize="11" Margin="0,0,0,4"
+                             Visibility="{Binding HasSelectionGfxItems, Converter={StaticResource BoolToVis}}"/>
+                  <ListBox ItemsSource="{Binding SelectionGfxItems}"
+                           SelectedItem="{Binding SelectedSelectionGfxItem}"
+                           MaxHeight="180" Margin="0,0,0,10"
+                           Visibility="{Binding HasSelectionGfxItems, Converter={StaticResource BoolToVis}}"
+                           VirtualizingPanel.IsVirtualizing="True"
+                           VirtualizingPanel.VirtualizationMode="Recycling"
+                           VirtualizingPanel.ScrollUnit="Pixel"
+                           ScrollViewer.CanContentScroll="True"
+                           ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                           Background="Transparent" BorderThickness="0">
+                    <ListBox.ItemContainerStyle>
+                      <Style TargetType="ListBoxItem">
+                        <Setter Property="Padding" Value="4,3"/>
+                        <Setter Property="Margin" Value="0,0,0,2"/>
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Style.Triggers>
+                          <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Background" Value="{DynamicResource ElevatedSurface}"/>
+                            <Setter Property="BorderBrush" Value="{DynamicResource BrandAccent}"/>
+                            <Setter Property="BorderThickness" Value="1"/>
+                          </Trigger>
+                          <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                            <Setter Property="Background" Value="{DynamicResource ElevatedSurface}"/>
+                            <Setter Property="BorderBrush" Value="{DynamicResource BrandAccent}"/>
+                            <Setter Property="BorderThickness" Value="1"/>
+                          </DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </ListBox.ItemContainerStyle>
+                    <ListBox.ItemTemplate>
+                      <DataTemplate>
+                        <DockPanel>
+                          <Image DockPanel.Dock="Left" Source="{Binding Thumbnail}"
+                                 Width="36" Height="36" Margin="0,0,8,0"
+                                 Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                          <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Summary}" FontSize="11"
+                                       Foreground="{DynamicResource TextPrimary}"
+                                       TextTrimming="CharacterEllipsis"/>
+                          </StackPanel>
+                        </DockPanel>
+                      </DataTemplate>
+                    </ListBox.ItemTemplate>
+                  </ListBox>
+
                   <Border BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="6" Padding="8"
                           Margin="0,0,0,0"
                           Visibility="{Binding CanUseFocusGfx, Converter={StaticResource BoolToVis}}">
@@ -1239,15 +1298,15 @@
                       <UniformGrid Columns="3" Margin="0,0,0,6">
                         <Button Content="Suelo"
                                 Command="{Binding MoveFocusGfxToGroundCommand}"
-                                ToolTip="Mueve todas las instancias de este GFX a Suelo (conserva volteo/rotación). Si Suelo ya tenía otro GFX, se sustituye."
+                                ToolTip="Solo si el ítem ya es Suelo no aplica. No mueve Objetos a Suelo (IDs homónimos son recursos distintos)."
                                 Padding="6,5" Margin="0,0,3,0"/>
                         <Button Content="Capa 1"
                                 Command="{Binding MoveFocusGfxToObject1Command}"
-                                ToolTip="Mueve todas las instancias de este GFX a Capa 1 (conserva volteo/rotación). Si Capa 1 ya tenía otro GFX, se sustituye."
+                                ToolTip="Mueve este GFX de Capa 2 → Capa 1 (mismo catálogo Objetos). No convierte un Suelo en Objeto."
                                 Padding="6,5" Margin="0,0,3,0"/>
                         <Button Content="Capa 2"
                                 Command="{Binding MoveFocusGfxToObject2Command}"
-                                ToolTip="Mueve todas las instancias de este GFX a Capa 2 (conserva volteo; la rotación no existe en Capa 2). Si Capa 2 ya tenía otro GFX, se sustituye."
+                                ToolTip="Mueve este GFX de Capa 1 → Capa 2 (mismo catálogo Objetos). No convierte un Suelo en Objeto."
                                 Padding="6,5"/>
                       </UniformGrid>
                       <Button Content="{Binding ReplaceAllFocusGfxLabel}"
@@ -1278,7 +1337,7 @@
               </Border>
             </Expander>
 
-            <Expander Header="Capas" IsExpanded="True" Margin="0,0,0,4">
+            <Expander x:Name="LayersExpander" Header="Capas" IsExpanded="True" Margin="0,0,0,4">
               <Border Style="{StaticResource InspectorCard}" Margin="0,6,0,0">
               <Grid>
                 <Grid.ColumnDefinitions>

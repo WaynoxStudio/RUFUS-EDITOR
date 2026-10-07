@@ -40,6 +40,12 @@ public static class PaintLayerExtensions
 
     public static GfxCategory ToGfxCategory(this PaintLayer layer) =>
         layer == PaintLayer.Ground ? GfxCategory.Ground : GfxCategory.Object;
+
+    /// <summary>
+    /// Ground vs Object are separate ID namespaces. Only Object1↔Object2 share a namespace.
+    /// </summary>
+    public static bool SharesGfxCategory(this PaintLayer source, PaintLayer target) =>
+        source.ToGfxCategory() == target.ToGfxCategory();
 }
 
 public sealed class GfxFavoriteKey

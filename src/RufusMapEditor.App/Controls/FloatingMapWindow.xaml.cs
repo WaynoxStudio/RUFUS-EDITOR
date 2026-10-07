@@ -365,7 +365,15 @@ public partial class FloatingMapWindow : UserControl
         _isMinimized = false;
         ApplyMaximized(_host.ActualWidth, _host.ActualHeight);
         UpdateChromeState();
+        // Force layout then zoom-to-fill the new host size (letterbox fit).
+        UpdateLayout();
+        Viewport.UpdateLayout();
         FitViewport();
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (!_isMaximized || _isMinimized) return;
+            Viewport.FitMap();
+        }, System.Windows.Threading.DispatcherPriority.Render);
     }
 
     /// <summary>Abre el mapa a pantalla completa del área de trabajo.</summary>
@@ -488,7 +496,12 @@ public partial class FloatingMapWindow : UserControl
     private void FitViewport()
     {
         if (_isMinimized || _document?.MapImage is null) return;
-        Viewport.FitMap();
+        // After maximize/resize, ActualWidth/Height may still be stale this frame.
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (_isMinimized || _document?.MapImage is null) return;
+            Viewport.FitMap();
+        }, System.Windows.Threading.DispatcherPriority.Loaded);
     }
 
     private double GetCanvasLeft()

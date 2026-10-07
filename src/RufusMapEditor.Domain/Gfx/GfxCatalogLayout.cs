@@ -12,15 +12,19 @@ public static class GfxCatalogLayout
     public const int MaxColumns = 64;
     public const int DefaultColumns = 8;
 
-    public static int ComputeColumns(double panelWidth)
+    public static int ComputeColumns(double panelWidth) =>
+        ComputeColumns(panelWidth, TileOuterWidth);
+
+    public static int ComputeColumns(double panelWidth, double tileOuterWidth)
     {
         if (panelWidth <= 0 || double.IsNaN(panelWidth))
             return DefaultColumns;
 
+        var tile = tileOuterWidth > 0 ? tileOuterWidth : TileOuterWidth;
         var usable = panelWidth - ScrollbarReserve;
-        if (usable < TileOuterWidth)
+        if (usable < tile)
             return MinColumns;
 
-        return Math.Clamp((int)Math.Floor(usable / TileOuterWidth), MinColumns, MaxColumns);
+        return Math.Clamp((int)Math.Floor(usable / tile), MinColumns, MaxColumns);
     }
 }

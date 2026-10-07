@@ -6,6 +6,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using RufusMapEditor.App.Services;
 using RufusMapEditor.App.ViewModels;
+using RufusMapEditor.Domain.Maps;
 using RufusMapEditor.Domain.World;
 using RufusMapEditor.LegacyCompatibility.World;
 using RufusMapEditor.Rendering;
@@ -79,6 +80,7 @@ public partial class WorldViewport : UserControl
     private static readonly SolidColorBrush MoveValidStroke = new(Color.FromArgb(230, 80, 220, 140));
     private static readonly SolidColorBrush MoveOutsideFill = new(Color.FromArgb(110, 220, 50, 50));
     private static readonly SolidColorBrush MoveOutsideStroke = new(Color.FromArgb(255, 255, 70, 70));
+    private static readonly SolidColorBrush GfxBoundsStroke = new(Color.FromArgb(255, 255, 255, 255));
 
     static WorldViewport()
     {
@@ -97,6 +99,7 @@ public partial class WorldViewport : UserControl
         MoveValidStroke.Freeze();
         MoveOutsideFill.Freeze();
         MoveOutsideStroke.Freeze();
+        GfxBoundsStroke.Freeze();
     }
 
     public WorldViewport()
@@ -502,6 +505,11 @@ public partial class WorldViewport : UserControl
             if (host.ShowGrid)
                 DrawMapGrid(tester, ox, oy);
 
+            DrawMultiMapCellModeMarkers(host, tester, entry.Document, ox, oy);
+
+            if (host.ShowMapExportLimit)
+                DrawMultiMapExportLimit(w, h, ox, oy);
+
             if (host.ShowCellIds && host.ShowCellIdsEffective)
                 DrawMapCellIds(tester, ox, oy);
         }
@@ -521,21 +529,42 @@ public partial class WorldViewport : UserControl
             }
         }
 
-        // Single hover target only (never a trail).
-        if (mm.HoveredCell is { } hover &&
-            host.Tool is EditorTool.Paint or EditorTool.Erase)
+        // Hover: paint/erase target, or select-tool GFX bounds (same as single-map viewport).
+        if (mm.HoveredCell is { } hover)
         {
             var tester = mm.GetHitTester(hover.DocumentKey);
             if (tester?.TryGetCellCornersInHitSpace(hover.CellId, out var corners) == true)
             {
-                var placement = _vm.World!.Placements.First(p => p.DocumentKey == hover.DocumentKey);
-                var doc = mm.GetDocument(hover.DocumentKey)!;
-                var (rx, ry, _, _) = WorldGeometry.GetMapRect(placement.WorldX, placement.WorldY, doc, mosaic);
-                var shifted = ShiftCorners(corners, rx - _contentOffsetX, ry - _contentOffsetY);
+                var placement = _vm.World!.Placements.FirstOrDefault(p => p.DocumentKey == hover.DocumentKey);
+                var doc = mm.GetDocument(hover.DocumentKey);
+                if (placement is not null && doc is not null)
+                {
+                    var (rx, ry, _, _) = WorldGeometry.GetMapRect(placement.WorldX, placement.WorldY, doc, mosaic);
+                    var shifted = ShiftCorners(corners, rx - _contentOffsetX, ry - _contentOffsetY);
 
-                if (host.Tool == EditorTool.Paint && host.SelectedGfxId is not null)
-                    DrawMultiMapBrushPreview(host, hover.DocumentKey, hover.CellId, rx, ry);
-                DrawMultiMapPaintTarget(shifted);
+                    if (host.Tool is EditorTool.Paint or EditorTool.Erase)
+                    {
+                        if (host.Tool == EditorTool.Paint && host.SelectedGfxId is not null)
+                            DrawMultiMapBrushPreview(host, hover.DocumentKey, hover.CellId, rx, ry);
+                        DrawMultiMapPaintTarget(shifted);
+                    }
+                    else if (host.Tool.IsCellModeTool())
+                    {
+                        DrawMultiMapCellModeHover(host.Tool, shifted);
+                    }
+                    else if (host.Tool is EditorTool.Select or EditorTool.RectSelect or EditorTool.Eyedropper)
+                    {
+                        var selectedHere = mm.Selection.Any(s =>
+                            s.DocumentKey == hover.DocumentKey && s.CellId == hover.CellId);
+                        if (!selectedHere)
+                        {
+                            OverlayCanvas.Children.Add(CreateDiamondPolygon(
+                                shifted, CellHoverFill, CellHoverStroke, 1.5 / Math.Max(_camera.Zoom, 0.1)));
+                        }
+
+                        DrawMultiMapHoverGfxBounds(host, hover.DocumentKey, hover.CellId, rx, ry);
+                    }
+                }
             }
         }
 
@@ -646,6 +675,47 @@ public partial class WorldViewport : UserControl
         OverlayCanvas.Children.Add(img);
     }
 
+    private void DrawMultiMapHoverGfxBounds(
+        MainViewModel host,
+        string documentKey,
+        int cellId,
+        double mapRx,
+        double mapRy)
+    {
+        if (host.Tool is not (EditorTool.Select or EditorTool.RectSelect or EditorTool.Eyedropper))
+            return;
+
+        DrawMultiMapLayerBounds(host, documentKey, cellId, PaintLayer.Ground, mapRx, mapRy);
+        DrawMultiMapLayerBounds(host, documentKey, cellId, PaintLayer.Object1, mapRx, mapRy);
+        DrawMultiMapLayerBounds(host, documentKey, cellId, PaintLayer.Object2, mapRx, mapRy);
+    }
+
+    private void DrawMultiMapLayerBounds(
+        MainViewModel host,
+        string documentKey,
+        int cellId,
+        PaintLayer layer,
+        double mapRx,
+        double mapRy)
+    {
+        if (!host.TryGetMultiMapCellLayerVisual(documentKey, cellId, layer, out var visual))
+            return;
+
+        var thickness = 1.0 / Math.Max(_camera.Zoom, 0.1);
+        var rect = new Rectangle
+        {
+            Width = Math.Max(1, visual.Bounds.Width),
+            Height = Math.Max(1, visual.Bounds.Height),
+            Stroke = GfxBoundsStroke,
+            StrokeThickness = thickness,
+            Fill = Brushes.Transparent,
+            IsHitTestVisible = false,
+        };
+        Canvas.SetLeft(rect, mapRx - _contentOffsetX + visual.Bounds.X);
+        Canvas.SetTop(rect, mapRy - _contentOffsetY + visual.Bounds.Y);
+        OverlayCanvas.Children.Add(rect);
+    }
+
     private void DrawMapGrid(IsoHitTester tester, double offsetX, double offsetY)
     {
         for (var id = 0; id < tester.Corners.Count; id++)
@@ -722,6 +792,157 @@ public partial class WorldViewport : UserControl
             StrokeThickness = thickness,
             IsHitTestVisible = false,
         };
+
+    private static Brush OverlayBrush(string key) =>
+        ThemeService.GetBrush(key);
+
+    private void DrawMultiMapCellModeMarkers(
+        MainViewModel host,
+        IsoHitTester tester,
+        MapDocument map,
+        double offsetX,
+        double offsetY)
+    {
+        var cells = map.Cells;
+        for (var id = 0; id < tester.Corners.Count && id < cells.Count; id++)
+        {
+            if (!tester.TryGetCellCornersInHitSpace(id, out var corners)) continue;
+            var shifted = ShiftCorners(corners, offsetX, offsetY);
+            var cell = cells[id];
+
+            if (cell.Movement == MovementType.Unwalkable && host.ShowUnwalkableMarkers)
+            {
+                OverlayCanvas.Children.Add(CreateDiamondPolygon(shifted,
+                    (SolidColorBrush)OverlayBrush("OverlayUnwalkableFill"),
+                    (SolidColorBrush)OverlayBrush("OverlayUnwalkableStroke"), 1.5 / _camera.Zoom));
+                DrawMultiMapUnwalkableCross(shifted);
+            }
+
+            if (!cell.LineOfSight && host.ShowLosBlockMarkers)
+            {
+                OverlayCanvas.Children.Add(CreateDiamondPolygon(shifted,
+                    (SolidColorBrush)OverlayBrush("OverlayLosBlockFill"),
+                    (SolidColorBrush)OverlayBrush("OverlayLosBlockStroke"), 1.2 / _camera.Zoom));
+                DrawMultiMapLosInnerDiamond(shifted);
+            }
+
+            if (host.ShowFightMarkers && cell.FightCell == 1)
+            {
+                OverlayCanvas.Children.Add(CreateDiamondPolygon(shifted,
+                    (SolidColorBrush)OverlayBrush("OverlayFight1Fill"),
+                    (SolidColorBrush)OverlayBrush("OverlayFight1Stroke"), 1.5 / _camera.Zoom));
+                DrawMultiMapCellModeLabel(shifted, "1", OverlayBrush("OverlayFightLabel"));
+            }
+            else if (host.ShowFightMarkers && cell.FightCell == 2)
+            {
+                OverlayCanvas.Children.Add(CreateDiamondPolygon(shifted,
+                    (SolidColorBrush)OverlayBrush("OverlayFight2Fill"),
+                    (SolidColorBrush)OverlayBrush("OverlayFight2Stroke"), 1.5 / _camera.Zoom));
+                DrawMultiMapCellModeLabel(shifted, "2", OverlayBrush("OverlayFightLabel"));
+            }
+        }
+    }
+
+    private void DrawMultiMapCellModeHover(EditorTool tool, IsoGeometry.CellCorners shifted)
+    {
+        switch (tool)
+        {
+            case EditorTool.Unwalkable:
+                OverlayCanvas.Children.Add(CreateDiamondPolygon(shifted,
+                    (SolidColorBrush)OverlayBrush("OverlayUnwalkableFill"),
+                    (SolidColorBrush)OverlayBrush("OverlayUnwalkableStroke"), 2.0 / _camera.Zoom));
+                DrawMultiMapUnwalkableCross(shifted);
+                break;
+            case EditorTool.LineOfSight:
+                OverlayCanvas.Children.Add(CreateDiamondPolygon(shifted,
+                    (SolidColorBrush)OverlayBrush("OverlayLosBlockFill"),
+                    (SolidColorBrush)OverlayBrush("OverlayLosBlockStroke"), 2.0 / _camera.Zoom));
+                DrawMultiMapLosInnerDiamond(shifted);
+                break;
+            case EditorTool.FightCell1:
+                OverlayCanvas.Children.Add(CreateDiamondPolygon(shifted,
+                    (SolidColorBrush)OverlayBrush("OverlayFight1Fill"),
+                    (SolidColorBrush)OverlayBrush("OverlayFight1Stroke"), 2.0 / _camera.Zoom));
+                DrawMultiMapCellModeLabel(shifted, "1", OverlayBrush("OverlayFightLabel"));
+                break;
+            case EditorTool.FightCell2:
+                OverlayCanvas.Children.Add(CreateDiamondPolygon(shifted,
+                    (SolidColorBrush)OverlayBrush("OverlayFight2Fill"),
+                    (SolidColorBrush)OverlayBrush("OverlayFight2Stroke"), 2.0 / _camera.Zoom));
+                DrawMultiMapCellModeLabel(shifted, "2", OverlayBrush("OverlayFightLabel"));
+                break;
+        }
+    }
+
+    private void DrawMultiMapExportLimit(double width, double height, double offsetX, double offsetY)
+    {
+        var brush = Application.Current.TryFindResource("MapBoundaryBrush") as Brush
+                    ?? new SolidColorBrush(Color.FromArgb(220, 200, 120, 48));
+        var rect = new Rectangle
+        {
+            Width = Math.Max(0, width - 1),
+            Height = Math.Max(0, height - 1),
+            Stroke = brush,
+            StrokeThickness = 2 / _camera.Zoom,
+            Fill = Brushes.Transparent,
+            IsHitTestVisible = false,
+        };
+        Canvas.SetLeft(rect, offsetX + 0.5);
+        Canvas.SetTop(rect, offsetY + 0.5);
+        OverlayCanvas.Children.Add(rect);
+    }
+
+    private void DrawMultiMapUnwalkableCross(IsoGeometry.CellCorners c)
+    {
+        var (cx, cy) = IsoGeometry.GetCellCenter(c);
+        var half = Math.Max(4, (c.B.X - c.A.X) / 6.0);
+        var stroke = OverlayBrush("OverlayUnwalkableStroke");
+        OverlayCanvas.Children.Add(new Line
+        {
+            X1 = cx - half, Y1 = cy - half / 2,
+            X2 = cx + half, Y2 = cy + half / 2,
+            Stroke = stroke, StrokeThickness = 1.5 / _camera.Zoom, IsHitTestVisible = false,
+        });
+        OverlayCanvas.Children.Add(new Line
+        {
+            X1 = cx + half, Y1 = cy - half / 2,
+            X2 = cx - half, Y2 = cy + half / 2,
+            Stroke = stroke, StrokeThickness = 1.5 / _camera.Zoom, IsHitTestVisible = false,
+        });
+    }
+
+    private void DrawMultiMapLosInnerDiamond(IsoGeometry.CellCorners c)
+    {
+        var (cx, cy) = IsoGeometry.GetCellCenter(c);
+        var w = Math.Max(3, (c.B.X - c.A.X) / 5.0);
+        var h = Math.Max(2, (c.D.Y - c.A.Y) / 6.0);
+        var losStroke = OverlayBrush("OverlayLosBlockStroke");
+        OverlayCanvas.Children.Add(new Polygon
+        {
+            Points = [new Point(cx, cy - h), new Point(cx + w, cy), new Point(cx, cy + h), new Point(cx - w, cy)],
+            Fill = Brushes.Transparent,
+            Stroke = losStroke,
+            StrokeThickness = 1.4 / _camera.Zoom,
+            IsHitTestVisible = false,
+        });
+    }
+
+    private void DrawMultiMapCellModeLabel(IsoGeometry.CellCorners c, string text, Brush foreground)
+    {
+        var (cx, cy) = IsoGeometry.GetCellCenter(c);
+        var label = new TextBlock
+        {
+            Text = text,
+            Foreground = foreground,
+            FontWeight = FontWeights.Bold,
+            FontSize = 12,
+            FontFamily = new FontFamily("Consolas"),
+            IsHitTestVisible = false,
+        };
+        Canvas.SetLeft(label, cx - 5);
+        Canvas.SetTop(label, cy - 8);
+        OverlayCanvas.Children.Add(label);
+    }
 
     private void RedrawOverlays()
     {
@@ -1813,13 +2034,7 @@ public partial class WorldViewport : UserControl
                 return;
             }
 
-            var hostTool = _vm.EditorHost?.Tool ?? EditorTool.Select;
-            var skipCellHover = IsCombinedMapsInteraction && hostTool == EditorTool.Select;
-            if (!skipCellHover)
-                _vm.DispatchMultiMapHover(wx, wy);
-            else
-                _vm.DispatchMultiMapClearHover();
-
+            _vm.DispatchMultiMapHover(wx, wy);
             RedrawMultiMapOverlays();
             return;
         }
@@ -2043,7 +2258,19 @@ public partial class WorldViewport : UserControl
             return;
         }
 
-        // Cell tools / Select outside the combined-map special case.
+        if (tool.IsCellModeTool())
+        {
+            _editStroking = true;
+            _strokeDragArmed = false;
+            _strokeOriginViewport = Mouse.GetPosition(this);
+            host?.BeginMultiMapCellModeStroke(erase: false);
+            CaptureMouse();
+            _vm.DispatchMultiMapCellClick(cell, isDrag: false, ctrl, cellModeErase: false);
+            RedrawMultiMapOverlays();
+            return;
+        }
+
+        // Select / eyedropper / etc.
         _vm.DispatchMultiMapCellClick(cell, isDrag: false, ctrl);
         RedrawAll();
     }
@@ -2198,7 +2425,7 @@ public partial class WorldViewport : UserControl
     {
         var host = _vm?.EditorHost;
         var tool = host?.Tool ?? EditorTool.Select;
-        if (tool is not (EditorTool.Paint or EditorTool.Erase))
+        if (tool is not EditorTool.Paint and not EditorTool.Erase && !tool.IsCellModeTool())
             return false;
 
         var hit = _vm!.MultiMap.HitTest(wx, wy, mosaicMode: true);
@@ -2210,6 +2437,11 @@ public partial class WorldViewport : UserControl
         {
             if (host is null || !host.TryEraseActiveBrushAtWorldCell(cell))
                 return true;
+        }
+        else if (tool.IsCellModeTool())
+        {
+            host?.BeginMultiMapCellModeStroke(erase: true);
+            host?.HandleMultiMapCellClick(cell, isDrag: false, ctrl: false, cellModeErase: true);
         }
         else if (host is not null)
         {
