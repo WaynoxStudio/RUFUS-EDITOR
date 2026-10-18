@@ -47,6 +47,12 @@ public sealed class WorldViewModel : ViewModelBase
     {
         Interval = TimeSpan.FromMilliseconds(120),
     };
+    /// <summary>Debounced write of .rufworld after edits so ConfirmDiscard rarely appears.</summary>
+    private readonly DispatcherTimer _worldPersistDebounce = new()
+    {
+        Interval = TimeSpan.FromMilliseconds(600),
+    };
+    private bool _worldPersistWantPreview;
     private int _lastAdjacentDx;
     private int _lastAdjacentDy;
     private string? _coordReferenceKey;
@@ -75,6 +81,11 @@ public sealed class WorldViewModel : ViewModelBase
             _thumbInvalidateDebounce.Stop();
             FlushPendingThumbnailInvalidations();
         };
+        _worldPersistDebounce.Tick += (_, _) =>
+        {
+            _worldPersistDebounce.Stop();
+            PersistWorldSilent();
+        };
 
         _multiMap.ThumbnailInvalidateRequested += key => NotifyMapEdited(key);
         _multiMap.StateChanged += () =>
@@ -98,7 +109,7 @@ public sealed class WorldViewModel : ViewModelBase
         CopyCommand = new RelayCommand(CopySelected, () => HasSingleSelection);
         PasteCommand = new RelayCommand(PasteAtSelection, () => _clipboardDocumentKey is not null);
         EnterMultiMapEditCommand = new RelayCommand(EnterMultiMapEdit, CanEnterMultiMapEdit);
-        ExitMultiMapEditCommand = new RelayCommand(() => ExitMultiMapEdit(), () => IsMultiMapEditMode);
+        ExitMultiMapEditCommand = new RelayCommand(() => FinishMultiMapEdit(), () => IsMultiMapEditMode);
         SaveModifiedMapsCommand = new RelayCommand(() => SaveModifiedMaps(), () => IsMultiMapEditMode && ModifiedMapCount > 0);
         ExpandGridCommand = new RelayCommand(p => ExpandGrid(ParseEdge(p)), _ => CanExpandGrid());
         ShrinkGridCommand = new RelayCommand(p => ShrinkGrid(ParseEdge(p)), p => CanShrinkGrid(ParseEdge(p)));
@@ -139,6 +150,8 @@ public sealed class WorldViewModel : ViewModelBase
     public event Action? WorldChanged;
     public event Action? RequestRedraw;
     public event Action? RequestFitAll;
+    /// <summary>Zoom the viewport to the current yellow selection (in-world edit entry).</summary>
+    public event Action? RequestFitSelection;
 
     /// <summary>Dirty flag / label / path changed — floating window title.</summary>
     public event Action? PresentationChanged;
@@ -182,7 +195,7 @@ public sealed class WorldViewModel : ViewModelBase
     public bool IsMultiMapEditMode => _isMultiMapEditMode;
     public int ModifiedMapCount => _multiMap.ModifiedMapCount;
     public string MultiMapStatusText => IsMultiMapEditMode
-        ? $"EDICIÓN MULTIMAPA — {_selectedKeys.Count} mapa(s)"
+        ? $"EDICIÓN MULTIMAPA — {_multiMap.EditableKeys.Count} editables / {_world?.Placements.Count ?? 0} en isla · pinta a vecinos para ampliar"
         : "";
 
     public bool ShowMapBounds
@@ -300,6 +313,8 @@ public sealed class WorldViewModel : ViewModelBase
     {
         if (_world is null) return;
         _world.IsDirty = true;
+        OnPropertyChanged(nameof(IsDirty));
+        ScheduleWorldPersist(exportPreview: false);
     }
 
     public void TryAutosave()
@@ -500,6 +515,8 @@ public sealed class WorldViewModel : ViewModelBase
     public void SaveWorld()
     {
         if (_world is null) return;
+        _worldPersistDebounce.Stop();
+        _worldPersistWantPreview = false;
         if (string.IsNullOrWhiteSpace(_world.FilePath))
         {
             SaveWorldAs();
@@ -520,26 +537,15 @@ public sealed class WorldViewModel : ViewModelBase
             ? "Mundo"
             : _world.Name;
         var nameDlg = new WorldNameInputWindow(
-            "Elige un nombre para este mundo (proyecto). Cada nombre es un proyecto distinto, como en Astria.",
+            "Elige un nombre nuevo o selecciona un mundo existente para reemplazarlo.",
             suggested,
             geoRoot) { Owner = Application.Current.MainWindow };
         if (nameDlg.ShowDialog() != true || string.IsNullOrWhiteSpace(nameDlg.ResultName))
             return;
 
+        // Overwrite confirmation (if needed) is handled inside WorldNameInputWindow.
         var projectName = nameDlg.ResultName;
         var path = GeopositionsStore.ProjectFilePath(libraryRoot, projectName);
-        if (File.Exists(path) &&
-            !string.Equals(_world.FilePath, path, StringComparison.OrdinalIgnoreCase))
-        {
-            var overwrite = MessageBox.Show(
-                $"Ya existe el proyecto «{projectName}».\n\n¿Sobrescribir?",
-                "Géopositions",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Warning);
-            if (overwrite != MessageBoxResult.Yes)
-                return;
-        }
-
         _world.Name = projectName;
         _world.FilePath = path;
         WriteWorld(path);
@@ -547,7 +553,13 @@ public sealed class WorldViewModel : ViewModelBase
         OnPropertyChanged(nameof(CurrentWorldLabel));
     }
 
-    private void WriteWorld(string path)
+    private void WriteWorld(string path) =>
+        WriteWorldCore(path, exportPreview: true, announce: true);
+
+    /// <summary>
+    /// Writes .rufworld. Preview PNG only on explicit save (slow); silent auto-save skips it.
+    /// </summary>
+    private void WriteWorldCore(string path, bool exportPreview, bool announce)
     {
         if (_world is null) return;
 
@@ -560,22 +572,74 @@ public sealed class WorldViewModel : ViewModelBase
         _autosave.Delete(_world.WorldId);
 
         var pngNote = "";
-        try
+        if (exportPreview)
         {
-            if (_library.IsLoaded)
+            try
             {
-                WorldPreviewExporter.Export(_world, _library, path);
-                pngNote = " + PNG";
+                if (_library.IsLoaded)
+                {
+                    WorldPreviewExporter.Export(_world, _library, path);
+                    pngNote = " + PNG";
+                }
+            }
+            catch (Exception ex)
+            {
+                pngNote = $" (PNG: {ex.Message})";
             }
         }
-        catch (Exception ex)
+
+        if (announce)
         {
-            pngNote = $" (PNG: {ex.Message})";
+            StatusText = $"Guardado: {GeopositionsStore.FolderName}\\{Path.GetFileNameWithoutExtension(path)}\\{Path.GetFileName(path)}{pngNote}";
+            _setStatus(StatusText);
         }
 
-        StatusText = $"Guardado: {GeopositionsStore.FolderName}\\{Path.GetFileNameWithoutExtension(path)}\\{Path.GetFileName(path)}{pngNote}";
-        _setStatus(StatusText);
         NotifyPresentation();
+    }
+
+    private void ScheduleWorldPersist(bool exportPreview)
+    {
+        if (_world is null || IsScratchCombined) return;
+        if (string.IsNullOrWhiteSpace(_world.FilePath))
+        {
+            TryAutosave();
+            return;
+        }
+
+        if (exportPreview)
+            _worldPersistWantPreview = true;
+        _worldPersistDebounce.Stop();
+        _worldPersistDebounce.Start();
+    }
+
+    /// <summary>Flush pending debounce immediately (before leave / ConfirmDiscard).</summary>
+    public void FlushWorldPersist()
+    {
+        if (!_worldPersistDebounce.IsEnabled) return;
+        _worldPersistDebounce.Stop();
+        PersistWorldSilent();
+    }
+
+    private void PersistWorldSilent()
+    {
+        if (_world is null || IsScratchCombined) return;
+        if (!_world.IsDirty) return;
+        if (string.IsNullOrWhiteSpace(_world.FilePath))
+        {
+            TryAutosave();
+            return;
+        }
+
+        try
+        {
+            var wantPreview = _worldPersistWantPreview;
+            _worldPersistWantPreview = false;
+            WriteWorldCore(_world.FilePath, exportPreview: wantPreview, announce: false);
+        }
+        catch
+        {
+            TryAutosave();
+        }
     }
 
     private bool TryGetLibraryRoot(out string libraryRoot)
@@ -674,26 +738,58 @@ public sealed class WorldViewModel : ViewModelBase
     /// <summary>
     /// Ensures a world exists sized for the given coords (or expands the open one), then places
     /// each Library map at its BD X/Y. Occupied cells are replaced. Returns how many were placed.
+    /// When <paramref name="resetWorldToBounds"/> is true (isla BD), replaces any open world with a
+    /// mosaic fitted to the placement bounding box so empty default grids do not balloon.
     /// </summary>
-    public int PlaceLibraryMapsAtCoordinates(IReadOnlyList<(int MapId, int X, int Y)> maps, bool createWorldIfNeeded)
+    public int PlaceLibraryMapsAtCoordinates(
+        IReadOnlyList<(int MapId, int X, int Y)> maps,
+        bool createWorldIfNeeded,
+        bool resetWorldToBounds = false)
     {
         if (!_library.IsLoaded || maps is null || maps.Count == 0)
             return 0;
 
-        var minX = maps.Min(m => m.X);
-        var maxX = maps.Max(m => m.X);
-        var minY = maps.Min(m => m.Y);
-        var maxY = maps.Max(m => m.Y);
+        // For isla reset: densify unique X/Y ranks so a lone (0,0) + cluster at ~20
+        // does not open a 20×20 empty grid. BD labels stay on the MapDocument.
+        IReadOnlyList<(int MapId, int PlaceX, int PlaceY, int BdX, int BdY)> layout;
+        if (resetWorldToBounds)
+        {
+            var xs = maps.Select(m => m.X).Distinct().OrderBy(v => v).Select((v, i) => (v, i))
+                .ToDictionary(t => t.v, t => t.i);
+            var ys = maps.Select(m => m.Y).Distinct().OrderBy(v => v).Select((v, i) => (v, i))
+                .ToDictionary(t => t.v, t => t.i);
+            layout = maps
+                .Where(m => m.MapId > 0)
+                .Select(m => (m.MapId, xs[m.X], ys[m.Y], m.X, m.Y))
+                .ToList();
+        }
+        else
+        {
+            layout = maps
+                .Where(m => m.MapId > 0)
+                .Select(m => (m.MapId, m.X, m.Y, m.X, m.Y))
+                .ToList();
+        }
+
+        if (layout.Count == 0)
+            return 0;
+
+        var minX = layout.Min(m => m.PlaceX);
+        var maxX = layout.Max(m => m.PlaceX);
+        var minY = layout.Min(m => m.PlaceY);
+        var maxY = layout.Max(m => m.PlaceY);
+        var gw = Math.Max(1, maxX - minX + 1);
+        var gh = Math.Max(1, maxY - minY + 1);
 
         if (_world is null)
         {
             if (!createWorldIfNeeded)
                 return 0;
-            ApplyNewWorld(
-                gridWidth: Math.Max(1, maxX - minX + 1),
-                gridHeight: Math.Max(1, maxY - minY + 1),
-                originX: minX,
-                originY: minY);
+            ApplyNewWorld(gridWidth: gw, gridHeight: gh, originX: minX, originY: minY);
+        }
+        else if (resetWorldToBounds)
+        {
+            ApplyNewWorld(gridWidth: gw, gridHeight: gh, originX: minX, originY: minY);
         }
         else
         {
@@ -704,15 +800,17 @@ public sealed class WorldViewModel : ViewModelBase
         if (_world is null)
             return 0;
 
+        // Isla / BD preview: mosaic tiles so maps are visible after FitAll.
+        MosaicMode = true;
+        ShowInfoOverlay = true;
+
         PushWorldUndo();
         var placed = 0;
         string? lastKey = null;
-        foreach (var (mapId, x, y) in maps)
+        foreach (var (mapId, placeX, placeY, bdX, bdY) in layout)
         {
-            if (mapId <= 0) continue;
-
             // Clear whoever occupies the target cell.
-            var occupant = _editor.FindPlacementAt(_world, x, y);
+            var occupant = _editor.FindPlacementAt(_world, placeX, placeY);
             if (occupant is not null)
                 _editor.RemoveFromWorld(_world, occupant.DocumentKey, moveToTray: true);
 
@@ -732,8 +830,15 @@ public sealed class WorldViewModel : ViewModelBase
                 continue;
             }
 
+            doc.WorldX = bdX;
+            doc.WorldY = bdY;
+            doc.WorldCoordinatesSet = true;
+
+            // Seed memory thumbs from Library PNG before first redraw.
+            _mapPreviews.TryLoadFromDisk(_library, mapId);
+
             var key = _editor.AddDocument(_world, doc, WorldMapOrigin.Library, WorldMapPublicationState.FromLibrary);
-            if (_editor.PlaceAt(_world, key, x, y) != WorldMoveResult.Ok)
+            if (_editor.PlaceAt(_world, key, placeX, placeY) != WorldMoveResult.Ok)
             {
                 _world.UnplacedDocumentKeys.Add(key);
                 continue;
@@ -1391,12 +1496,25 @@ public sealed class WorldViewModel : ViewModelBase
     {
         if (_world is null || _selectedKeys.Count == 0) return;
         _editorHost?.PrepareEnterMultiMapEdit(this);
-        // Editable = all placed maps so painting works everywhere; yellow selection is independent.
-        var editable = new HashSet<string>(
-            _world.Placements.Select(p => p.DocumentKey),
-            StringComparer.Ordinal);
-        if (editable.Count == 0)
-            editable = new HashSet<string>(_selectedKeys, StringComparer.Ordinal);
+        // Only selected maps enter edit mode. Painting onto a neighbor expands via EnsureEditable.
+        // Overlays are batched + viewport-culled so selecting many maps stays safe.
+        var placed = _world.Placements.Select(p => p.DocumentKey).ToHashSet(StringComparer.Ordinal);
+        var editable = new HashSet<string>(_selectedKeys.Where(placed.Contains), StringComparer.Ordinal);
+        if (editable.Count == 0) return;
+
+        // Soft safety: warn if the selection is huge (still allowed — overlays no longer Shape-storm).
+        const int softWarnCount = 24;
+        if (editable.Count >= softWarnCount)
+        {
+            var go = System.Windows.MessageBox.Show(
+                $"Vas a editar {editable.Count} mapas a la vez.\n\n" +
+                "Es viable, pero con zoom bajo las marcas de celdas se ocultan y solo se dibujan mapas visibles.\n\n" +
+                "¿Continuar?",
+                "Edición multimap",
+                System.Windows.MessageBoxButton.YesNo,
+                System.Windows.MessageBoxImage.Information);
+            if (go != System.Windows.MessageBoxResult.Yes) return;
+        }
 
         MosaicMode = true;
         ShowInfoOverlay = false;
@@ -1405,11 +1523,38 @@ public sealed class WorldViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsMultiMapEditMode));
         OnPropertyChanged(nameof(MultiMapStatusText));
         StatusText = MultiMapStatusText;
+        // Prefer paint tool so zoomed editing feels like MAPA immediately.
+        if (_editorHost is not null && _editorHost.Tool == EditorTool.Select)
+            _editorHost.IsPaintTool = true;
         RequestRedraw?.Invoke();
         RequestOverlayRedraw?.Invoke();
+        RequestFitSelection?.Invoke();
         EnterMultiMapEditCommand.RaiseCanExecuteChanged();
         ExitMultiMapEditCommand.RaiseCanExecuteChanged();
         SaveModifiedMapsCommand.RaiseCanExecuteChanged();
+    }
+
+    /// <summary>Select one placed map and enter in-world cell editing (MAPA tools on MUNDO).</summary>
+    public void EnterMultiMapEditForDocument(string documentKey)
+    {
+        if (_world is null || string.IsNullOrEmpty(documentKey)) return;
+        if (!_world.Documents.ContainsKey(documentKey)) return;
+        if (!_world.Placements.Any(p => p.DocumentKey == documentKey)) return;
+        SelectKey(documentKey);
+        EnterMultiMapEdit();
+    }
+
+    /// <summary>
+    /// Saves dirty maps to Library (no BD publish) and leaves edit mode back to world tools.
+    /// </summary>
+    public void FinishMultiMapEdit()
+    {
+        if (!IsMultiMapEditMode) return;
+        SaveModifiedMaps();
+        ExitMultiMapEdit(force: true);
+        ShowInfoOverlay = true;
+        StatusText = "Edición guardada en Library (sin publicar)";
+        _setStatus(StatusText);
     }
 
     /// <summary>Replaces the yellow map selection (ESTE ÍTEM / Guardar seleccionado scope).</summary>
@@ -2226,7 +2371,26 @@ public sealed class WorldViewModel : ViewModelBase
     {
         if (IsScratchCombined)
             return true;
+
+        // Auto-save every edit: flush pending write so we rarely need this dialog.
+        FlushWorldPersist();
         if (_world is not { IsDirty: true }) return true;
+
+        // Still dirty only if the world has never been saved to a path.
+        if (!string.IsNullOrWhiteSpace(_world.FilePath))
+        {
+            try
+            {
+                WriteWorldCore(_world.FilePath, exportPreview: false, announce: false);
+            }
+            catch
+            {
+                /* fall through to dialog */
+            }
+
+            if (_world is not { IsDirty: true })
+                return true;
+        }
 
         var name = string.IsNullOrWhiteSpace(_world.Name) ? "mundo" : _world.Name;
         var owner = Application.Current?.MainWindow;
@@ -2312,6 +2476,7 @@ public sealed class WorldViewModel : ViewModelBase
         _world.IsDirty = true;
         _world.ModifiedUtc = DateTimeOffset.UtcNow;
         NotifyPresentation();
+        ScheduleWorldPersist(exportPreview: false);
     }
 
     private void NotifyPresentation()

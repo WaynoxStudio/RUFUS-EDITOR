@@ -50,6 +50,10 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     private bool _isIslaImportInProgress;
     private double _islaImportProgress;
     private string _islaImportProgressText = "";
+    private string _islaFechaPreviewStatusText = "";
+    private CancellationTokenSource? _islaFechaPreviewCts;
+    private bool _islaFechaPreviewSuppressed;
+    private const int IslaFechaPreviewThumbLimit = 24;
     private FileSystemWatcher? _imagesWatcher;
     private DispatcherTimer? _imagesReloadDebounce;
     private int _imagesReloadGeneration;
@@ -137,6 +141,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     private string? _selectedFolder;
     private GfxCategory _selectedCategory = GfxCategory.Ground;
     private bool _showUnifiedFavorites;
+    private string _catalogGfxIdSearchText = "";
     private bool _brushFlip;
     private int _brushRotation;
     private int _cellModeOverlayRevision;
@@ -206,6 +211,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         _mapListFilter.Changed += OnMapListFilterChangedFromPicker;
         MapIds = new ObservableCollection<int>();
         MapListItems = new ObservableCollection<MapPickerItemVm>();
+        IslaFechaPreviewItems = new ObservableCollection<IslaFechaPreviewItemVm>();
         FolderTree = new ObservableCollection<FolderNodeVm>();
         VisibleGfxRows = new ObservableCollection<GfxRowVm>();
         MovementDisplayOptions = new ObservableCollection<MovementDisplayItem>(MovementDisplayItem.StandardOptions);
@@ -450,6 +456,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
         RecentProjects = new ObservableCollection<string>(_settings.RecentProjects);
 
+        _worldThumbs.AttachMapPreviewCache(_mapPreviews);
         MultiMap = new MultiMapEditService(_library, _worldThumbs);
 
         _worldShell = CreateWorldViewModel();
@@ -522,6 +529,14 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     }
 
     public bool IsWorldTab => WorkspaceTabIndex == 1;
+
+    /// <summary>
+    /// Active doc is inspector-only (MUNDO / combinado) — must not spawn a floating MAPA window
+    /// when the map list SelectedMapId syncs to match it.
+    /// </summary>
+    public bool IsSilentBoundDocumentActive =>
+        _activeDocument is not null
+        && (IsWorldBoundDocument(_activeDocument) || IsMosaicBoundDocument(_activeDocument));
 
     private bool _isMapCombinedMode;
     private bool _isMapCombinedMinimized;
@@ -1203,6 +1218,9 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         set
         {
             if (!SetProperty(ref _showUnwalkableMarkers, value)) return;
+            // Visibilidad ≠ herramienta: al ocultar marcas, salir de la herramienta de pintarlas.
+            if (!value && Tool == EditorTool.Unwalkable)
+                Tool = EditorTool.Select;
             BumpCellModeOverlayRevision();
             PersistMapViewVisibility();
         }
@@ -1214,6 +1232,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         set
         {
             if (!SetProperty(ref _showLosBlockMarkers, value)) return;
+            if (!value && Tool == EditorTool.LineOfSight)
+                Tool = EditorTool.Select;
             BumpCellModeOverlayRevision();
             PersistMapViewVisibility();
         }
@@ -1225,6 +1245,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         set
         {
             if (!SetProperty(ref _showFightMarkers, value)) return;
+            if (!value && Tool is EditorTool.FightCell1 or EditorTool.FightCell2)
+                Tool = EditorTool.Select;
             BumpCellModeOverlayRevision();
             PersistMapViewVisibility();
         }
@@ -1511,6 +1533,20 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         }
     }
 
+    /// <summary>Filter catalog GFX thumbnails by ID substring (sidebar under Favoritos/Suelos/Objetos).</summary>
+    public string CatalogGfxIdSearchText
+    {
+        get => _catalogGfxIdSearchText;
+        set
+        {
+            var v = value ?? "";
+            if (_catalogGfxIdSearchText == v) return;
+            _catalogGfxIdSearchText = v;
+            OnPropertyChanged();
+            RefreshVisibleGfx(force: true);
+        }
+    }
+
     /// <summary>Map ID to fetch from <c>estaticos.mapas</c> and materialize under Library.</summary>
     public string LoadMapFromDatabaseIdText
     {
@@ -1533,9 +1569,25 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             var v = value ?? "";
             if (_loadMapsByFechaKeywordText == v) return;
             _loadMapsByFechaKeywordText = v;
+            _islaFechaPreviewSuppressed = false;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(ShowIslaFechaPreview));
+            ScheduleIslaFechaPreviewRefresh();
         }
     }
+
+    /// <summary>Live preview strip under Mundo toolbar for «Cargar isla BD».</summary>
+    public ObservableCollection<IslaFechaPreviewItemVm> IslaFechaPreviewItems { get; }
+
+    public string IslaFechaPreviewStatusText
+    {
+        get => _islaFechaPreviewStatusText;
+        private set => SetProperty(ref _islaFechaPreviewStatusText, value);
+    }
+
+    public bool ShowIslaFechaPreview =>
+        !_islaFechaPreviewSuppressed
+        && !string.IsNullOrWhiteSpace(_loadMapsByFechaKeywordText);
 
     public bool IsIslaImportInProgress
     {
@@ -1724,13 +1776,69 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     public void SelectSelectionGfxItem(SelectionGfxItemVm item)
     {
         ArgumentNullException.ThrowIfNull(item);
-        if (CurrentMap is null || _session is null)
-            return;
 
         var gfxId = item.Id;
         var layer = item.Layer;
         _pinnedSelectionGfxId = gfxId;
         _pinnedSelectionGfxLayer = layer;
+
+        // Clic en el ítem = ese GFX queda como pincel activo en su capa (para pintar / rellenar).
+        if (PaintLayer != layer)
+            PaintLayer = layer;
+        if (SelectedGfxId != gfxId)
+            SelectedGfxId = gfxId;
+        if (Tool is not (EditorTool.Paint or EditorTool.Erase))
+            Tool = EditorTool.Paint;
+
+        // Multimap (MUNDO / combinado): acotar selección a celdas con ese GFX.
+        if (MultiMap.IsActive && MultiMap.Selection.Count > 0)
+        {
+            var mmMatching = new List<WorldCellRef>();
+            foreach (var cell in MultiMap.Selection)
+            {
+                var doc = MultiMap.GetDocument(cell.DocumentKey);
+                if (doc is null || cell.CellId < 0 || cell.CellId >= doc.Cells.Count) continue;
+                if (GetLayerGfx(doc.Cells[cell.CellId], layer) == gfxId)
+                    mmMatching.Add(cell);
+            }
+
+            if (mmMatching.Count == 0)
+            {
+                StatusText = $"No hay GFX {gfxId} en {UiDisplayLabels.LayerTarget(layer)} dentro de la selección";
+                RaiseFocusGfxUi();
+                return;
+            }
+
+            MultiMap.SetSelection(mmMatching);
+            SyncUiFromMultiMapSelection(mmMatching[^1].DocumentKey);
+            MarkSelectionGfxRowSelected(gfxId, layer);
+            if (CurrentMap is not null && PrimarySelectedCellId is int pid
+                && pid >= 0 && pid < CurrentMap.Cells.Count)
+                ApplyBrushTransformFromCell(CurrentMap.Cells[pid], layer);
+            HighlightedInspectorLayer = layer switch
+            {
+                PaintLayer.Ground => InspectorLayerHighlight.Ground,
+                PaintLayer.Object1 => InspectorLayerHighlight.Object1,
+                _ => InspectorLayerHighlight.Object2,
+            };
+            RaiseFocusGfxUi();
+            RaiseSelectionCommands();
+            ApplyBrushToSelectionCommand.RaiseCanExecuteChanged();
+            StatusText =
+                mmMatching.Count == 1
+                    ? $"Pincel GFX {gfxId} · {UiDisplayLabels.LayerTarget(layer)} · listo para rellenar / pintar"
+                    : $"Pincel GFX {gfxId} · {UiDisplayLabels.LayerTarget(layer)} · {mmMatching.Count} celdas";
+            return;
+        }
+
+        if (CurrentMap is null || _session is null)
+        {
+            MarkSelectionGfxRowSelected(gfxId, layer);
+            RaiseFocusGfxUi();
+            ApplyBrushToSelectionCommand.RaiseCanExecuteChanged();
+            StatusText = $"Pincel GFX {gfxId} · {UiDisplayLabels.LayerTarget(layer)}";
+            return;
+        }
 
         // Solo las celdas de la selección actual que tienen este GFX en su capa.
         var matching = new List<int>();
@@ -1747,11 +1855,6 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        if (PaintLayer != layer)
-            PaintLayer = layer;
-        if (SelectedGfxId != gfxId)
-            SelectedGfxId = gfxId;
-
         _session.SetSelection(matching);
         PrimarySelectedCellId = matching[^1];
         SyncSelectionFromSession();
@@ -1767,6 +1870,19 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             _ => InspectorLayerHighlight.Object2,
         };
 
+        MarkSelectionGfxRowSelected(gfxId, layer);
+        RaiseFocusGfxUi();
+        RefreshCellInspector();
+        RequestFocusLayersPanel?.Invoke();
+        ApplyBrushToSelectionCommand.RaiseCanExecuteChanged();
+        StatusText =
+            matching.Count == 1
+                ? $"Pincel GFX {gfxId} · {UiDisplayLabels.LayerTarget(layer)} · celda {primaryId}"
+                : $"Pincel GFX {gfxId} · {UiDisplayLabels.LayerTarget(layer)} · {matching.Count} celdas";
+    }
+
+    private void MarkSelectionGfxRowSelected(int gfxId, PaintLayer layer)
+    {
         _suppressSelectionGfxSelect = true;
         try
         {
@@ -1784,14 +1900,6 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         {
             _suppressSelectionGfxSelect = false;
         }
-
-        RaiseFocusGfxUi();
-        RefreshCellInspector();
-        RequestFocusLayersPanel?.Invoke();
-        StatusText =
-            matching.Count == 1
-                ? $"Ítem GFX {gfxId} · {UiDisplayLabels.LayerTarget(layer)} · celda {primaryId}"
-                : $"Ítem GFX {gfxId} · {UiDisplayLabels.LayerTarget(layer)} · {matching.Count} celdas";
     }
 
     private void RebuildSelectionGfxList()
@@ -1998,6 +2106,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
                 if ((value is EditorTool.FightCell1 or EditorTool.FightCell2) &&
                     PaintLayer != PaintLayer.Ground)
                     PaintLayer = PaintLayer.Ground;
+                // Cell-mode tools: auto-enable matching visibility overlays (top bar toggles).
+                EnsureCellModeVisibilityForTool(value);
                 StatusText = value switch
                 {
                     EditorTool.Paint => BuildPaintBrushStatus(),
@@ -2017,6 +2127,30 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
                 OnPropertyChanged(nameof(ActiveToolLabel));
                 RequestMosaicOverlayRefresh();
             }
+        }
+    }
+
+    /// <summary>
+    /// Selecting No transitable / Bloquear visión / Combate turns on the matching
+    /// "Mostrar …" toggle so the overlay is visible while placing.
+    /// </summary>
+    private void EnsureCellModeVisibilityForTool(EditorTool tool)
+    {
+        switch (tool)
+        {
+            case EditorTool.Unwalkable:
+                if (!ShowUnwalkableMarkers)
+                    ShowUnwalkableMarkers = true;
+                break;
+            case EditorTool.LineOfSight:
+                if (!ShowLosBlockMarkers)
+                    ShowLosBlockMarkers = true;
+                break;
+            case EditorTool.FightCell1:
+            case EditorTool.FightCell2:
+                if (!ShowFightMarkers)
+                    ShowFightMarkers = true;
+                break;
         }
     }
 
@@ -2059,25 +2193,69 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     public bool IsUnwalkableTool
     {
         get => Tool == EditorTool.Unwalkable;
-        set { if (value) Tool = EditorTool.Unwalkable; }
+        set
+        {
+            if (value)
+            {
+                Tool = EditorTool.Unwalkable; // also turns on ShowUnwalkableMarkers
+            }
+            else if (Tool == EditorTool.Unwalkable)
+            {
+                // Salir de la herramienta = ocultar celdas rojas (mismo botón CELDA).
+                if (ShowUnwalkableMarkers)
+                    ShowUnwalkableMarkers = false; // setter also switches Tool → Select
+                else
+                    Tool = EditorTool.Select;
+            }
+        }
     }
 
     public bool IsLineOfSightTool
     {
         get => Tool == EditorTool.LineOfSight;
-        set { if (value) Tool = EditorTool.LineOfSight; }
+        set
+        {
+            if (value) Tool = EditorTool.LineOfSight;
+            else if (Tool == EditorTool.LineOfSight)
+            {
+                if (ShowLosBlockMarkers)
+                    ShowLosBlockMarkers = false;
+                else
+                    Tool = EditorTool.Select;
+            }
+        }
     }
 
     public bool IsFightCell1Tool
     {
         get => Tool == EditorTool.FightCell1;
-        set { if (value) Tool = EditorTool.FightCell1; }
+        set
+        {
+            if (value) Tool = EditorTool.FightCell1;
+            else if (Tool == EditorTool.FightCell1)
+            {
+                if (ShowFightMarkers)
+                    ShowFightMarkers = false;
+                else
+                    Tool = EditorTool.Select;
+            }
+        }
     }
 
     public bool IsFightCell2Tool
     {
         get => Tool == EditorTool.FightCell2;
-        set { if (value) Tool = EditorTool.FightCell2; }
+        set
+        {
+            if (value) Tool = EditorTool.FightCell2;
+            else if (Tool == EditorTool.FightCell2)
+            {
+                if (ShowFightMarkers)
+                    ShowFightMarkers = false;
+                else
+                    Tool = EditorTool.Select;
+            }
+        }
     }
 
     public bool IsMobCellTool
@@ -3313,35 +3491,47 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
     private bool SaveBlocking() => SaveOfficialMapAsync().GetAwaiter().GetResult();
 
+    /// <summary>
+    /// Crash-recovery files are flushed into Library (when possible) and deleted — no popup.
+    /// Edits already auto-save to Library; this only cleans leftovers from older sessions.
+    /// </summary>
     public void CheckRecoverableAutosavesOnStartup()
     {
         var list = _autosave.ListRecoverable();
         if (list.Count == 0)
             return;
 
-        var entry = list[0];
-        var info =
-            $"Map ID: {entry.Meta.MapId}\n" +
-            $"Nombre: {entry.Meta.DisplayName ?? "—"}\n" +
-            $"Autosave: {entry.Meta.SavedUtc.ToLocalTime():g}\n" +
-            (entry.Meta.HadProjectFile ? $"Proyecto: {entry.Meta.ProjectPath}" : "Sin .rufmap (nunca guardado)");
+        foreach (var entry in list)
+            SilentCommitOrDiscardAutosave(entry);
+    }
 
-        var choice = MessageBox.Show(
-            "Se encontró una sesión recuperable.\n\n" + info +
-            "\n\nSí = Recuperar\nNo = Descartar\nCancelar = Ignorar ahora",
-            "Recuperación",
-            MessageBoxButton.YesNoCancel,
-            MessageBoxImage.Question);
-
-        if (choice == MessageBoxResult.Cancel)
-            return;
-        if (choice == MessageBoxResult.No)
+    private void SilentCommitOrDiscardAutosave(RecoverableAutosave entry)
+    {
+        try
+        {
+            if (_library.IsLoaded
+                && _library.Renderer is not null
+                && !string.IsNullOrWhiteSpace(_library.RootPath)
+                && entry.Meta.MapId > 0
+                && File.Exists(entry.AutosavePath))
+            {
+                var (map, _) = ProjectPersistence.OpenAutosave(entry.AutosavePath, entry.Meta);
+                _ = new OfficialMapSave(_library.Renderer).Save(map, new OfficialMapSaveOptions
+                {
+                    LibraryRoot = _library.RootPath!,
+                    DocumentId = entry.Meta.DocumentId,
+                    ProjectName = entry.Meta.MapId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                });
+            }
+        }
+        catch
+        {
+            /* still discard below */
+        }
+        finally
         {
             _autosave.Delete(entry.Meta.DocumentId);
-            return;
         }
-
-        _ = RecoverAutosaveAsync(entry);
     }
 
     private async Task RecoverAutosaveAsync(RecoverableAutosave entry)
@@ -3970,6 +4160,33 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
         try
         {
+            // Prefer real Library save so we never leave a "recoverable session" popup.
+            if (_library.IsLoaded
+                && _library.Renderer is not null
+                && !string.IsNullOrWhiteSpace(_library.RootPath)
+                && CurrentMap.Id > 0)
+            {
+                var result = new OfficialMapSave(_library.Renderer).Save(CurrentMap, new OfficialMapSaveOptions
+                {
+                    LibraryRoot = _library.RootPath!,
+                    DocumentId = _session.DocumentId,
+                    ProjectName = CurrentMap.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                });
+                if (result.Success)
+                {
+                    _session.MarkSaved();
+                    _autosave.Delete(_session.DocumentId);
+                    if (MosaicHost.IsMultiMapEditMode)
+                    {
+                        var key = FindWorldDocumentKeyForMap(CurrentMap);
+                        if (key is not null)
+                            MosaicHost.NotifyMapEdited(key);
+                    }
+
+                    return;
+                }
+            }
+
             var json = ProjectPersistence.BuildJson(_session);
             _autosave.Write(_session.DocumentId, json, new AutosaveMeta
             {
@@ -3980,9 +4197,6 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
                 SavedUtc = DateTimeOffset.UtcNow,
                 HadProjectFile = !string.IsNullOrWhiteSpace(_session.FilePath),
             });
-            // Discrete status — don't spam; only if not already showing save message
-            if (!StatusText.StartsWith("Proyecto guardado", StringComparison.Ordinal))
-                StatusText = $"Autosave: {DateTime.Now:HH:mm}";
         }
         catch
         {
@@ -6815,10 +7029,19 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
     private void ApplyBrushToSelection()
     {
-        if (_session is null || !HasSelection) return;
+        // Prefer the clicked ESTE ÍTEM (pinned) layer+id, else catalog brush.
+        if (TryResolveFocusGfx(out var focusId, out var focusLayer))
+        {
+            if (PaintLayer != focusLayer)
+                PaintLayer = focusLayer;
+            SelectedGfxId = focusId;
+        }
+
         if ((SelectedGfxId ?? FocusGfxId) is not int gfxId) return;
-        // Align brush with the GFX we are about to paint so subsequent tools stay consistent.
         SelectedGfxId = gfxId;
+        if (Tool is not (EditorTool.Paint or EditorTool.Erase))
+            Tool = EditorTool.Paint;
+
         if (!ValidateSelectedGfxForActiveLayer(out var error))
         {
             StatusText = error;
@@ -6826,6 +7049,15 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         }
 
         EnsurePaintLayerVisible();
+
+        // MUNDO / combinado: rellenar todas las celdas de la selección multimapa.
+        if (MultiMap.IsActive && MultiMap.Selection.Count > 0)
+        {
+            ApplyBrushToMultiMapSelection(gfxId);
+            return;
+        }
+
+        if (_session is null || !HasSelection) return;
 
         var layer = PaintLayer.ToEditorLayer();
         var rot = PaintLayer == PaintLayer.Object2 ? (int?)null : BrushRotation;
@@ -6843,10 +7075,65 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             PushRecent(CategoryKey(PaintLayer.ToGfxCategory()), gfxId);
             AfterHistoryChange();
             _ = RerenderAsync();
-            // MAP-PAINT.1 / MAP-AREA.1 — keep active GFX after mass fill.
             StatusText = $"Rellenadas {count} celdas · GFX {gfxId} sigue activo";
             OnPropertyChanged(nameof(FillSelectionTooltip));
         }
+    }
+
+    private void ApplyBrushToMultiMapSelection(int gfxId)
+    {
+        var paintLayer = PaintLayer;
+        var rot = paintLayer == PaintLayer.Object2 ? 0 : BrushRotation;
+        var flip = BrushFlip;
+        var markBlocked = PaintMarksUnwalkable;
+        var cells = MultiMap.Selection.ToList();
+        if (cells.Count == 0) return;
+
+        MultiMap.BeginStroke(EditorTool.Paint, paintLayer);
+        foreach (var cell in cells)
+        {
+            MultiMap.EnsureEditable(cell.DocumentKey);
+            MultiMap.HandleCellClick(
+                cell,
+                EditorTool.Paint,
+                paintLayer,
+                gfxId,
+                flip,
+                rot,
+                isDrag: true,
+                ctrl: false,
+                paintMarksUnwalkable: markBlocked,
+                paintSeam: PaintSeam && IsMapCombinedMode);
+        }
+        MultiMap.FinishStroke();
+        var dirtyKeys = cells.Select(c => c.DocumentKey).Distinct(StringComparer.Ordinal).ToList();
+        MultiMap.SaveModifiedMaps();
+        foreach (var key in dirtyKeys)
+        {
+            if (MosaicHost.World?.Documents.TryGetValue(key, out var entry) == true)
+            {
+                var open = _openDocuments.FirstOrDefault(d => ReferenceEquals(d.Map, entry.Document));
+                if (open is not null)
+                {
+                    open.Session.MarkSaved();
+                    _autosave.Delete(open.Session.DocumentId);
+                    open.NotifyDirtyChanged();
+                }
+            }
+
+            MosaicHost.NotifyMapEdited(key);
+        }
+
+        MosaicHost.FlushWorldPersist();
+        PushRecent(CategoryKey(paintLayer.ToGfxCategory()), gfxId);
+        AfterHistoryChange();
+        SyncUiFromMultiMapSelection();
+        RaiseFocusGfxUi();
+        UndoCommand.RaiseCanExecuteChanged();
+        RedoCommand.RaiseCanExecuteChanged();
+        MosaicHost.SaveModifiedMapsCommand.RaiseCanExecuteChanged();
+        StatusText = $"Rellenadas {cells.Count} celdas · GFX {gfxId} sigue activo en {UiDisplayLabels.LayerTarget(paintLayer)}";
+        OnPropertyChanged(nameof(FillSelectionTooltip));
     }
 
     private void ClearSelectedLayer(PaintLayer layer)
@@ -7572,22 +7859,32 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     }
 
     private string BuildVisibleGfxFilterKey() =>
-        $"{_showUnifiedFavorites}|{SelectedCategory}|{SelectedFolder}|cols:{GfxColumns}";
+        $"{_showUnifiedFavorites}|{SelectedCategory}|{SelectedFolder}|id:{_catalogGfxIdSearchText}|cols:{GfxColumns}";
 
     private IEnumerable<GfxResource> QueryVisibleResources()
     {
         if (_library.Catalog is null)
             yield break;
 
+        var idQuery = (_catalogGfxIdSearchText ?? "").Trim();
+
         if (_showUnifiedFavorites)
         {
-            foreach (var res in QueryUnifiedFavorites())
+            foreach (var res in FilterByGfxIdQuery(QueryUnifiedFavorites(), idQuery))
                 yield return res;
             yield break;
         }
 
         var category = SelectedCategory;
         var catKey = CategoryKey(category);
+
+        // ID search spans the whole category (ignore folder) for faster lookup.
+        if (idQuery.Length > 0)
+        {
+            foreach (var res in FilterByGfxIdQuery(GetCategoryResources(category).OrderBy(r => r.Id), idQuery))
+                yield return res;
+            yield break;
+        }
 
         if (string.Equals(SelectedFolder, RecentsFolder, StringComparison.OrdinalIgnoreCase))
         {
@@ -7620,6 +7917,13 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
         foreach (var res in source.OrderBy(r => r.Id))
             yield return res;
+    }
+
+    private static IEnumerable<GfxResource> FilterByGfxIdQuery(IEnumerable<GfxResource> source, string idQuery)
+    {
+        if (idQuery.Length == 0)
+            return source;
+        return source.Where(r => r.Id.ToString().Contains(idQuery, StringComparison.Ordinal));
     }
 
     private IEnumerable<GfxResource> QueryUnifiedFavorites()
@@ -8144,6 +8448,64 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         item.Thumbnail = null;
         item.IsLoading = true;
         _ = EnsureMapThumbnailAsync(item);
+    }
+
+    /// <summary>Delete an official map folder from the Library and remove it from the MAPAS list.</summary>
+    public void DeleteLibraryMap(int mapId)
+    {
+        if (mapId <= 0 || !HasLibrary)
+            return;
+
+        var libraryRoot = _library.RootPath ?? _effectiveLibraryPath;
+        if (string.IsNullOrWhiteSpace(libraryRoot))
+        {
+            MessageBox.Show("No hay biblioteca RUFUS cargada.", "Eliminar mapa",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        var confirm = MessageBox.Show(
+            $"¿Eliminar el mapa {mapId} de la biblioteca?\n\nSe borrará la carpeta Library\\Maps\\{mapId}.",
+            "Eliminar mapa",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning,
+            MessageBoxResult.No);
+        if (confirm != MessageBoxResult.Yes)
+            return;
+
+        // Close any open document for this map.
+        foreach (var doc in _openDocuments.Where(d => d.Map.Id == mapId).ToList())
+        {
+            if (doc.IsDirty && !ConfirmDiscardMapOnly())
+                return;
+            CloseDocument(doc);
+        }
+
+        var dir = LibraryMapPaths.GetOfficialMapDirectory(libraryRoot, mapId);
+        try
+        {
+            if (Directory.Exists(dir))
+                Directory.Delete(dir, recursive: true);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"No se pudo eliminar la carpeta:\n{ex.Message}", "Eliminar mapa",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+
+        MapIds.Remove(mapId);
+        if (SelectedMapId == mapId)
+            SelectedMapId = null;
+        _mapPreviews.Invalidate(mapId);
+        ApplyMapListFilter();
+
+        var label = _librarySource == LibrarySource.SiblingExecutable
+            ? "Biblioteca RUFUS (portable)"
+            : "Biblioteca RUFUS";
+        LibraryStatusMessage =
+            $"{label}\n{_effectiveLibraryPath}\n{MapIds.Count} mapas · Catálogo: {_library.Catalog?.TotalCount ?? 0} GFX.";
+        StatusText = $"{MapIds.Count} mapas";
     }
 
     public string FormatCatalogHoverDetails(GfxItemVm item)
@@ -8697,6 +9059,12 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         {
             foreach (var p in world.Placements)
                 CombinedMaps.InvalidateThumbnail(p.DocumentKey);
+            RequestMosaicFullRefresh();
+        }
+        else if (MosaicHost.IsMultiMapEditMode && MosaicHost.World is { } worldEdit)
+        {
+            foreach (var p in worldEdit.Placements)
+                MosaicHost.InvalidateThumbnail(p.DocumentKey);
             RequestMosaicFullRefresh();
         }
         else
@@ -9681,6 +10049,149 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         await LoadMapAsync(mapId);
     }
 
+    private void DismissIslaFechaPreview()
+    {
+        _islaFechaPreviewCts?.Cancel();
+        _islaFechaPreviewCts?.Dispose();
+        _islaFechaPreviewCts = null;
+        _islaFechaPreviewSuppressed = true;
+        IslaFechaPreviewItems.Clear();
+        IslaFechaPreviewStatusText = "";
+        OnPropertyChanged(nameof(ShowIslaFechaPreview));
+    }
+
+    private void ScheduleIslaFechaPreviewRefresh()
+    {
+        _islaFechaPreviewCts?.Cancel();
+        _islaFechaPreviewCts?.Dispose();
+        _islaFechaPreviewCts = null;
+
+        var keyword = (_loadMapsByFechaKeywordText ?? "").Trim();
+        if (keyword.Length == 0 || _islaFechaPreviewSuppressed)
+        {
+            IslaFechaPreviewItems.Clear();
+            IslaFechaPreviewStatusText = "";
+            return;
+        }
+
+        IslaFechaPreviewStatusText = "Buscando…";
+        var cts = new CancellationTokenSource();
+        _islaFechaPreviewCts = cts;
+        _ = RefreshIslaFechaPreviewAsync(keyword, cts.Token);
+    }
+
+    private async Task RefreshIslaFechaPreviewAsync(string keyword, CancellationToken ct)
+    {
+        try
+        {
+            await Task.Delay(350, ct).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        _settings.Database ??= new DatabaseSettings();
+        var db = _settings.Database;
+        if (string.IsNullOrWhiteSpace(db.Host) || string.IsNullOrWhiteSpace(db.User))
+        {
+            if (ct.IsCancellationRequested) return;
+            IslaFechaPreviewItems.Clear();
+            IslaFechaPreviewStatusText = "Sin conexión";
+            return;
+        }
+
+        string password;
+        try
+        {
+            password = DatabasePasswordProtector.Unprotect(db.PasswordProtectedBase64);
+        }
+        catch
+        {
+            if (ct.IsCancellationRequested) return;
+            IslaFechaPreviewItems.Clear();
+            IslaFechaPreviewStatusText = "Sin conexión";
+            return;
+        }
+
+        IReadOnlyList<MapasFechaPreviewRow> rows;
+        try
+        {
+            IMapasRepository repo = new MysqlMapasRepository(db, password);
+            rows = await repo.ListFechaPreviewByContainingAsync(keyword, ct).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch
+        {
+            if (ct.IsCancellationRequested) return;
+            IslaFechaPreviewItems.Clear();
+            IslaFechaPreviewStatusText = "Sin conexión";
+            return;
+        }
+
+        if (ct.IsCancellationRequested) return;
+
+        var shown = Math.Min(rows.Count, IslaFechaPreviewThumbLimit);
+        IslaFechaPreviewStatusText = rows.Count > IslaFechaPreviewThumbLimit
+            ? $"{rows.Count} mapas con «{keyword}» · mostrando {shown}"
+            : $"{rows.Count} mapas con «{keyword}»";
+        IslaFechaPreviewItems.Clear();
+        var thumbIds = new List<int>();
+        foreach (var row in rows.Take(IslaFechaPreviewThumbLimit))
+        {
+            var item = new IslaFechaPreviewItemVm(row.Id, row.Fecha, row.X, row.Y);
+            IslaFechaPreviewItems.Add(item);
+            thumbIds.Add(row.Id);
+        }
+
+        foreach (var id in thumbIds)
+            _ = LoadIslaFechaPreviewThumbnailAsync(id, ct);
+    }
+
+    private async Task LoadIslaFechaPreviewThumbnailAsync(int mapId, CancellationToken ct)
+    {
+        var item = IslaFechaPreviewItems.FirstOrDefault(x => x.MapId == mapId);
+        if (item is null || ct.IsCancellationRequested)
+            return;
+
+        var cached = _mapPreviews.TryGetCached(mapId);
+        if (cached?.Image is not null)
+        {
+            item.Thumbnail = cached.Image;
+            item.IsLoading = false;
+            return;
+        }
+
+        if (!HasLibrary)
+        {
+            item.IsLoading = false;
+            return;
+        }
+
+        item.IsLoading = true;
+        try
+        {
+            var preview = await _mapPreviews.GetOrRenderAsync(_library, mapId).ConfigureAwait(true);
+            if (ct.IsCancellationRequested) return;
+            item = IslaFechaPreviewItems.FirstOrDefault(x => x.MapId == mapId);
+            if (item is null) return;
+            item.Thumbnail = preview?.Image;
+        }
+        catch
+        {
+            // Preview is best-effort; ID chip remains usable without thumb.
+        }
+        finally
+        {
+            item = IslaFechaPreviewItems.FirstOrDefault(x => x.MapId == mapId);
+            if (item is not null)
+                item.IsLoading = false;
+        }
+    }
+
     /// <summary>
     /// Bulk-import: all <c>estaticos.mapas</c> rows with exact <c>fecha</c> match → overwrite Library
     /// and place on Mundo at each row's X/Y (preview / staging world).
@@ -9840,9 +10351,14 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
             SetIslaImportProgress(92, $"Colocando {placements.Count} mapas en Mundo…");
             StatusText = IslaImportProgressText;
-            var placed = World.PlaceLibraryMapsAtCoordinates(placements, createWorldIfNeeded: true);
+            var placed = World.PlaceLibraryMapsAtCoordinates(
+                placements,
+                createWorldIfNeeded: true,
+                resetWorldToBounds: true);
             EnsureActiveWorldSessionOpen();
             WorkspaceTabIndex = 1;
+            // Maps are on the world grid — dismiss the BD preview strip.
+            DismissIslaFechaPreview();
 
             SetIslaImportProgress(100, $"Listo · {placed}/{rows.Count} mapas");
             StatusText = IslaImportProgressText;
@@ -10393,8 +10909,29 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         _multiMapStrokeIsErase = false;
         _multiMapCellModeErase = false;
         _multiMapEraseMatchBrush = false;
-        foreach (var key in MultiMap.DirtyDocumentKeys)
-            MarkOpenDocumentDirtyFromMultiMap(key);
+
+        // Persist touched maps to Library immediately — no crash-recovery popup later.
+        var dirtyKeys = MultiMap.DirtyDocumentKeys.ToList();
+        var saved = MultiMap.SaveModifiedMaps();
+        foreach (var key in dirtyKeys)
+        {
+            if (MosaicHost.World?.Documents.TryGetValue(key, out var entry) == true)
+            {
+                var open = _openDocuments.FirstOrDefault(d => ReferenceEquals(d.Map, entry.Document));
+                if (open is not null)
+                {
+                    open.Session.MarkSaved();
+                    _autosave.Delete(open.Session.DocumentId);
+                    open.NotifyDirtyChanged();
+                }
+            }
+
+            MosaicHost.NotifyMapEdited(key);
+        }
+
+        if (saved > 0)
+            MosaicHost.FlushWorldPersist();
+
         UndoCommand.RaiseCanExecuteChanged();
         RedoCommand.RaiseCanExecuteChanged();
         MosaicHost.SaveModifiedMapsCommand.RaiseCanExecuteChanged();
@@ -10798,6 +11335,9 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     {
         ThemeService.ThemeChanged -= OnAppThemeChanged;
         _mapListFilter.Changed -= OnMapListFilterChangedFromPicker;
+        _islaFechaPreviewCts?.Cancel();
+        _islaFechaPreviewCts?.Dispose();
+        _islaFechaPreviewCts = null;
         DisposeImagesWatcher();
         _autosaveTimer.Stop();
         Logs.Dispose();

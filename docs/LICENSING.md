@@ -1,5 +1,8 @@
 # RUFUS Licensing (LIC.1–LIC.2)
 
+> **OBSOLETO (2026-10):** el sistema de licencias de escritorio se retiró.  
+> El producto actual es RufusAdmin sin gate de licencia. Este documento se conserva solo como histórico.
+
 ## Persistencia V1
 
 - **Motor:** SQLite privado del Backend RUFUS

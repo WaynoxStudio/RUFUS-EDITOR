@@ -120,6 +120,33 @@ public sealed class MysqlMapasRepository : IMapasRepository
         return list;
     }
 
+    public async Task<IReadOnlyList<MapasFechaPreviewRow>> ListFechaPreviewByContainingAsync(
+        string fecha, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(fecha))
+            return Array.Empty<MapasFechaPreviewRow>();
+
+        await using var conn = new MySqlConnection(_cs);
+        await conn.OpenAsync(ct).ConfigureAwait(false);
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = SelectFechaPreviewByContainingSql();
+        cmd.Parameters.AddWithValue("@fecha", fecha.Trim());
+        var list = new List<MapasFechaPreviewRow>();
+        await using var r = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        while (await r.ReadAsync(ct).ConfigureAwait(false))
+        {
+            list.Add(new MapasFechaPreviewRow
+            {
+                Id = r.GetInt32(r.GetOrdinal(MapasColumns.Id)),
+                Fecha = r.GetString(r.GetOrdinal(MapasColumns.Fecha)),
+                X = r.GetInt32(r.GetOrdinal(MapasColumns.X)),
+                Y = r.GetInt32(r.GetOrdinal(MapasColumns.Y)),
+            });
+        }
+
+        return list;
+    }
+
     public async Task<int> UpdateExistingAsync(MapPublishValues values, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(values);
@@ -290,6 +317,13 @@ public sealed class MysqlMapasRepository : IMapasRepository
                `{MapasColumns.MaxGrupoMobs}`,`{MapasColumns.MaxMobsPorGrupo}`,
                `{MapasColumns.MinNivelGrupoMob}`,`{MapasColumns.MaxNivelGrupoMob}`,
                `{MapasColumns.MaxMercantes}`,`{MapasColumns.MaxPeleas}`,`{MapasColumns.MinMobsPorGrupo}`
+        FROM {_tableSql}
+        WHERE LOCATE(CAST(@fecha AS BINARY), CAST(`{MapasColumns.Fecha}` AS BINARY)) > 0
+        ORDER BY `{MapasColumns.Y}`, `{MapasColumns.X}`, `{MapasColumns.Id}`
+        """;
+
+    private string SelectFechaPreviewByContainingSql() => $"""
+        SELECT `{MapasColumns.Id}`,`{MapasColumns.Fecha}`,`{MapasColumns.X}`,`{MapasColumns.Y}`
         FROM {_tableSql}
         WHERE LOCATE(CAST(@fecha AS BINARY), CAST(`{MapasColumns.Fecha}` AS BINARY)) > 0
         ORDER BY `{MapasColumns.Y}`, `{MapasColumns.X}`, `{MapasColumns.Id}`

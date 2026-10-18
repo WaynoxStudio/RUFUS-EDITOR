@@ -1,0 +1,21 @@
+---
+description: When opening the Rufus editor app, always launch RufusAdmin (not Map Editor).
+alwaysApply: true
+---
+
+# Open Rufus Admin
+
+When the user asks to open, launch, or start the Rufus map editor / editor / admin:
+
+- Launch **RufusAdmin** only. There is no product `RufusMapEditor.exe` anymore (`App` is a WPF library).
+- Pick the **newest** `RufusAdmin.exe` by `LastWriteTime` among:
+  1. Repo root: `RufusAdmin.exe`
+  2. Debug: `src\RufusMapEditor.Admin\bin\Debug\net10.0-windows\RufusAdmin.exe`
+  3. Any other under `src\RufusMapEditor.Admin\bin`
+- Never prefer a stale root single-file publish over a newer Debug build after `dotnet build`.
+- Do **not** try to start `RufusMapEditor.App` as an executable.
+
+After importing or creating a new object (Library / `o_*.swf` / `objects.xml`):
+
+- Restart **RufusAdmin** automatically when the import finishes (stop existing process, then launch preferred exe above).
+- Do this without waiting for the user to ask, unless they explicitly say not to open Admin.

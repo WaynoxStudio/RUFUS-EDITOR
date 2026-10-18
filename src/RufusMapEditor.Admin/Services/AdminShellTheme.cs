@@ -62,10 +62,14 @@ public static class AdminShellTheme
             ApplyAdminChrome(res, isDark: true);
             ApplySharedContentPalette(res, isDark: true);
             SetSystemMenuColors(res, menuBg: "#FF38342C", menuText: "#FFF5F0E6", highlight: "#FFF39C12", highlightText: "#FFFFFFFF");
+            // TreeViewItem / default controls otherwise inherit dark ControlText from ColorsDark.
+            SetBrush(res, SystemColors.ControlTextBrushKey, "#FFF7F2E8");
+            SetBrush(res, SystemColors.WindowTextBrushKey, "#FFF7F2E8");
         }
         else
         {
             ClearSystemMenuColors(res);
+            res.Remove(SystemColors.ControlTextBrushKey);
             ApplyAdminChrome(res, isDark: false);
             ApplySharedContentPalette(res, isDark: false);
         }

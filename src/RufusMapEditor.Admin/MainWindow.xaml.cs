@@ -1,6 +1,5 @@
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
@@ -18,8 +17,8 @@ namespace RufusMapEditor.Admin;
 public partial class MainWindow : Window
 {
     private const double SidebarExpandedWidth = 220;
-    private const double SidebarCollapsedWidth = 14;
-    private static readonly TimeSpan SidebarAnimDuration = TimeSpan.FromMilliseconds(240);
+    private const double SidebarCollapsedWidth = 44;
+    private static readonly TimeSpan SidebarAnimDuration = TimeSpan.FromMilliseconds(220);
 
     private readonly AdminWorkspace _workspace = new();
     private readonly AdminInfrastructureStatus _infra = new();
@@ -31,9 +30,9 @@ public partial class MainWindow : Window
     private bool _navReady;
     private bool _warmCacheScheduled;
     private AdminSection? _loadingSection;
-    private DispatcherTimer? _sidebarCollapseTimer;
-    private bool _sidebarExpanded;
+    private bool _sidebarExpanded = true;
     private bool _syncingThemeToggle;
+    private AppSettings? _settings;
 
     public MainWindow()
     {
@@ -66,7 +65,18 @@ public partial class MainWindow : Window
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
-        SetSidebarImmediate(expanded: false);
+        try
+        {
+            _settings = AppSettingsStore.Load();
+        }
+        catch
+        {
+            _settings = null;
+        }
+
+        // Fijo abrir/cerrar (sin hover). Por defecto abierto; respeta preferencia guardada.
+        var startExpanded = !(_settings?.UiLayout.AdminSidebarCollapsed ?? false);
+        SetSidebarExpanded(startExpanded, persist: false);
         SyncThemeToggle();
 
         try
@@ -133,96 +143,73 @@ public partial class MainWindow : Window
         }
     }
 
-    private void SidebarHost_MouseEnter(object sender, MouseEventArgs e)
-    {
-        _sidebarCollapseTimer?.Stop();
-        AnimateSidebar(expanded: true);
-    }
+    private void SidebarToggle_Click(object sender, RoutedEventArgs e)
+        => SetSidebarExpanded(!_sidebarExpanded, persist: true, animate: true);
 
-    private void SidebarHost_MouseLeave(object sender, MouseEventArgs e)
+    private void SetSidebarExpanded(bool expanded, bool persist, bool animate = false)
     {
-        _sidebarCollapseTimer ??= new DispatcherTimer(DispatcherPriority.Background)
-        {
-            Interval = TimeSpan.FromMilliseconds(200),
-        };
-        _sidebarCollapseTimer.Tick -= OnSidebarCollapseTick;
-        _sidebarCollapseTimer.Tick += OnSidebarCollapseTick;
-        _sidebarCollapseTimer.Stop();
-        _sidebarCollapseTimer.Start();
-    }
-
-    private void OnSidebarCollapseTick(object? sender, EventArgs e)
-    {
-        _sidebarCollapseTimer?.Stop();
-        AnimateSidebar(expanded: false);
-    }
-
-    private void SetSidebarImmediate(bool expanded)
-    {
-        StopSidebarAnimations();
         _sidebarExpanded = expanded;
-        SidebarHost.Width = expanded ? SidebarExpandedWidth : SidebarCollapsedWidth;
-        SidebarExpanded.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
-        SidebarExpanded.Opacity = 1;
-        SidebarExpanded.IsHitTestVisible = expanded;
-        SidebarArrow.Opacity = expanded ? 0 : 1;
-        SidebarArrow.IsHitTestVisible = !expanded;
-    }
-
-    private void AnimateSidebar(bool expanded)
-    {
-        StopSidebarAnimations();
-        _sidebarExpanded = expanded;
-
-        var fromWidth = SidebarHost.ActualWidth > 0 ? SidebarHost.ActualWidth : SidebarHost.Width;
         var toWidth = expanded ? SidebarExpandedWidth : SidebarCollapsedWidth;
-        var easing = expanded
-            ? new CubicEase { EasingMode = EasingMode.EaseOut }
-            : new CubicEase { EasingMode = EasingMode.EaseIn };
 
+        // Swap content early so the big arrow is the correct glyph while animating.
         if (expanded)
         {
+            SidebarCollapsedRail.Visibility = Visibility.Collapsed;
             SidebarExpanded.Visibility = Visibility.Visible;
-            SidebarExpanded.Opacity = 1;
-            SidebarExpanded.IsHitTestVisible = true;
-            SidebarArrow.Opacity = 0;
-            SidebarArrow.IsHitTestVisible = false;
+        }
+
+        if (animate)
+        {
+            AnimateSidebarWidth(toWidth, onCompleted: () =>
+            {
+                if (!expanded)
+                {
+                    SidebarExpanded.Visibility = Visibility.Collapsed;
+                    SidebarCollapsedRail.Visibility = Visibility.Visible;
+                }
+            });
         }
         else
         {
-            // Mantener texto visible; ClipToBounds recorta al reducir el ancho.
-            SidebarExpanded.Opacity = 1;
-            SidebarArrow.Opacity = 0;
-            SidebarArrow.IsHitTestVisible = false;
+            SidebarHost.BeginAnimation(FrameworkElement.WidthProperty, null);
+            SidebarHost.Width = toWidth;
+            SidebarExpanded.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
+            SidebarCollapsedRail.Visibility = expanded ? Visibility.Collapsed : Visibility.Visible;
         }
 
-        var widthAnim = new DoubleAnimation(fromWidth, toWidth, SidebarAnimDuration)
+        if (!persist)
+            return;
+
+        try
         {
-            EasingFunction = easing,
-            FillBehavior = FillBehavior.Stop,
-        };
-        widthAnim.Completed += (_, _) =>
+            _settings ??= AppSettingsStore.Load();
+            _settings.UiLayout.AdminSidebarCollapsed = !expanded;
+            AppSettingsStore.Save(_settings);
+        }
+        catch
         {
-            SidebarHost.Width = toWidth;
-            _sidebarExpanded = expanded;
-            if (expanded)
-            {
-                SidebarExpanded.Opacity = 1;
-            }
-            else
-            {
-                SidebarExpanded.Visibility = Visibility.Collapsed;
-                SidebarExpanded.IsHitTestVisible = false;
-                SidebarArrow.Opacity = 1;
-                SidebarArrow.IsHitTestVisible = true;
-            }
-        };
-        SidebarHost.BeginAnimation(FrameworkElement.WidthProperty, widthAnim);
+            // Preferencia no crítica.
+        }
     }
 
-    private void StopSidebarAnimations()
+    private void AnimateSidebarWidth(double toWidth, Action? onCompleted = null)
     {
         SidebarHost.BeginAnimation(FrameworkElement.WidthProperty, null);
+        var from = SidebarHost.ActualWidth > 1 ? SidebarHost.ActualWidth : SidebarHost.Width;
+        var anim = new DoubleAnimation(from, toWidth, SidebarAnimDuration)
+        {
+            EasingFunction = new CubicEase
+            {
+                EasingMode = toWidth > from ? EasingMode.EaseOut : EasingMode.EaseIn,
+            },
+            FillBehavior = FillBehavior.Stop,
+        };
+        anim.Completed += (_, _) =>
+        {
+            SidebarHost.Width = toWidth;
+            onCompleted?.Invoke();
+        };
+        SidebarHost.BeginAnimation(FrameworkElement.WidthProperty, anim);
     }
 
     private void SyncThemeToggle()
@@ -459,7 +446,8 @@ public partial class MainWindow : Window
             AdminSection.Settings => new SettingsView(_workspace, this),
             AdminSection.Maps => CreateMapsEditor(),
             AdminSection.Content => CreateContentWorkspace(),
-            AdminSection.Missions => new PlaceholderView("Misiones", AdminNavNotes.MissionsPlaceholder),
+            // Missions live inside ContentWorkspaceView (NPC/diálogos/misiones).
+            AdminSection.Missions => CreateContentWorkspace(),
             _ => new PlaceholderView("RUFUS ADMIN", ""),
         };
 

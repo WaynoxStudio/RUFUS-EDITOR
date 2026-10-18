@@ -9,11 +9,9 @@ public enum AdminSection
 }
 
 /// <summary>
-/// Mapas: hospeda MapsEditorView (módulo real compartido con USER).
-/// Contenido: hospeda ContentWorkspaceView (NPC/diálogos/IA compartido).
+/// Mapas: MapsEditorView. Contenido: ContentWorkspaceView (NPC, diálogos, misiones).
+/// Único host de escritorio: RufusAdmin.exe.
 /// </summary>
 public static class AdminNavNotes
 {
-    public const string MissionsPlaceholder =
-        "Próximamente.\n\nADMIN.UI.4 integrará el módulo real de Misiones.";
 }

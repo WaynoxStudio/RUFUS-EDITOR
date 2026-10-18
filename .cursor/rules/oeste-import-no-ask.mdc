@@ -1,0 +1,15 @@
+---
+description: When importing Oeste/gfx objects, do not ask for confirmation if ID and anchor can be determined.
+alwaysApply: true
+---
+
+# Object import — act without asking when known
+
+When the user asks to import/replace an object and the data is clear:
+
+- Pick the next free export ID in the target `o_*.swf` pack without asking.
+- If the filename has `refN`, or Library has a same-size object, use that anchor.
+- If several same-size refs exist, prefer the first/lowest ID (or the named `refN`).
+- Only ask when something is ambiguous (bad/empty SVG, conflicting sizes, missing files, or no reasonable anchor).
+
+After a successful import/replace/delete of objects: restart RufusAdmin (see open-rufus-admin rule).

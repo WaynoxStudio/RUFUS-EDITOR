@@ -52,15 +52,20 @@ public partial class FloatingWorldWindow : UserControl
     public void AttachSession(MainViewModel vm, OpenWorldSession session)
     {
         if (_session is not null)
+        {
             _session.PropertyChanged -= SessionOnPropertyChanged;
+            _session.Vm.PropertyChanged -= WorldVmOnPropertyChanged;
+        }
 
         _vm = vm;
         _session = session;
         DataContext = vm;
         WorldViewportControl.DataContext = session.Vm;
         session.PropertyChanged += SessionOnPropertyChanged;
+        session.Vm.PropertyChanged += WorldVmOnPropertyChanged;
         TitleText.Text = session.WindowTitle;
         ApplyCascadeOffset(session.CascadeIndex);
+        RefreshEditToolsVisibility();
     }
 
     private void SessionOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -70,6 +75,22 @@ public partial class FloatingWorldWindow : UserControl
             TitleText.Text = _session?.WindowTitle ?? "Mundo";
             ChromeStateChanged?.Invoke(this, EventArgs.Empty);
         }
+    }
+
+    private void WorldVmOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(WorldViewModel.IsMultiMapEditMode))
+            RefreshEditToolsVisibility();
+    }
+
+    private void RefreshEditToolsVisibility()
+    {
+        var editing = _session?.Vm.IsMultiMapEditMode == true;
+        var vis = editing ? Visibility.Visible : Visibility.Collapsed;
+        if (WorldEditToolsStrip is not null)
+            WorldEditToolsStrip.Visibility = vis;
+        if (WorldEditVisibilityBar is not null)
+            WorldEditVisibilityBar.Visibility = vis;
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)

@@ -64,6 +64,15 @@ public sealed class MapPublishValues
     }
 }
 
+/// <summary>Lightweight row for isla/fecha preview (no mapData).</summary>
+public sealed class MapasFechaPreviewRow
+{
+    public int Id { get; init; }
+    public string Fecha { get; init; } = "";
+    public int X { get; init; }
+    public int Y { get; init; }
+}
+
 public interface IMapasRepository
 {
     Task TestConnectionAsync(CancellationToken ct = default);
@@ -75,6 +84,10 @@ public interface IMapasRepository
     /// E.g. <c>VULKANIA</c> matches <c>VULKANIA</c>, <c>VULKANIA1</c>, <c>VULKANIAEXTRA</c>.
     /// </summary>
     Task<IReadOnlyList<MapasRow>> ListByFechaContainingAsync(string fecha, CancellationToken ct = default);
+    /// <summary>
+    /// Same match rule as <see cref="ListByFechaContainingAsync"/> but only id/fecha/X/Y (no mapData).
+    /// </summary>
+    Task<IReadOnlyList<MapasFechaPreviewRow>> ListFechaPreviewByContainingAsync(string fecha, CancellationToken ct = default);
     Task<int> UpdateExistingAsync(MapPublishValues values, CancellationToken ct = default);
     /// <summary>INSERT new row inside a transaction with existence race-check + verify. Returns 1 on success.</summary>
     Task<int> InsertNewAsync(MapInsertPlan plan, CancellationToken ct = default);

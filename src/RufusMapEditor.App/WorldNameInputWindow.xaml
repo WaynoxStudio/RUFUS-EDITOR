@@ -1,30 +1,93 @@
 <Window x:Class="RufusMapEditor.App.WorldNameInputWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Nombre del mundo"
-        Width="420"
-        SizeToContent="Height"
-        MinHeight="180"
+        Title="Guardar mundo"
+        Width="460"
+        Height="480"
+        MinWidth="400"
+        MinHeight="360"
         WindowStartupLocation="CenterOwner"
-        ResizeMode="NoResize"
+        ResizeMode="CanResizeWithGrip"
         Background="{DynamicResource WindowBackground}"
         Foreground="{DynamicResource TextPrimary}">
   <Grid Margin="16">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="Auto"/>
-      <RowDefinition Height="Auto"/>
       <RowDefinition Height="*"/>
       <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
     </Grid.RowDefinitions>
+
     <TextBlock x:Name="PromptText" TextWrapping="Wrap" Margin="0,0,0,10"/>
-    <TextBlock Grid.Row="1" Text="Nombre del proyecto" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,4"/>
-    <TextBox x:Name="NameBox" Grid.Row="2"/>
-    <TextBlock Grid.Row="3" x:Name="HintText" TextWrapping="Wrap" FontSize="11"
-               Foreground="{DynamicResource TextMuted}" VerticalAlignment="Bottom" Margin="0,8,0,8"/>
-    <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
+
+    <TextBlock Grid.Row="1" Text="Mundos existentes (clic para reemplazar)"
+               Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,4"/>
+
+    <ListBox x:Name="ExistingList" Grid.Row="2"
+             Background="{DynamicResource SurfaceBackground}"
+             BorderBrush="{DynamicResource Border}"
+             Foreground="{DynamicResource TextPrimary}"
+             SelectionChanged="ExistingList_OnSelectionChanged"
+             MouseDoubleClick="ExistingList_OnMouseDoubleClick">
+      <ListBox.ItemContainerStyle>
+        <Style TargetType="ListBoxItem">
+          <Setter Property="Padding" Value="2"/>
+          <Setter Property="Margin" Value="0,1"/>
+          <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+          <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+          <Setter Property="Template">
+            <Setter.Value>
+              <ControlTemplate TargetType="ListBoxItem">
+                <Border x:Name="Bd" Background="Transparent" BorderBrush="Transparent"
+                        BorderThickness="1" CornerRadius="5" Padding="8,6"
+                        SnapsToDevicePixels="True">
+                  <ContentPresenter HorizontalAlignment="Stretch"/>
+                </Border>
+                <ControlTemplate.Triggers>
+                  <Trigger Property="IsMouseOver" Value="True">
+                    <Setter TargetName="Bd" Property="Background" Value="#28FFFFFF"/>
+                  </Trigger>
+                  <Trigger Property="IsSelected" Value="True">
+                    <Setter TargetName="Bd" Property="Background" Value="#33F39C12"/>
+                    <Setter TargetName="Bd" Property="BorderBrush" Value="#99F39C12"/>
+                  </Trigger>
+                </ControlTemplate.Triggers>
+              </ControlTemplate>
+            </Setter.Value>
+          </Setter>
+        </Style>
+      </ListBox.ItemContainerStyle>
+      <ListBox.ItemTemplate>
+        <DataTemplate>
+          <StackPanel>
+            <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
+            <TextBlock FontSize="11" Foreground="{DynamicResource TextMuted}" Margin="0,2,0,0">
+              <Run Text="Modificado: "/><Run Text="{Binding ModifiedLocal, Mode=OneWay}"/>
+            </TextBlock>
+          </StackPanel>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+
+    <TextBlock x:Name="EmptyProjectsText" Grid.Row="2"
+               Text="No hay mundos guardados todavía."
+               Foreground="{DynamicResource TextMuted}"
+               VerticalAlignment="Center" HorizontalAlignment="Center"
+               Visibility="Collapsed" IsHitTestVisible="False"/>
+
+    <TextBlock Grid.Row="3" Text="Nombre del proyecto" Foreground="{DynamicResource TextSecondary}"
+               Margin="0,10,0,4"/>
+    <TextBox x:Name="NameBox" Grid.Row="4" TextChanged="NameBox_OnTextChanged"/>
+    <TextBlock Grid.Row="5" x:Name="HintText" TextWrapping="Wrap" FontSize="11"
+               Foreground="{DynamicResource TextMuted}" Margin="0,8,0,8"/>
+
+    <StackPanel Grid.Row="6" Orientation="Horizontal" HorizontalAlignment="Right">
       <Button Content="Cancelar" Width="90" Margin="0,0,8,0" Padding="8,4" IsCancel="True" Click="Cancel_Click"/>
-      <Button Content="Guardar" Width="90" Padding="8,4" IsDefault="True" Click="Ok_Click"/>
+      <Button x:Name="OkButton" Content="Guardar" MinWidth="120" Padding="12,4" IsDefault="True" Click="Ok_Click"
+              Style="{StaticResource PrimaryButton}"/>
     </StackPanel>
   </Grid>
 </Window>

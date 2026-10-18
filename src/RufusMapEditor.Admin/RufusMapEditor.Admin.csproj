@@ -10,6 +10,7 @@
     <RootNamespace>RufusMapEditor.Admin</RootNamespace>
     <ApplicationTitle>RUFUS ADMIN</ApplicationTitle>
     <Product>RUFUS ADMIN</Product>
+    <ApplicationIcon>..\RufusMapEditor.App\Assets\RME.ico</ApplicationIcon>
     <NoWarn>$(NoWarn);CA1416</NoWarn>
   </PropertyGroup>
 

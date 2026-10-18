@@ -6,6 +6,7 @@ using RufusMapEditor.LegacyCompatibility.Editing;
 using RufusMapEditor.LegacyCompatibility.MapData;
 using RufusMapEditor.LegacyCompatibility.World;
 using RufusMapEditor.Rendering;
+using RufusMapEditor.Rendering.Package;
 
 namespace RufusMapEditor.App.Services;
 
@@ -131,11 +132,34 @@ public sealed class MultiMapEditService
         }
     }
 
+    public IEnumerable<(int WorldX, int WorldY, string DocumentKey, MapDocument Map)> EnumerateAllPlacements()
+    {
+        if (_world is null) yield break;
+        foreach (var p in _world.Placements)
+        {
+            if (_world.Documents.TryGetValue(p.DocumentKey, out var entry))
+                yield return (p.WorldX, p.WorldY, p.DocumentKey, entry.Document);
+        }
+    }
+
     public IsoHitTester? GetHitTester(string documentKey) =>
         _hitTesters.GetValueOrDefault(documentKey);
 
     public MapDocument? GetDocument(string documentKey) =>
         _world?.Documents.GetValueOrDefault(documentKey)?.Document;
+
+    /// <summary>
+    /// Hit-test any placed map; expands editable set when the stroke/click lands outside the
+    /// initial selection so painting can continue across neighbors without opening all maps.
+    /// </summary>
+    public WorldCellHit? HitTestAnyAndEnsureEditable(double worldPixelX, double worldPixelY, bool mosaicMode)
+    {
+        var hit = WorldMapHitTest.HitTestCell(
+            worldPixelX, worldPixelY, EnumerateAllPlacements(), mosaicMode, editableKeysOnly: null);
+        if (hit is WorldCellHit h)
+            EnsureEditable(h.DocumentKey);
+        return hit;
+    }
 
     public WorldCellHit? HitTest(double worldPixelX, double worldPixelY, bool mosaicMode) =>
         WorldMapHitTest.HitTestCell(
@@ -147,6 +171,7 @@ public sealed class MultiMapEditService
 
     public void UpdateHover(double worldPixelX, double worldPixelY, bool mosaicMode)
     {
+        // Hover only on already-editable maps (cheap). Stroke expands via HitTestAnyAndEnsureEditable.
         _hovered = HitTest(worldPixelX, worldPixelY, mosaicMode);
         NotifyState();
     }
@@ -209,8 +234,7 @@ public sealed class MultiMapEditService
 
         if (_lastStrokeWorldX is null || _lastStrokeWorldY is null)
         {
-            var hit = WorldMapHitTest.HitTestCell(
-                worldX, worldY, EnumerateEditablePlacements(), mosaicMode, _editableKeys);
+            var hit = HitTestAnyAndEnsureEditable(worldX, worldY, mosaicMode);
             if (hit is WorldCellHit h)
                 HandleCellClick(
                     new WorldCellRef(h.DocumentKey, h.CellId),
@@ -224,8 +248,9 @@ public sealed class MultiMapEditService
         {
             foreach (var h in WorldMapHitTest.CellsAlongSegment(
                          _lastStrokeWorldX.Value, _lastStrokeWorldY.Value, worldX, worldY,
-                         EnumerateEditablePlacements(), mosaicMode, _editableKeys))
+                         EnumerateAllPlacements(), mosaicMode, editableKeysOnly: null))
             {
+                EnsureEditable(h.DocumentKey);
                 HandleCellClick(
                     new WorldCellRef(h.DocumentKey, h.CellId),
                     tool, paintLayer, selectedGfxId, brushFlip, brushRotation,
@@ -242,8 +267,11 @@ public sealed class MultiMapEditService
 
     public void FinishStroke()
     {
-        if (!EndStrokeInternal()) return;
+        if (!EndStrokeInternal(out var touchedKeys)) return;
         MarkAffectedDirty();
+        // Rebuild thumbs once for maps touched during the drag (not per mouse move).
+        foreach (var key in touchedKeys)
+            ThumbnailInvalidateRequested?.Invoke(key);
         NotifyState();
     }
 
@@ -299,7 +327,9 @@ public sealed class MultiMapEditService
                     _selection.Clear();
                     _selection.Add(cell);
                 }
-                ThumbnailInvalidateRequested?.Invoke(cell.DocumentKey);
+                // Defer thumbnail rebuild until stroke end while dragging (keeps paint fluid).
+                if (!isDrag)
+                    ThumbnailInvalidateRequested?.Invoke(cell.DocumentKey);
 
                 if (paintSeam && _library.Catalog is not null)
                 {
@@ -318,7 +348,8 @@ public sealed class MultiMapEditService
                             if (markBlocked)
                                 MapCellEditor.SetMovement(c, MovementType.Unwalkable);
                         });
-                        ThumbnailInvalidateRequested?.Invoke(replica.DocumentKey);
+                        if (!isDrag)
+                            ThumbnailInvalidateRequested?.Invoke(replica.DocumentKey);
                     }
                 }
 
@@ -339,8 +370,8 @@ public sealed class MultiMapEditService
                 {
                     _selection.Clear();
                     _selection.Add(cell);
+                    ThumbnailInvalidateRequested?.Invoke(cell.DocumentKey);
                 }
-                ThumbnailInvalidateRequested?.Invoke(cell.DocumentKey);
                 break;
 
             case EditorTool.Eyedropper:
@@ -727,23 +758,46 @@ public sealed class MultiMapEditService
         if (_world is null) return 0;
         EndStrokeInternal();
         var saved = 0;
+        var libraryRoot = _library.RootPath;
+        var renderer = _library.Renderer;
+        var canOfficial = _library.IsLoaded
+            && renderer is not null
+            && !string.IsNullOrWhiteSpace(libraryRoot);
+
         foreach (var key in _dirtyDocumentKeys.ToList())
         {
             if (!_world.Documents.TryGetValue(key, out var entry)) continue;
-            var path = entry.LinkedRufmapPath;
-            if (string.IsNullOrWhiteSpace(path))
-            {
-                path = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "RufusMapEditor",
-                    "world-maps",
-                    $"{entry.Document.Id}_{key}.rufmap");
-                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-                entry.LinkedRufmapPath = path;
-            }
 
             try
             {
+                if (canOfficial && entry.Document.Id > 0)
+                {
+                    // Local Library package only — never publishes to MySQL.
+                    var result = new OfficialMapSave(renderer!).Save(entry.Document, new OfficialMapSaveOptions
+                    {
+                        LibraryRoot = libraryRoot!,
+                        DocumentId = key,
+                        ProjectName = entry.Document.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    });
+                    if (!result.Success)
+                        continue;
+                    _thumbs.Invalidate(entry.Document);
+                    saved++;
+                    continue;
+                }
+
+                var path = entry.LinkedRufmapPath;
+                if (string.IsNullOrWhiteSpace(path))
+                {
+                    path = Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                        "RufusMapEditor",
+                        "world-maps",
+                        $"{entry.Document.Id}_{key}.rufmap");
+                    Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                    entry.LinkedRufmapPath = path;
+                }
+
                 ProjectPersistence.SaveDocument(entry.Document, key, path, entry.Origin);
                 saved++;
             }
@@ -782,8 +836,11 @@ public sealed class MultiMapEditService
         mutate(entry.Document.Cells[cell.CellId]);
     }
 
-    private bool EndStrokeInternal()
+    private bool EndStrokeInternal() => EndStrokeInternal(out _);
+
+    private bool EndStrokeInternal(out List<string> touchedKeys)
     {
+        touchedKeys = new List<string>();
         if (!_strokeOpen)
             return false;
         _strokeOpen = false;
@@ -823,7 +880,10 @@ public sealed class MultiMapEditService
 
         _history.PushExecuted(composite);
         foreach (var (key, _) in parts)
+        {
             _dirtyDocumentKeys.Add(key);
+            touchedKeys.Add(key);
+        }
         return true;
     }
 

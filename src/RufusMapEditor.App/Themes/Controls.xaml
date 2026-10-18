@@ -1620,13 +1620,21 @@
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="RadioButton">
-          <Border x:Name="Bd" Background="{DynamicResource ElevatedSurface}" BorderBrush="{DynamicResource AccentLayer2}"
-                  BorderThickness="2" CornerRadius="6" Padding="2" SnapsToDevicePixels="True">
-            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+          <Border x:Name="Halo" Background="Transparent" BorderBrush="Transparent" BorderThickness="0"
+                  CornerRadius="8" Padding="0" SnapsToDevicePixels="True">
+            <Border x:Name="Bd" Background="{DynamicResource ElevatedSurface}" BorderBrush="{DynamicResource Border}"
+                    BorderThickness="1" CornerRadius="6" Padding="2" SnapsToDevicePixels="True">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
           </Border>
           <ControlTemplate.Triggers>
             <Trigger Property="IsChecked" Value="True">
-              <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentLayer2}"/>
+              <Setter TargetName="Halo" Property="BorderBrush" Value="#FFFF8A80"/>
+              <Setter TargetName="Halo" Property="BorderThickness" Value="2"/>
+              <Setter TargetName="Halo" Property="Background" Value="#55FF1744"/>
+              <Setter TargetName="Bd" Property="Background" Value="#FFE53935"/>
+              <Setter TargetName="Bd" Property="BorderBrush" Value="#FFFF1744"/>
+              <Setter TargetName="Bd" Property="BorderThickness" Value="3"/>
               <Setter Property="Foreground" Value="White"/>
             </Trigger>
             <Trigger Property="IsMouseOver" Value="True">
@@ -1637,7 +1645,9 @@
                 <Condition Property="IsChecked" Value="True"/>
                 <Condition Property="IsMouseOver" Value="True"/>
               </MultiTrigger.Conditions>
-              <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentLayer2}"/>
+              <Setter TargetName="Bd" Property="Background" Value="#FFFF1744"/>
+              <Setter TargetName="Bd" Property="BorderBrush" Value="#FFFF8A80"/>
+              <Setter TargetName="Halo" Property="BorderBrush" Value="#FFFF5252"/>
             </MultiTrigger>
             <Trigger Property="IsEnabled" Value="False">
               <Setter Property="Opacity" Value="0.42"/>

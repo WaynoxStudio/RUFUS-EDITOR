@@ -1,0 +1,78 @@
+<UserControl x:Class="RufusMapEditor.App.Controls.MapEditVisibilityToolbar"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{DynamicResource PanelBackground}">
+  <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+    <ToggleButton Margin="0,0,8,0" Content="Fondo" Style="{StaticResource VisibilityToggle}"
+                  IsChecked="{Binding ShowBackgroundLayer}" ToolTip="Mostrar fondo" Padding="6,4"/>
+    <ToggleButton Margin="0,0,8,0" Style="{StaticResource VisibilityToggleLayerGround}"
+                  IsChecked="{Binding ShowGroundLayer}" ToolTip="Mostrar suelo" Padding="6,4"/>
+    <ToggleButton Margin="0,0,8,0" Style="{StaticResource VisibilityToggleLayer1}"
+                  IsChecked="{Binding ShowObject1Layer}" ToolTip="Mostrar capa 1" Padding="6,4"/>
+    <ToggleButton Margin="0,0,8,0" Style="{StaticResource VisibilityToggleLayer2}"
+                  IsChecked="{Binding ShowObject2Layer}" ToolTip="Mostrar capa 2" Padding="6,4"/>
+    <ToggleButton Margin="0,0,8,0" Style="{StaticResource VisibilityToggle}"
+                  IsChecked="{Binding ShowGrid}" ToolTip="Rejilla" Padding="6,4" MinWidth="36">
+      <Viewbox Width="14" Height="14">
+        <Path Data="{StaticResource IconGridGeom}" Stroke="{DynamicResource TextPrimary}" StrokeThickness="1.2" Fill="Transparent"/>
+      </Viewbox>
+    </ToggleButton>
+    <ToggleButton Margin="0,0,8,0" Style="{StaticResource VisibilityToggle}"
+                  IsChecked="{Binding ShowCellIds}" ToolTip="Cell ID" Padding="6,4" MinWidth="36">
+      <Viewbox Width="14" Height="14">
+        <Path Data="{StaticResource IconCellIdGeom}" Stroke="{DynamicResource TextPrimary}" StrokeThickness="1.2" Fill="Transparent"/>
+      </Viewbox>
+    </ToggleButton>
+    <ToggleButton Margin="0,0,12,0" Style="{StaticResource VisibilityToggle}"
+                  IsChecked="{Binding ShowMapExportLimit}" ToolTip="Límite de exportación" Padding="6,4" MinWidth="36">
+      <Viewbox Width="14" Height="14">
+        <Path Data="{StaticResource IconMapLimitGeom}" Stroke="{DynamicResource TextPrimary}" StrokeThickness="1.2" Fill="Transparent"/>
+      </Viewbox>
+    </ToggleButton>
+    <Border Width="1" Height="18" Margin="0,0,12,0" VerticalAlignment="Center"
+            Background="{DynamicResource Border}"/>
+    <ToggleButton Margin="0,0,8,0" Style="{StaticResource VisibilityToggle}"
+                  IsChecked="{Binding ShowUnwalkableMarkers}"
+                  ToolTip="Mostrar / ocultar marcas de no transitables (no es la herramienta de pintar)"
+                  Padding="6,4" MinWidth="36">
+      <Viewbox Width="14" Height="14">
+        <Path Data="{StaticResource IconUnwalkableGeom}" Stroke="{DynamicResource OverlayUnwalkableStroke}"
+              StrokeThickness="1.4" Fill="#33EF5350"/>
+      </Viewbox>
+    </ToggleButton>
+    <ToggleButton Margin="0,0,8,0" Style="{StaticResource VisibilityToggle}"
+                  IsChecked="{Binding ShowLosBlockMarkers}"
+                  ToolTip="Mostrar bloqueos de visión" Padding="6,4" MinWidth="36">
+      <Viewbox Width="14" Height="14">
+        <Grid Width="16" Height="16">
+          <Path Data="{StaticResource IconLoSOuterGeom}" Stroke="{DynamicResource OverlayLosBlockStroke}"
+                StrokeThickness="1.2" Fill="Transparent"/>
+          <Path Data="{StaticResource IconLoSPupilGeom}" Fill="{DynamicResource OverlayLosBlockStroke}"/>
+          <Path Data="{StaticResource IconLoSBlockSlashGeom}" Stroke="{DynamicResource OverlayLosBlockStroke}"
+                StrokeThickness="1.5"/>
+        </Grid>
+      </Viewbox>
+    </ToggleButton>
+    <ToggleButton Style="{StaticResource VisibilityToggle}" IsChecked="{Binding ShowFightMarkers}"
+                  ToolTip="Mostrar posiciones de combate" Padding="6,4" MinWidth="40">
+      <StackPanel Orientation="Horizontal">
+        <Viewbox Width="12" Height="12" Margin="0,0,2,0">
+          <Grid Width="16" Height="16">
+            <Path Data="{StaticResource IconFightDiamondGeom}" Fill="{DynamicResource OverlayFight1Fill}"
+                  Stroke="{DynamicResource OverlayFight1Stroke}" StrokeThickness="1"/>
+            <TextBlock Text="1" FontSize="8" FontWeight="Bold" Foreground="White"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+          </Grid>
+        </Viewbox>
+        <Viewbox Width="12" Height="12">
+          <Grid Width="16" Height="16">
+            <Path Data="{StaticResource IconFightDiamondGeom}" Fill="{DynamicResource OverlayFight2Fill}"
+                  Stroke="{DynamicResource OverlayFight2Stroke}" StrokeThickness="1"/>
+            <TextBlock Text="2" FontSize="8" FontWeight="Bold" Foreground="White"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+          </Grid>
+        </Viewbox>
+      </StackPanel>
+    </ToggleButton>
+  </StackPanel>
+</UserControl>
