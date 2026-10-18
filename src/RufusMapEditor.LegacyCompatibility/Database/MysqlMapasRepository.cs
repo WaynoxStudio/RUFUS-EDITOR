@@ -102,6 +102,24 @@ public sealed class MysqlMapasRepository : IMapasRepository
         return Read(r);
     }
 
+    public async Task<IReadOnlyList<MapasRow>> ListByFechaContainingAsync(string fecha, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(fecha))
+            return Array.Empty<MapasRow>();
+
+        await using var conn = new MySqlConnection(_cs);
+        await conn.OpenAsync(ct).ConfigureAwait(false);
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = SelectByFechaContainingSql();
+        // BINARY makes LOCATE case-sensitive regardless of table collation.
+        cmd.Parameters.AddWithValue("@fecha", fecha.Trim());
+        var list = new List<MapasRow>();
+        await using var r = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        while (await r.ReadAsync(ct).ConfigureAwait(false))
+            list.Add(Read(r));
+        return list;
+    }
+
     public async Task<int> UpdateExistingAsync(MapPublishValues values, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(values);
@@ -261,6 +279,20 @@ public sealed class MysqlMapasRepository : IMapasRepository
         FROM {_tableSql}
         WHERE `{MapasColumns.Id}`=@id
         LIMIT 1
+        """;
+
+    private string SelectByFechaContainingSql() => $"""
+        SELECT `{MapasColumns.Id}`,`{MapasColumns.Fecha}`,`{MapasColumns.Ancho}`,`{MapasColumns.Alto}`,
+               `{MapasColumns.BgId}`,`{MapasColumns.MusicId}`,`{MapasColumns.AmbienteId}`,`{MapasColumns.OutDoor}`,
+               `{MapasColumns.Capabilities}`,`{MapasColumns.PosPelea}`,`{MapasColumns.MapData}`,
+               `{MapasColumns.X}`,`{MapasColumns.Y}`,
+               `{MapasColumns.Key}`,`{MapasColumns.Mobs}`,`{MapasColumns.SubArea}`,
+               `{MapasColumns.MaxGrupoMobs}`,`{MapasColumns.MaxMobsPorGrupo}`,
+               `{MapasColumns.MinNivelGrupoMob}`,`{MapasColumns.MaxNivelGrupoMob}`,
+               `{MapasColumns.MaxMercantes}`,`{MapasColumns.MaxPeleas}`,`{MapasColumns.MinMobsPorGrupo}`
+        FROM {_tableSql}
+        WHERE LOCATE(CAST(@fecha AS BINARY), CAST(`{MapasColumns.Fecha}` AS BINARY)) > 0
+        ORDER BY `{MapasColumns.Y}`, `{MapasColumns.X}`, `{MapasColumns.Id}`
         """;
 
     private static void AddParams(MySqlCommand cmd, MapPublishValues v)

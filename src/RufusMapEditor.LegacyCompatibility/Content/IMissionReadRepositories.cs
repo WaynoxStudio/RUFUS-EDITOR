@@ -13,6 +13,12 @@ public interface IMisionObjetivosReadRepository
     Task<int> GetMaxIdAsync(CancellationToken ct = default);
 }
 
+public interface IMisionesReadRepository
+{
+    /// <summary>SELECT MAX(id) FROM misiones. Returns 0 if empty.</summary>
+    Task<int> GetMaxIdAsync(CancellationToken ct = default);
+}
+
 public sealed class FixedMisionEtapasReadRepository : IMisionEtapasReadRepository
 {
     private readonly int _maxId;
@@ -24,6 +30,13 @@ public sealed class FixedMisionObjetivosReadRepository : IMisionObjetivosReadRep
 {
     private readonly int _maxId;
     public FixedMisionObjetivosReadRepository(int maxId) => _maxId = maxId;
+    public Task<int> GetMaxIdAsync(CancellationToken ct = default) => Task.FromResult(_maxId);
+}
+
+public sealed class FixedMisionesReadRepository : IMisionesReadRepository
+{
+    private readonly int _maxId;
+    public FixedMisionesReadRepository(int maxId) => _maxId = maxId;
     public Task<int> GetMaxIdAsync(CancellationToken ct = default) => Task.FromResult(_maxId);
 }
 
@@ -74,6 +87,33 @@ public sealed class MysqlMisionObjetivosReadRepository : IMisionObjetivosReadRep
         await conn.OpenAsync(ct).ConfigureAwait(false);
         await using var cmd = new MySqlCommand(
             $"SELECT MAX(`{MisionObjetivosColumns.Id}`) FROM `{_schemaName}`.`{MisionObjetivosColumns.DefaultTable}`",
+            conn);
+        var result = await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false);
+        if (result is null or DBNull) return 0;
+        return Convert.ToInt32(result);
+    }
+}
+
+public sealed class MysqlMisionesReadRepository : IMisionesReadRepository
+{
+    private readonly string _cs;
+    private readonly string _schemaName;
+
+    public MysqlMisionesReadRepository(DatabaseSettings settings, string plainPassword)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        _cs = settings.BuildConnectionString(plainPassword);
+        _schemaName = string.IsNullOrWhiteSpace(settings.Database)
+            ? NpcsModeloColumns.DefaultDatabase
+            : settings.Database.Trim();
+    }
+
+    public async Task<int> GetMaxIdAsync(CancellationToken ct = default)
+    {
+        await using var conn = new MySqlConnection(_cs);
+        await conn.OpenAsync(ct).ConfigureAwait(false);
+        await using var cmd = new MySqlCommand(
+            $"SELECT MAX(`{MisionesColumns.Id}`) FROM `{_schemaName}`.`{MisionesColumns.DefaultTable}`",
             conn);
         var result = await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false);
         if (result is null or DBNull) return 0;

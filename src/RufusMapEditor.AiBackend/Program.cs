@@ -1,12 +1,10 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using RufusMapEditor.AiBackend;
-using RufusMapEditor.AiBackend.Licensing;
+using RufusMapEditor.AiBackend.Admin;
 using RufusMapEditor.AiBackend.OpenAi;
+using RufusMapEditor.LegacyCompatibility.AdminAuth;
 using RufusMapEditor.LegacyCompatibility.Content.Ai;
-using RufusMapEditor.Licensing.Contracts;
-using RufusMapEditor.Licensing.Contracts.Admin;
-using RufusMapEditor.Licensing.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,27 +21,37 @@ builder.Services.AddHttpClient<IOpenAiResponsesClient, OpenAiResponsesClient>((s
 }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler());
 
 builder.Services.AddSingleton<AiGenerateOrchestrator>();
-builder.Services.AddRufusLicensing(builder.Configuration);
+builder.Services.AddRufusAdminServices();
 
 var app = builder.Build();
 
 const string GenerateRoute = RufusAiGenerateAuthMiddleware.GeneratePath;
 
-// AI.6C.1 — Authorization BEFORE any body deserialize / orchestrator / OpenAI.
+// Authorization BEFORE any body deserialize / orchestrator / OpenAI.
 app.UseMiddleware<RufusAiGenerateAuthMiddleware>();
-// LIC.3 — Admin auth BEFORE body for /v1/admin/*
+// Admin auth BEFORE body for /v1/admin/*
 app.UseMiddleware<RufusAdminAuthMiddleware>();
 
-app.MapGet("/health", (OpenAiOptions opts, RufusAiAccessOptions access, AiLegacyTokenOptions legacy, IAdminCredentialVerifier admin) => Results.Json(new
+app.MapGet("/health", (OpenAiOptions opts, RufusAiAccessOptions access, IAdminCredentialVerifier admin) => Results.Json(new
 {
     status = "ok",
     service = "RufusMapEditor.AiBackend",
     openaiConfigured = opts.IsConfigured,
     rufusAccessConfigured = access.IsConfigured,
-    legacyAiTokenEnabled = legacy.Enabled,
     adminAuthConfigured = admin.IsConfigured,
-    licenseDb = LicenseSqlitePath.Resolve(app.Configuration["Licensing:SqlitePath"]),
-    model = opts.Model
+    model = opts.Model,
+    openAiTimeoutSeconds = opts.TimeoutSeconds,
+    openAiConversationTimeoutSeconds = opts.ConversationTimeoutSeconds
+}));
+
+// Proxied under /v1/ai/ on VPS (Apache only forwards that prefix).
+app.MapGet("/v1/ai/health", (OpenAiOptions opts) => Results.Json(new
+{
+    status = "ok",
+    model = opts.Model,
+    openaiConfigured = opts.IsConfigured,
+    openAiTimeoutSeconds = opts.TimeoutSeconds,
+    openAiConversationTimeoutSeconds = opts.ConversationTimeoutSeconds
 }));
 
 app.MapPost(GenerateRoute, async (
@@ -74,10 +82,8 @@ app.MapPost(GenerateRoute, async (
         }, statusCode: 400);
     }
 
-    var licenseAi = RufusAiGenerateAuthMiddleware.GetLicenseContext(httpContext);
-    var legacy = RufusAiGenerateAuthMiddleware.IsLegacyAuth(httpContext);
     var adminAi = RufusAiGenerateAuthMiddleware.IsAdminAuth(httpContext);
-    var response = await orchestrator.GenerateAsync(body, licenseAi, legacy, adminAi, cancellationToken).ConfigureAwait(false);
+    var response = await orchestrator.GenerateAsync(body, adminAi, cancellationToken).ConfigureAwait(false);
     var status = response.Success ? 200 : MapErrorStatus(response.Error?.Code);
     return Results.Json(response, new JsonSerializerOptions
     {
@@ -86,7 +92,7 @@ app.MapPost(GenerateRoute, async (
     }, statusCode: status);
 });
 
-app.MapLicenseAndAdminEndpoints();
+app.MapAdminEndpoints();
 
 app.Run();
 
@@ -95,17 +101,17 @@ static int MapErrorStatus(string? code) => code switch
     AiBackendErrorCodes.AiNotConfigured => 503,
     AiBackendErrorCodes.Unauthorized => 401,
     AiBackendErrorCodes.AiNotAllowed => 403,
-    AiBackendErrorCodes.AiQuotaExceeded => 403,
-    AiBackendErrorCodes.AiQuotaDailyExceeded => 403,
-    AiBackendErrorCodes.AiQuotaMonthlyExceeded => 403,
-    LicenseErrorCodes.LicenseSuspended => 403,
-    LicenseErrorCodes.LicenseRevoked => 403,
-    LicenseErrorCodes.LicenseExpired => 403,
     AiBackendErrorCodes.InvalidRequest => 400,
     AiBackendErrorCodes.InvalidAction => 400,
     AiBackendErrorCodes.OpenAiTimeout => 504,
     AiBackendErrorCodes.InvalidAiResponse => 502,
+    AiBackendErrorCodes.OpenAiResponseInvalid => 502,
     AiBackendErrorCodes.OpenAiError => 502,
+    AiBackendErrorCodes.OpenAiAuthError => 502,
+    AiBackendErrorCodes.OpenAiRateLimit => 502,
+    AiBackendErrorCodes.OpenAiBadRequest => 502,
+    AiBackendErrorCodes.OpenAiConnectionError => 502,
+    AiBackendErrorCodes.OpenAiClientError => 502,
     _ => 500
 };
 

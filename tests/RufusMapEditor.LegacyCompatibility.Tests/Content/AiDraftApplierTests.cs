@@ -54,7 +54,7 @@ public sealed class AiDraftApplierTests
     }
 
     [Fact]
-    public void Apply_conversation_writes_three_replies_and_preserves_actions()
+    public void Apply_conversation_writes_single_reply_and_preserves_actions()
     {
         var ws = NewWorkspace(out var npc);
         npc.DialogMode = NpcDialogMode.Interactive;
@@ -70,11 +70,11 @@ public sealed class AiDraftApplierTests
         var conv = new AiConversationResult
         {
             TextoNpc = "Apertura IA",
+            TextoIncompleta = "Aún no has terminado.",
+            TextoCompletada = "Ya lo lograste.",
             RespuestasJugador =
             [
-                new AiPlayerResponseSuggestion { Texto = "Neutra", Tono = "neutral" },
-                new AiPlayerResponseSuggestion { Texto = "Amable", Tono = "amable" },
-                new AiPlayerResponseSuggestion { Texto = "Humor", Tono = "humoristico" }
+                new AiPlayerResponseSuggestion { Texto = "Neutra", Tono = "neutral" }
             ]
         };
 
@@ -83,16 +83,29 @@ public sealed class AiDraftApplierTests
 
         Assert.Equal(AiDraftApplyKind.Applied, result.Kind);
         Assert.Equal("Apertura IA", q.TextLocal);
-        Assert.Equal(3, q.Responses.Count);
+        Assert.Single(q.Responses);
         Assert.Equal("Neutra", q.Responses[0].TextLocal);
-        Assert.Equal("Amable", q.Responses[1].TextLocal);
-        Assert.Equal("Humor", q.Responses[2].TextLocal);
         // Tone must NOT become accion; existing technical action preserved.
         Assert.Single(q.Responses[0].Actions);
         Assert.Equal(1, q.Responses[0].Actions[0].Accion);
         Assert.Equal("99", q.Responses[0].Actions[0].Args);
         Assert.Equal("QI=1", q.Responses[0].Actions[0].Condicion);
-        Assert.Empty(q.Responses[1].Actions);
+    }
+
+    [Fact]
+    public void Apply_question_text_does_not_touch_responses()
+    {
+        var ws = NewWorkspace(out var npc);
+        var q = ws.Dialogs.CreateQuestion(npc.Id);
+        var r = ws.Dialogs.AddResponse(q);
+        r.TextLocal = "Stay";
+        r.Actions.Add(new DialogActionDraft { Accion = 44, Args = "", Condicion = "" });
+        var applied = AiDraftApplier.ApplyQuestionText(q, "Nuevo NPC");
+        Assert.Equal(AiDraftApplyKind.Applied, applied.Kind);
+        Assert.Equal("Nuevo NPC", q.TextLocal);
+        Assert.Equal("Stay", r.TextLocal);
+        Assert.Single(r.Actions);
+        Assert.Equal(44, r.Actions[0].Accion);
     }
 
     [Fact]
@@ -112,7 +125,7 @@ public sealed class AiDraftApplierTests
         Assert.Equal(NpcDialogMode.Interactive, npc.DialogMode);
         Assert.True(npc.Pregunta > 0);
         var q = ws.Dialogs.FindQuestion(npc.Pregunta)!;
-        Assert.Equal(3, q.Responses.Count);
+        Assert.Single(q.Responses);
     }
 
     [Fact]
@@ -132,6 +145,56 @@ public sealed class AiDraftApplierTests
         Assert.Equal(AiDraftApplyKind.Invalid, r.Kind);
     }
 
+    [Fact]
+    public void Apply_conversation_writes_incomplete_and_completed_role_questions()
+    {
+        var ws = NewWorkspace(out var npc);
+        ws.Missions.SetDbMaxQuestId(40000);
+        npc.DialogMode = NpcDialogMode.Interactive;
+
+        var qOffer = ws.Dialogs.CreateQuestion(npc.Id);
+        qOffer.TextLocal = "viejo ofrecer";
+        ws.Dialogs.SetInitialQuestion(npc, qOffer.Id);
+        var r0 = ws.Dialogs.AddResponse(qOffer);
+        r0.TextLocal = "vieja respuesta";
+        var start = ws.Dialogs.AddAction(r0, DialogActionCodes.StartQuest);
+
+        var qInc = ws.Dialogs.CreateQuestion(npc.Id);
+        qInc.TextLocal = "vieja incompleta";
+        var qComp = ws.Dialogs.CreateQuestion(npc.Id);
+        qComp.TextLocal = "vieja completada";
+
+        var mission = ws.Missions.CreateMission();
+        mission.Nombre = "PRUEBA";
+        mission.StartNpcId = npc.Id;
+        mission.PregDarPreguntaId = qOffer.Id;
+        mission.PregIncompletaPreguntaId = qInc.Id;
+        mission.PregCompletadaPreguntaId = qComp.Id;
+        ws.Dialogs.LinkStartMission(start, mission.DraftId);
+
+        var conv = new AiConversationResult
+        {
+            TextoNpc = "OFERTA NUEVA",
+            TextoIncompleta = "INCOMPLETA NUEVA",
+            TextoCompletada = "COMPLETADA NUEVA",
+            RespuestasJugador =
+            [
+                new AiPlayerResponseSuggestion { Texto = "R1", Tono = "neutral" }
+            ]
+        };
+
+        var result = AiDraftApplier.ApplyConversation(
+            ws, npc, conv, replaceConfirmed: true, interactiveSwitchConfirmed: true, npc.Id);
+
+        Assert.Equal(AiDraftApplyKind.Applied, result.Kind);
+        Assert.Equal("OFERTA NUEVA", qOffer.TextLocal);
+        Assert.Equal("R1", qOffer.Responses[0].TextLocal);
+        Assert.Single(qOffer.Responses);
+        Assert.Equal("INCOMPLETA NUEVA", qInc.TextLocal);
+        Assert.Equal("COMPLETADA NUEVA", qComp.TextLocal);
+        Assert.Equal(DialogActionCodes.StartQuest, qOffer.Responses[0].Actions[0].Accion);
+    }
+
     private static ContentDraftWorkspace NewWorkspace(out NpcsModeloDraft npc)
     {
         var ws = new ContentDraftWorkspace();
@@ -145,11 +208,11 @@ public sealed class AiDraftApplierTests
     private static AiConversationResult SampleConversation() => new()
     {
         TextoNpc = "NPC dice",
+        TextoIncompleta = "Todavía no.",
+        TextoCompletada = "Ya está.",
         RespuestasJugador =
         [
-            new AiPlayerResponseSuggestion { Texto = "Uno", Tono = "neutral" },
-            new AiPlayerResponseSuggestion { Texto = "Dos", Tono = "amable" },
-            new AiPlayerResponseSuggestion { Texto = "Tres", Tono = "desafiante" }
+            new AiPlayerResponseSuggestion { Texto = "Uno", Tono = "neutral" }
         ]
     };
 }

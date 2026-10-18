@@ -3,7 +3,6 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
-using RufusMapEditor.App.Licensing;
 
 namespace RufusMapEditor.App;
 
@@ -34,8 +33,6 @@ public partial class StartupHubWindow : Window
         ApplyHubChrome();
         StartAmbientMotion();
         StartBackgroundWarp();
-        BindLicenseStatus();
-        LicenseRuntimeGate.Blocked += OnLicenseRuntimeBlocked;
 
         var center = new Point(ActualWidth * 0.5, ActualHeight * 0.4);
         _pointerTarget = center;
@@ -43,35 +40,8 @@ public partial class StartupHubWindow : Window
         UpdateLens();
     }
 
-    private void BindLicenseStatus()
-    {
-        if (App.License is null || LicenseStatusLabel is null)
-            return;
-
-        LicenseStatusLabel.Visibility = Visibility.Visible;
-        LicenseStatusLabel.Text = App.License.StatusLabel;
-        App.License.StatusChanged += OnLicenseStatusChanged;
-    }
-
-    private void OnLicenseStatusChanged()
-    {
-        Dispatcher.BeginInvoke(() =>
-        {
-            if (LicenseStatusLabel is not null && App.License is not null)
-                LicenseStatusLabel.Text = App.License.StatusLabel;
-        });
-    }
-
-    private void OnLicenseRuntimeBlocked()
-    {
-        Dispatcher.BeginInvoke(ShowLicenseBlocked);
-    }
-
     private void OnClosed(object? sender, EventArgs e)
     {
-        LicenseRuntimeGate.Blocked -= OnLicenseRuntimeBlocked;
-        if (App.License is not null)
-            App.License.StatusChanged -= OnLicenseStatusChanged;
         StopBackgroundWarp();
         StopAmbientMotion();
         Loaded -= OnLoaded;
@@ -243,12 +213,6 @@ public partial class StartupHubWindow : Window
 
     private void MapsCard_Click(object sender, RoutedEventArgs e)
     {
-        if (!LicenseRuntimeGate.CanUseEditor)
-        {
-            ShowLicenseBlocked();
-            return;
-        }
-
         var editor = new MainWindow
         {
             WindowStartupLocation = WindowStartupLocation.CenterScreen,
@@ -258,26 +222,10 @@ public partial class StartupHubWindow : Window
 
     private void ContentCard_Click(object sender, RoutedEventArgs e)
     {
-        if (!LicenseRuntimeGate.CanUseEditor)
-        {
-            ShowLicenseBlocked();
-            return;
-        }
-
         ShowModule(new ContentWorkspaceWindow
         {
             WindowStartupLocation = WindowStartupLocation.CenterScreen,
         });
-    }
-
-    private void ShowLicenseBlocked()
-    {
-        var msg = string.IsNullOrWhiteSpace(LicenseRuntimeGate.BlockMessage)
-            ? "La sesión de licencia ya no es válida."
-            : LicenseRuntimeGate.BlockMessage;
-        var dlg = new LicenseBlockedWindow(msg, App.License) { Owner = this };
-        if (dlg.ShowDialog() == true)
-            App.License?.StartHeartbeat();
     }
 
     /// <summary>

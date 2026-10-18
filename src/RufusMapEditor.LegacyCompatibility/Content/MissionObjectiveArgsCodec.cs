@@ -77,7 +77,7 @@ public static class MissionObjectiveArgsCodec
                     ? string.Create(CultureInfo.InvariantCulture, $"Descubre la zona #{areaId}.")
                     : "Descubre una zona.",
             MissionObjectiveTypes.DefeatMobs when nums.Length >= 2 =>
-                string.Create(CultureInfo.InvariantCulture, $"Vence monstruo #{nums[0]} x{nums[1]}."),
+                FormatDefeatDetalle(nums),
             MissionObjectiveTypes.UseItem when nums.Length >= 1 =>
                 string.Create(CultureInfo.InvariantCulture, $"Utiliza el objeto #{nums[0]}."),
             MissionObjectiveTypes.ReturnToNpc when nums.Length >= 1 =>
@@ -110,6 +110,63 @@ public static class MissionObjectiveArgsCodec
         var x = int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture);
         var y = int.Parse(m.Groups[2].Value, CultureInfo.InvariantCulture);
         return (core, x, y);
+    }
+
+    /// <summary>Item ID in args for show/deliver (index 1) objectives.</summary>
+    public static bool TryGetShowOrDeliverItemId(string? args, out int itemId)
+    {
+        itemId = 0;
+        var (core, _, _) = StripCoords(args);
+        var nums = ParseBracketInts(core);
+        if (nums.Length < 2 || nums[1] <= 0)
+            return false;
+        itemId = nums[1];
+        return true;
+    }
+
+    /// <summary>First mobId,qty pair for DefeatMobs (tipo 6).</summary>
+    public static bool TryGetDefeatMobPair(string? args, out int mobId, out int qty)
+    {
+        var pairs = ParseDefeatMobPairs(args);
+        if (pairs.Count == 0)
+        {
+            mobId = 0;
+            qty = 0;
+            return false;
+        }
+
+        (mobId, qty) = pairs[0];
+        return true;
+    }
+
+    /// <summary>All mobId,qty pairs for DefeatMobs (tipo 6). Odd trailing ints ignored.</summary>
+    public static IReadOnlyList<(int MobId, int Qty)> ParseDefeatMobPairs(string? args)
+    {
+        var (core, _, _) = StripCoords(args);
+        var nums = ParseBracketInts(core);
+        var list = new List<(int, int)>();
+        for (var i = 0; i + 1 < nums.Length; i += 2)
+        {
+            if (nums[i] <= 0 || nums[i + 1] <= 0) continue;
+            list.Add((nums[i], nums[i + 1]));
+        }
+
+        return list;
+    }
+
+    private static string FormatDefeatDetalle(int[] nums)
+    {
+        var parts = new List<string>();
+        for (var i = 0; i + 1 < nums.Length; i += 2)
+        {
+            if (nums[i] <= 0 || nums[i + 1] <= 0) continue;
+            parts.Add(string.Create(CultureInfo.InvariantCulture, $"#{nums[i]} x{nums[i + 1]}"));
+        }
+
+        if (parts.Count == 0) return "Vence monstruos.";
+        if (parts.Count == 1)
+            return string.Create(CultureInfo.InvariantCulture, $"Vence monstruo {parts[0]}.");
+        return "Vence monstruos " + string.Join(", ", parts) + ".";
     }
 
     public static int[] ParseBracketInts(string? core)

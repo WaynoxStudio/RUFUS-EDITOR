@@ -105,10 +105,12 @@ public static class AiJsonSchemas
                 {
                     ["type"] = "object",
                     ["additionalProperties"] = false,
-                    ["required"] = new JsonArray("textoNpc", "respuestasJugador"),
+                    ["required"] = new JsonArray("textoNpc", "respuestasJugador", "textoIncompleta", "textoCompletada"),
                     ["properties"] = new JsonObject
                     {
                         ["textoNpc"] = StringSchema(1, AiResponseLimits.MaxDialogueLength),
+                        ["textoIncompleta"] = StringSchema(1, AiResponseLimits.MaxDialogueLength),
+                        ["textoCompletada"] = StringSchema(1, AiResponseLimits.MaxDialogueLength),
                         ["respuestasJugador"] = new JsonObject
                         {
                             ["type"] = "array",

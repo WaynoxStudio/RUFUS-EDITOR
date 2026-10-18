@@ -113,16 +113,16 @@ public sealed class NpcGfxCatalogTests
     {
         var draft = NpcsModeloDraft.CreateWithDefaults(20062);
         draft.Sexo = 1;
-        draft.ScaleX = 140;
-        draft.ScaleY = 140;
+        draft.ScaleX = 120;
+        draft.ScaleY = 120;
         draft.Accesorios = "1,2,3,4,5";
 
         draft.GfxId = 1245;
 
         Assert.Equal(1245, draft.GfxId);
         Assert.Equal(1, draft.Sexo);
-        Assert.Equal(140, draft.ScaleX);
-        Assert.Equal(140, draft.ScaleY);
+        Assert.Equal(120, draft.ScaleX);
+        Assert.Equal(120, draft.ScaleY);
         Assert.Equal("1,2,3,4,5", draft.Accesorios);
     }
 

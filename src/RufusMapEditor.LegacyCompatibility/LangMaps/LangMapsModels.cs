@@ -38,6 +38,11 @@ public sealed class LangMapsBatchGenerateRequest
     public required string SourceSwfPath { get; init; }
     public required string OutputDirectory { get; init; }
     public required IReadOnlyList<LangMapsBatchEntry> Entries { get; init; }
+    /// <summary>
+    /// Optional MapIds to strip before applying entries (same VERSION bump).
+    /// Missing ids are ignored.
+    /// </summary>
+    public IReadOnlyList<int>? RemoveMapIds { get; init; }
 }
 
 public sealed class LangMapsGenerateResult

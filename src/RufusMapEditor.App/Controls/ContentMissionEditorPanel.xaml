@@ -1,8 +1,11 @@
 <UserControl x:Class="RufusMapEditor.App.Controls.ContentMissionEditorPanel"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:vm="clr-namespace:RufusMapEditor.App.ViewModels">
+             xmlns:vm="clr-namespace:RufusMapEditor.App.ViewModels"
+             xmlns:conv="clr-namespace:RufusMapEditor.App.Converters"
+             xmlns:dlg="clr-namespace:RufusMapEditor.App.Controls">
   <UserControl.Resources>
+    <conv:MissionQuestionLabelConverter x:Key="MissionQuestionLabelConverter"/>
     <BooleanToVisibilityConverter x:Key="BoolToVis"/>
     <Style x:Key="SectionHeader" TargetType="TextBlock">
       <Setter Property="FontWeight" Value="SemiBold"/>
@@ -13,10 +16,6 @@
     <Style x:Key="FieldLabel" TargetType="TextBlock">
       <Setter Property="VerticalAlignment" Value="Center"/>
       <Setter Property="Foreground" Value="{DynamicResource TextSecondary}"/>
-    </Style>
-    <Style x:Key="MutedHint" TargetType="TextBlock">
-      <Setter Property="FontSize" Value="11"/>
-      <Setter Property="Foreground" Value="{DynamicResource TextMuted}"/>
     </Style>
     <Style x:Key="FlowChip" TargetType="Button">
       <Setter Property="Padding" Value="10,5"/>
@@ -44,105 +43,403 @@
         </Setter.Value>
       </Setter>
     </Style>
+    <Style x:Key="MutedHint" TargetType="TextBlock">
+      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextMuted}"/>
+    </Style>
+    <DataTemplate x:Key="StageRewardItemRowTemplate">
+      <DockPanel Margin="0,0,0,6" LastChildFill="False">
+        <Button DockPanel.Dock="Right" Content="X" Padding="8,3" MinWidth="28" FontSize="11"
+                VerticalAlignment="Center" ToolTip="Quitar fila"
+                Click="RewardRemove_Click" Tag="{Binding}"/>
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+          <TextBlock Text="Item ID" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="11"
+                     Foreground="{DynamicResource TextSecondary}"/>
+          <TextBox Width="80" Text="{Binding ItemIdText, UpdateSourceTrigger=PropertyChanged}"
+                   TextChanged="RewardItemId_Changed" FontSize="11" FontFamily="Consolas"
+                   Margin="0,0,12,0" VerticalAlignment="Center"/>
+          <TextBlock Text="Cantidad" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="11"
+                     Foreground="{DynamicResource TextSecondary}"/>
+          <TextBox Width="48" Text="{Binding Cantidad, UpdateSourceTrigger=PropertyChanged}"
+                   TextChanged="RewardQty_Changed" FontSize="11" VerticalAlignment="Center"/>
+        </StackPanel>
+      </DockPanel>
+    </DataTemplate>
+    <Style x:Key="RoleIdChip" TargetType="Border">
+      <Setter Property="Background" Value="{DynamicResource ElevatedSurface}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource Border}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="4"/>
+      <Setter Property="Padding" Value="6,2"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style x:Key="RoleIdChipTextConfigured" TargetType="TextBlock">
+      <Setter Property="FontFamily" Value="Consolas"/>
+      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style x:Key="InlineSectionTitle" TargetType="TextBlock">
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondary}"/>
+      <Setter Property="Margin" Value="0,0,0,6"/>
+    </Style>
+    <Style x:Key="InlineSectionDivider" TargetType="Border">
+      <Setter Property="Height" Value="1"/>
+      <Setter Property="Background" Value="{DynamicResource Border}"/>
+      <Setter Property="Margin" Value="0,8,0,8"/>
+    </Style>
+    <Style x:Key="FullLayoutOnly" TargetType="FrameworkElement">
+      <Setter Property="Visibility" Value="Visible"/>
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding ActionInlineMode}" Value="True">
+          <Setter Property="Visibility" Value="Collapsed"/>
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+    <Style x:Key="CompactLayoutOnly" TargetType="FrameworkElement">
+      <Setter Property="Visibility" Value="Collapsed"/>
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding ActionInlineMode}" Value="True">
+          <Setter Property="Visibility" Value="Visible"/>
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+    <Style x:Key="ActionInlineOnly" TargetType="FrameworkElement">
+      <Setter Property="Visibility" Value="Collapsed"/>
+      <Style.Triggers>
+        <DataTrigger Binding="{Binding ActionInlineMode}" Value="True">
+          <Setter Property="Visibility" Value="Visible"/>
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+    <Style x:Key="CompactActionInlineOnly" TargetType="FrameworkElement">
+      <Setter Property="Visibility" Value="Collapsed"/>
+      <Style.Triggers>
+        <MultiDataTrigger>
+          <MultiDataTrigger.Conditions>
+            <Condition Binding="{Binding ActionInlineMode}" Value="True"/>
+            <Condition Binding="{Binding EmbeddedCompactMode}" Value="True"/>
+          </MultiDataTrigger.Conditions>
+          <Setter Property="Visibility" Value="Visible"/>
+        </MultiDataTrigger>
+      </Style.Triggers>
+    </Style>
   </UserControl.Resources>
 
-  <ScrollViewer VerticalScrollBarVisibility="Auto" IsEnabled="{Binding EditorEnabled}">
-    <StackPanel>
-      <!-- DATOS GENERALES -->
-      <Border Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource Border}"
-              BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,0,10"
-              DataContext="{Binding Selected}">
+  <StackPanel IsEnabled="{Binding EditorEnabled}">
+      <!-- MISSIONS.PANEL.RUNTIME.DEBUG.1 — disponible bajo demanda, sin ocupar el panel normal -->
+      <Expander Margin="0,0,0,8" IsExpanded="False">
+        <Expander.Header>
+          <TextBlock Text="Diagnóstico técnico" FontSize="11" Foreground="{DynamicResource TextMuted}"/>
+        </Expander.Header>
+        <Border Background="#1E293B" BorderBrush="#F59E0B" BorderThickness="1" CornerRadius="6"
+                Padding="8" Margin="0,6,0,0">
+          <StackPanel>
+            <TextBlock Text="DEBUG MISIÓN" FontWeight="Bold" Foreground="#F59E0B" Margin="0,0,0,6"/>
+            <TextBlock x:Name="DebugPanelDataContextTypeText"
+                       FontFamily="Consolas" FontSize="10" Foreground="#FDE047"
+                       Margin="0,0,0,4"/>
+            <TextBlock FontFamily="Consolas" FontSize="10" Foreground="#FDE047" Margin="0,0,0,6"
+                       Text="{Binding DebugBindingProbe, Mode=OneWay, FallbackValue=PROBE_BINDING_FALLO}"/>
+            <TextBox x:Name="DebugMissionStateTextBox"
+                     Text="{Binding DebugMissionStateText,
+                                    Mode=OneWay,
+                                    FallbackValue=BINDING_FALLO,
+                                    TargetNullValue=DEBUG_NULL}"
+                     Foreground="Black" Background="White"
+                     FontFamily="Consolas" FontSize="10"
+                     AcceptsReturn="True" TextWrapping="NoWrap"
+                     IsReadOnly="True" IsReadOnlyCaretVisible="True"
+                     MinHeight="120" MinWidth="200"
+                     VerticalScrollBarVisibility="Auto"
+                     HorizontalScrollBarVisibility="Auto"/>
+          </StackPanel>
+        </Border>
+      </Expander>
+      <!-- DATOS GENERALES (inline embebido · compacto) -->
+      <StackPanel Style="{StaticResource CompactLayoutOnly}" Margin="0,0,0,4">
+        <TextBlock Text="DATOS GENERALES" Style="{StaticResource InlineSectionTitle}"/>
+        <Grid Margin="0,0,0,2">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="120"/>
+            <ColumnDefinition Width="10"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="10"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="Auto"/>
+          </Grid.ColumnDefinitions>
+          <TextBlock Grid.Column="0" Text="Misión" Style="{StaticResource FieldLabel}" Margin="0,0,6,0" FontSize="11"/>
+          <ComboBox Grid.Column="1"
+                    ItemsSource="{Binding DataContext.MissionChoices, RelativeSource={RelativeSource AncestorType=dlg:ContentDialogEditorPanel}}"
+                    SelectedValuePath="DraftId"
+                    SelectedValue="{Binding DataContext.LinkTargetMissionDraftIdValue, RelativeSource={RelativeSource AncestorType=dlg:ContentDialogEditorPanel}, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                    FontSize="11"
+                    Background="{DynamicResource InputBackground}"
+                    Foreground="{DynamicResource TextPrimary}"
+                    BorderBrush="{DynamicResource InputBorder}">
+            <ComboBox.ItemTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding Nombre}"/>
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+          <TextBlock Grid.Column="3" Text="Nombre" Style="{StaticResource FieldLabel}" Margin="0,0,6,0" FontSize="11"/>
+          <TextBox Grid.Column="4"
+                   Text="{Binding InlineMissionNombre, UpdateSourceTrigger=PropertyChanged}"
+                   TextChanged="Field_Changed" FontSize="11"/>
+          <TextBlock Grid.Column="6" Text="Repetible" Style="{StaticResource FieldLabel}" Margin="0,0,6,0" FontSize="11"/>
+          <CheckBox Grid.Column="7" Content="Sí" VerticalAlignment="Center" FontSize="11"
+                    IsChecked="{Binding InlineMissionPuedeRepetirse}"
+                    Checked="Field_Changed" Unchecked="Field_Changed"/>
+          <Button Grid.Column="8" Content="+ Nueva misión" FontSize="11" Padding="6,2" Margin="8,0,0,0"
+                  Command="{Binding DataContext.MissionHost.CreateMissionFromActionCommand, RelativeSource={RelativeSource AncestorType=dlg:ContentDialogEditorPanel}}"
+                  Visibility="{Binding DataContext.ShowCreateMissionInActionPanel, RelativeSource={RelativeSource AncestorType=dlg:ContentDialogEditorPanel}, Converter={StaticResource BoolToVis}}"/>
+        </Grid>
+      </StackPanel>
+      <Border Height="1" Background="{DynamicResource Border}" Margin="0,8,0,8">
+        <Border.Style>
+          <Style TargetType="Border">
+            <Setter Property="Visibility" Value="Collapsed"/>
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding ActionInlineMode}" Value="True">
+                <Setter Property="Visibility" Value="Visible"/>
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </Border.Style>
+      </Border>
+      <!-- DATOS GENERALES (ventana independiente / panel amplio acción 44) -->
+      <Border Style="{StaticResource FullLayoutOnly}"
+              Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource Border}"
+              BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,0,0,8">
         <StackPanel>
           <TextBlock Text="DATOS GENERALES" Style="{StaticResource SectionHeader}" Margin="0,0,0,6"/>
           <Grid>
             <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="140"/><ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="Auto"/>
+              <ColumnDefinition Width="240"/>
+              <ColumnDefinition Width="Auto"/>
+              <ColumnDefinition Width="Auto"/>
+              <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
-            <Grid.RowDefinitions>
-              <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
-            <TextBlock Grid.Row="0" Text="Nombre de misión" Style="{StaticResource FieldLabel}"/>
-            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Nombre, UpdateSourceTrigger=PropertyChanged}"
-                     TextChanged="Field_Changed" Margin="0,0,0,6"/>
-            <TextBlock Grid.Row="1" Text="Repetible" Style="{StaticResource FieldLabel}"/>
-            <CheckBox Grid.Row="1" Grid.Column="1" Content="Sí" IsChecked="{Binding PuedeRepetirse}"
+            <TextBlock Text="Nombre de misión" Style="{StaticResource FieldLabel}" Margin="0,0,8,0"/>
+            <TextBox Grid.Column="1"
+                     Text="{Binding InlineMissionNombre, UpdateSourceTrigger=PropertyChanged}"
+                     TextChanged="Field_Changed" Margin="0,0,12,0"/>
+            <TextBlock Grid.Column="2" Text="Repetible" Style="{StaticResource FieldLabel}" Margin="0,0,8,0"/>
+            <CheckBox Grid.Column="3" Content="Sí" VerticalAlignment="Center"
+                      IsChecked="{Binding InlineMissionPuedeRepetirse}"
                       Checked="Field_Changed" Unchecked="Field_Changed"/>
           </Grid>
-          <Expander Header="Detalles técnicos" Margin="0,10,0,0">
-            <StackPanel Margin="0,8,0,0">
-              <TextBlock Style="{StaticResource MutedHint}" TextWrapping="Wrap"
-                         Text="{Binding DataContext.QuestIdLabel, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
-              <TextBlock Style="{StaticResource MutedHint}" FontFamily="Consolas" Margin="0,6,0,0" TextWrapping="Wrap">
-                <Run Text="pregDarMision: "/><Run Text="{Binding DataContext.PregDarPreview, RelativeSource={RelativeSource AncestorType=UserControl}, Mode=OneWay}"/>
-                <LineBreak/>
-                <Run Text="pregMisIncompleta: "/><Run Text="{Binding DataContext.PregIncPreview, RelativeSource={RelativeSource AncestorType=UserControl}, Mode=OneWay}"/>
-                <LineBreak/>
-                <Run Text="pregMisCompletada: "/><Run Text="{Binding DataContext.PregCompPreview, RelativeSource={RelativeSource AncestorType=UserControl}, Mode=OneWay}"/>
-              </TextBlock>
+        </StackPanel>
+      </Border>
+
+      <!-- DIÁLOGO DE MISIÓN (layout completo) -->
+      <Border Style="{StaticResource FullLayoutOnly}"
+              Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource Border}"
+              BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,0,0,8">
+        <StackPanel>
+          <TextBlock Text="DIÁLOGO DE MISIÓN" Style="{StaticResource SectionHeader}" Margin="0,0,0,6"/>
+          <Button Content="Completar diálogos faltantes"
+                  Command="{Binding CompleteMissingDialogRolesCommand}"
+                  Padding="8,4" HorizontalAlignment="Left" Margin="0,0,0,8"
+                  Visibility="{Binding ShowCompleteMissingDialogRoles, Converter={StaticResource BoolToVis}}"/>
+          <Grid Margin="0,0,0,4">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="12"/>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="12"/>
+              <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Orientation="Horizontal">
+              <TextBlock Text="Al ofrecer misión" Style="{StaticResource FieldLabel}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+              <Border Style="{StaticResource RoleIdChip}">
+                <TextBlock Text="{Binding PregDarRoleDisplay, Mode=OneWay}">
+                  <TextBlock.Style>
+                    <Style TargetType="TextBlock" BasedOn="{StaticResource RoleIdChipTextConfigured}">
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding HasPregDarRole}" Value="False">
+                          <Setter Property="FontFamily" Value="Segoe UI"/>
+                          <Setter Property="FontStyle" Value="Italic"/>
+                          <Setter Property="Foreground" Value="{DynamicResource TextMuted}"/>
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </TextBlock.Style>
+                </TextBlock>
+              </Border>
+            </StackPanel>
+            <StackPanel Grid.Column="2" Orientation="Horizontal">
+              <TextBlock Text="Misión incompleta" Style="{StaticResource FieldLabel}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+              <Border Style="{StaticResource RoleIdChip}">
+                <TextBlock Text="{Binding PregIncRoleDisplay, Mode=OneWay}">
+                  <TextBlock.Style>
+                    <Style TargetType="TextBlock" BasedOn="{StaticResource RoleIdChipTextConfigured}">
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding HasPregIncRole}" Value="False">
+                          <Setter Property="FontFamily" Value="Segoe UI"/>
+                          <Setter Property="FontStyle" Value="Italic"/>
+                          <Setter Property="Foreground" Value="{DynamicResource TextMuted}"/>
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </TextBlock.Style>
+                </TextBlock>
+              </Border>
+            </StackPanel>
+            <StackPanel Grid.Column="4" Orientation="Horizontal">
+              <TextBlock Text="Misión completada" Style="{StaticResource FieldLabel}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+              <Border Style="{StaticResource RoleIdChip}">
+                <TextBlock Text="{Binding PregCompRoleDisplay, Mode=OneWay}">
+                  <TextBlock.Style>
+                    <Style TargetType="TextBlock" BasedOn="{StaticResource RoleIdChipTextConfigured}">
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding HasPregCompRole}" Value="False">
+                          <Setter Property="FontFamily" Value="Segoe UI"/>
+                          <Setter Property="FontStyle" Value="Italic"/>
+                          <Setter Property="Foreground" Value="{DynamicResource TextMuted}"/>
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </TextBlock.Style>
+                </TextBlock>
+              </Border>
+            </StackPanel>
+          </Grid>
+          <Expander Header="Detalles técnicos" Margin="0,8,0,0" IsExpanded="False">
+            <StackPanel Margin="0,6,0,0">
+              <UniformGrid Columns="3" Margin="0,4,0,0">
+                <TextBlock Style="{StaticResource MutedHint}" FontFamily="Consolas" Text="{Binding PregDarPreview, Mode=OneWay}" Margin="0,0,8,0"/>
+                <TextBlock Style="{StaticResource MutedHint}" FontFamily="Consolas" Text="{Binding PregIncPreview, Mode=OneWay}" Margin="0,0,8,0"/>
+                <TextBlock Style="{StaticResource MutedHint}" FontFamily="Consolas" Text="{Binding PregCompPreview, Mode=OneWay}"/>
+              </UniformGrid>
             </StackPanel>
           </Expander>
         </StackPanel>
       </Border>
 
-      <!-- DIÁLOGO -->
-      <Border Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource Border}"
-              BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,0,10">
-        <StackPanel>
-          <TextBlock Text="DIÁLOGO DE MISIÓN" Style="{StaticResource SectionHeader}" Margin="0,0,0,6"/>
-          <Grid>
+      <!-- DIÁLOGO DE MISIÓN (compacto embebido) -->
+      <StackPanel Style="{StaticResource CompactLayoutOnly}" Margin="0,0,0,4">
+        <TextBlock Text="DIÁLOGO DE MISIÓN" Style="{StaticResource InlineSectionTitle}"/>
+        <Button Content="Completar diálogos faltantes"
+                Command="{Binding CompleteMissingDialogRolesCommand}"
+                Padding="6,3" HorizontalAlignment="Left" Margin="0,0,0,6" FontSize="11"
+                Visibility="{Binding ShowCompleteMissingDialogRoles, Converter={StaticResource BoolToVis}}"/>
+        <Grid Margin="0,0,0,2">
             <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="140"/><ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="8"/>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="8"/>
+              <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
-            <Grid.RowDefinitions>
-              <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-              <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
-            <TextBlock Grid.Row="0" Text="NPC inicial" Style="{StaticResource FieldLabel}"/>
-            <ComboBox Grid.Row="0" Grid.Column="1" ItemsSource="{Binding NpcChoices}"
-                      SelectedItem="{Binding SelectedStartNpc}" Margin="0,0,0,6"
-                      Background="{DynamicResource InputBackground}"
-                      Foreground="{DynamicResource TextPrimary}"
-                      BorderBrush="{DynamicResource InputBorder}">
-              <ComboBox.ItemTemplate>
-                <DataTemplate>
-                  <TextBlock>
-                    <Run Text="{Binding Nombre, Mode=OneWay}"/>
-                    <Run Text="  #"/><Run Text="{Binding Id, Mode=OneWay}"/>
-                  </TextBlock>
-                </DataTemplate>
-              </ComboBox.ItemTemplate>
-            </ComboBox>
-            <TextBlock Grid.Row="1" Text="Al ofrecer misión" Style="{StaticResource FieldLabel}"/>
-            <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding QuestionChoices}"
-                      SelectedItem="{Binding SelectedPregDar}" Margin="0,0,0,6" DisplayMemberPath="Id"
-                      Background="{DynamicResource InputBackground}"
-                      Foreground="{DynamicResource TextPrimary}"
-                      BorderBrush="{DynamicResource InputBorder}"/>
-            <TextBlock Grid.Row="2" Text="Misión incompleta" Style="{StaticResource FieldLabel}"/>
-            <ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{Binding QuestionChoices}"
-                      SelectedItem="{Binding SelectedPregInc}" Margin="0,0,0,6" DisplayMemberPath="Id"
-                      Background="{DynamicResource InputBackground}"
-                      Foreground="{DynamicResource TextPrimary}"
-                      BorderBrush="{DynamicResource InputBorder}"/>
-            <TextBlock Grid.Row="3" Text="Misión completada" Style="{StaticResource FieldLabel}"/>
-            <ComboBox Grid.Row="3" Grid.Column="1" ItemsSource="{Binding QuestionChoices}"
-                      SelectedItem="{Binding SelectedPregComp}" DisplayMemberPath="Id"
-                      Background="{DynamicResource InputBackground}"
-                      Foreground="{DynamicResource TextPrimary}"
-                      BorderBrush="{DynamicResource InputBorder}"/>
+            <StackPanel Grid.Column="0" Orientation="Horizontal">
+              <TextBlock Text="Al ofrecer" Style="{StaticResource FieldLabel}" VerticalAlignment="Center" Margin="0,0,4,0" FontSize="11"/>
+              <Border Style="{StaticResource RoleIdChip}">
+                <TextBlock Text="{Binding PregDarRoleDisplay, Mode=OneWay}" FontSize="11">
+                  <TextBlock.Style>
+                    <Style TargetType="TextBlock" BasedOn="{StaticResource RoleIdChipTextConfigured}">
+                      <Setter Property="FontSize" Value="11"/>
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding HasPregDarRole}" Value="False">
+                          <Setter Property="FontFamily" Value="Segoe UI"/>
+                          <Setter Property="FontStyle" Value="Italic"/>
+                          <Setter Property="Foreground" Value="{DynamicResource TextMuted}"/>
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </TextBlock.Style>
+                </TextBlock>
+              </Border>
+            </StackPanel>
+            <StackPanel Grid.Column="2" Orientation="Horizontal">
+              <TextBlock Text="Incompleta" Style="{StaticResource FieldLabel}" VerticalAlignment="Center" Margin="0,0,4,0" FontSize="11"/>
+              <Border Style="{StaticResource RoleIdChip}">
+                <TextBlock Text="{Binding PregIncRoleDisplay, Mode=OneWay}" FontSize="11">
+                  <TextBlock.Style>
+                    <Style TargetType="TextBlock" BasedOn="{StaticResource RoleIdChipTextConfigured}">
+                      <Setter Property="FontSize" Value="11"/>
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding HasPregIncRole}" Value="False">
+                          <Setter Property="FontFamily" Value="Segoe UI"/>
+                          <Setter Property="FontStyle" Value="Italic"/>
+                          <Setter Property="Foreground" Value="{DynamicResource TextMuted}"/>
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </TextBlock.Style>
+                </TextBlock>
+              </Border>
+            </StackPanel>
+            <StackPanel Grid.Column="4" Orientation="Horizontal">
+              <TextBlock Text="Completada" Style="{StaticResource FieldLabel}" VerticalAlignment="Center" Margin="0,0,4,0" FontSize="11"/>
+              <Border Style="{StaticResource RoleIdChip}">
+                <TextBlock Text="{Binding PregCompRoleDisplay, Mode=OneWay}" FontSize="11">
+                  <TextBlock.Style>
+                    <Style TargetType="TextBlock" BasedOn="{StaticResource RoleIdChipTextConfigured}">
+                      <Setter Property="FontSize" Value="11"/>
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding HasPregCompRole}" Value="False">
+                          <Setter Property="FontFamily" Value="Segoe UI"/>
+                          <Setter Property="FontStyle" Value="Italic"/>
+                          <Setter Property="Foreground" Value="{DynamicResource TextMuted}"/>
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </TextBlock.Style>
+                </TextBlock>
+              </Border>
+            </StackPanel>
           </Grid>
-        </StackPanel>
+          <Expander Header="Detalles técnicos" Margin="0,4,0,0" IsExpanded="False">
+            <StackPanel Margin="0,6,0,0">
+              <UniformGrid Columns="3" Margin="0,4,0,0">
+                <TextBlock Style="{StaticResource MutedHint}" FontFamily="Consolas" Text="{Binding PregDarPreview, Mode=OneWay}" Margin="0,0,6,0"/>
+                <TextBlock Style="{StaticResource MutedHint}" FontFamily="Consolas" Text="{Binding PregIncPreview, Mode=OneWay}" Margin="0,0,6,0"/>
+                <TextBlock Style="{StaticResource MutedHint}" FontFamily="Consolas" Text="{Binding PregCompPreview, Mode=OneWay}"/>
+              </UniformGrid>
+            </StackPanel>
+          </Expander>
+      </StackPanel>
+      <Border Height="1" Background="{DynamicResource Border}" Margin="0,8,0,8">
+        <Border.Style>
+          <Style TargetType="Border">
+            <Setter Property="Visibility" Value="Collapsed"/>
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding ActionInlineMode}" Value="True">
+                <Setter Property="Visibility" Value="Visible"/>
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </Border.Style>
       </Border>
 
-      <!-- FLUJO COMPACTO -->
-      <Border Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource Border}"
-              BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,0,10">
-        <StackPanel>
-          <DockPanel>
-            <Button DockPanel.Dock="Right" Content="+ Añadir etapa" Command="{Binding AddStageCommand}" Padding="10,4"/>
-            <TextBlock Text="FLUJO" Style="{StaticResource SectionHeader}" Margin="0"/>
-          </DockPanel>
-          <ItemsControl ItemsSource="{Binding FlowStages}" Margin="0,8,0,0">
+      <!-- FLUJO COMPACTO — cabecera + selector de etapas -->
+      <StackPanel Style="{StaticResource CompactLayoutOnly}" Margin="0,0,0,4">
+        <DockPanel LastChildFill="False" Margin="0,0,0,4">
+          <TextBlock DockPanel.Dock="Left" Text="ETAPAS" Style="{StaticResource InlineSectionTitle}"
+                     Margin="0,0,8,0" VerticalAlignment="Center"/>
+          <WrapPanel DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center">
+            <Button Content="◀" Command="{Binding PrevStageCommand}" Padding="6,3" FontSize="11" Margin="0,0,4,0"
+                    ToolTip="Etapa anterior"
+                    Visibility="{Binding HasStage, Converter={StaticResource BoolToVis}}"/>
+            <Button Content="▶" Command="{Binding NextStageCommand}" Padding="6,3" FontSize="11" Margin="0,0,8,0"
+                    ToolTip="Etapa siguiente"
+                    Visibility="{Binding HasStage, Converter={StaticResource BoolToVis}}"/>
+            <Button Content="+ Etapa" Command="{Binding AddStageCommand}" Padding="6,3" FontSize="11" Margin="0,0,4,0"/>
+            <Button Content="Duplicar" Command="{Binding DuplicateStageCommand}" Padding="6,3" FontSize="11" Margin="0,0,4,0"
+                    Visibility="{Binding HasStage, Converter={StaticResource BoolToVis}}"/>
+            <Button Content="Eliminar" Command="{Binding DeleteStageCommand}" Padding="6,3" FontSize="11" Margin="0,0,4,0"
+                    Visibility="{Binding HasStage, Converter={StaticResource BoolToVis}}"/>
+          </WrapPanel>
+        </DockPanel>
+        <ItemsControl ItemsSource="{Binding FlowStages}" HorizontalAlignment="Stretch">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
                 <WrapPanel Orientation="Horizontal"/>
@@ -150,13 +447,14 @@
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
               <DataTemplate DataType="{x:Type vm:MissionFlowNodeVm}">
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,4,6">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,6,8">
                   <Button Content="{Binding Label}"
                           Command="{Binding DataContext.SelectFlowStageCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                           CommandParameter="{Binding Stage}"
                           IsEnabled="{Binding IsClickable}"
                           ToolTip="Seleccionar etapa"
-                          Padding="10,5">
+                          MinWidth="72"
+                          Padding="12,6">
                     <Button.Style>
                       <Style TargetType="Button" BasedOn="{StaticResource FlowChip}">
                         <Style.Triggers>
@@ -176,56 +474,499 @@
                     </Button.Style>
                   </Button>
                   <TextBlock Text=" → " VerticalAlignment="Center" Foreground="{DynamicResource TextMuted}"
-                             Margin="2,0,0,0"/>
+                             Margin="4,0,0,0"
+                             Visibility="{Binding ShowTrailingArrow, Converter={StaticResource BoolToVis}}"/>
                 </StackPanel>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
-        </StackPanel>
-      </Border>
+      </StackPanel>
 
-      <!-- ETAPAS + EDITOR -->
-      <Border Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource Border}"
+      <!-- ETAPA SELECCIONADA (compacto · diseño guiado 5 pasos) -->
+      <StackPanel Style="{StaticResource CompactLayoutOnly}"
+                  Visibility="{Binding HasStage, Converter={StaticResource BoolToVis}}"
+                  HorizontalAlignment="Stretch"
+                  Margin="0,4,0,4">
+
+        <!-- Resumen de etapa -->
+        <Border Background="{DynamicResource ElevatedSurface}" CornerRadius="6" Padding="10,6" Margin="0,0,0,8"
+                BorderBrush="{DynamicResource Border}" BorderThickness="1">
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto"/><ColumnDefinition Width="12"/>
+              <ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="{Binding StageIndexLabel}" FontWeight="SemiBold" FontSize="12"
+                       VerticalAlignment="Center" Foreground="{DynamicResource BrandAccent}"/>
+            <TextBlock Grid.Column="2" Text="{Binding SelectedStageProvisionalLabel}" Style="{StaticResource MutedHint}"
+                       VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11"/>
+            <TextBlock Grid.Column="3" Text="{Binding StageSummaryLine}" Style="{StaticResource MutedHint}"
+                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" FontSize="11"/>
+          </Grid>
+        </Border>
+
+        <TextBlock Text="{Binding StageNameValidation}" Foreground="{DynamicResource Error}"
+                   Visibility="{Binding HasStageNameValidation, Converter={StaticResource BoolToVis}}"
+                   Margin="0,0,0,6" TextWrapping="Wrap" FontSize="11"/>
+
+        <!-- PASO 1 · Información básica -->
+        <Expander IsExpanded="True" Margin="0,0,0,4">
+          <Expander.Header>
+            <DockPanel HorizontalAlignment="Stretch">
+              <TextBlock DockPanel.Dock="Right" Text="{Binding Step1Status}" FontSize="10"
+                         Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center"/>
+              <TextBlock Text="PASO 1 · Información básica" FontWeight="SemiBold" FontSize="11"
+                         Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center"/>
+            </DockPanel>
+          </Expander.Header>
+          <StackPanel Margin="0,6,0,0">
+            <Grid Margin="0,0,0,4">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/><ColumnDefinition Width="35*"/>
+                <ColumnDefinition Width="12"/>
+                <ColumnDefinition Width="Auto"/><ColumnDefinition Width="65*"/>
+              </Grid.ColumnDefinitions>
+              <TextBlock Grid.Column="0" Text="Nombre" Style="{StaticResource FieldLabel}" Margin="0,0,6,0" FontSize="11"/>
+              <TextBox Grid.Column="1" Text="{Binding SelectedStage.Nombre, UpdateSourceTrigger=PropertyChanged}"
+                       TextChanged="Field_Changed" FontSize="11" HorizontalAlignment="Stretch"/>
+              <TextBlock Grid.Column="3" Text="Descripción" Style="{StaticResource FieldLabel}" Margin="0,0,6,0" FontSize="11"/>
+              <TextBox Grid.Column="4" Text="{Binding SelectedStage.Descripcion, UpdateSourceTrigger=PropertyChanged}"
+                       TextChanged="Field_Changed" FontSize="11" TextWrapping="Wrap" HorizontalAlignment="Stretch"/>
+            </Grid>
+          </StackPanel>
+        </Expander>
+
+        <!-- PASO 2 · ¿Qué debe hacer el jugador? (objetivos) -->
+        <Expander IsExpanded="False" Margin="0,0,0,4">
+          <Expander.Header>
+            <DockPanel HorizontalAlignment="Stretch">
+              <TextBlock DockPanel.Dock="Right" Text="{Binding Step2Status}" FontSize="10"
+                         Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center"/>
+              <TextBlock Text="PASO 2 · ¿Qué debe hacer el jugador?" FontWeight="SemiBold" FontSize="11"
+                         Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center"/>
+            </DockPanel>
+          </Expander.Header>
+          <StackPanel Margin="0,6,0,0">
+            <TextBlock Text="Añade una o varias acciones necesarias para completar esta etapa."
+                       Style="{StaticResource MutedHint}" Margin="0,0,0,6" FontSize="11" TextWrapping="Wrap"/>
+            <TextBlock Text="Esta etapa no tiene objetivos."
+                       Style="{StaticResource MutedHint}" Margin="0,0,0,6" FontSize="11"
+                       Visibility="{Binding ShowStageNoObjectivesHint, Converter={StaticResource BoolToVis}}"/>
+            <ItemsControl ItemsSource="{Binding ObjectiveRows}" Margin="0,0,0,2" HorizontalAlignment="Stretch">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Border BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="6"
+                          Padding="8,6" Margin="0,0,0,4" Background="{DynamicResource DialogHeaderBackground}"
+                          HorizontalAlignment="Stretch"
+                          TextElement.Foreground="{DynamicResource HeaderForeground}">
+                    <DockPanel LastChildFill="True">
+                      <Button DockPanel.Dock="Right" Content="✕" Padding="6,2" ToolTip="Eliminar objetivo" FontSize="11"
+                              PreviewMouseLeftButtonDown="ObjectiveDelete_PreviewMouseLeftButtonDown"
+                              Click="ObjectiveDelete_Click" Tag="{Binding}" Margin="8,0,0,0"
+                              VerticalAlignment="Top"/>
+                      <StackPanel VerticalAlignment="Center">
+                        <DockPanel LastChildFill="True">
+                          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center"
+                                      Margin="8,0,0,0">
+                            <StackPanel.Style>
+                              <Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                  <DataTrigger Binding="{Binding IsDiscoverMap}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                  </DataTrigger>
+                                </Style.Triggers>
+                              </Style>
+                            </StackPanel.Style>
+                            <TextBlock Text="Map ID" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="11"
+                                       Foreground="{DynamicResource HeaderOnBrownSubtle}"/>
+                            <TextBox Width="80" FontSize="11" VerticalAlignment="Center"
+                                     Text="{Binding MapIdText, UpdateSourceTrigger=LostFocus}"/>
+                          </StackPanel>
+                          <TextBlock FontSize="11" VerticalAlignment="Center"
+                                     Foreground="{DynamicResource HeaderForeground}">
+                            <Run Text="{Binding Ordinal, StringFormat={}{0}. , Mode=OneWay}" FontWeight="SemiBold"/>
+                            <Run Text="{Binding TypeLabel, Mode=OneWay}" FontWeight="SemiBold"/>
+                          </TextBlock>
+                        </DockPanel>
+                        <TextBlock Text="{Binding CardSubtitle}" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource HeaderOnBrownSubtle}" FontSize="10" Margin="0,2,0,0">
+                          <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                              <Setter Property="Visibility" Value="Visible"/>
+                              <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsDiscoverMap}" Value="True">
+                                  <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding IsDefeatMobs}" Value="True">
+                                  <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                              </Style.Triggers>
+                            </Style>
+                          </TextBlock.Style>
+                        </TextBlock>
+                        <StackPanel Margin="0,6,0,0">
+                          <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                              <Setter Property="Visibility" Value="Collapsed"/>
+                              <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsDefeatMobs}" Value="True">
+                                  <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                              </Style.Triggers>
+                            </Style>
+                          </StackPanel.Style>
+                          <ItemsControl ItemsSource="{Binding MobPairs}">
+                            <ItemsControl.ItemTemplate>
+                              <DataTemplate>
+                                <DockPanel Margin="0,0,0,4" LastChildFill="True">
+                                  <Button DockPanel.Dock="Right" Content="✕" Padding="4,1" FontSize="10"
+                                          ToolTip="Quitar monstruo" Margin="6,0,0,0"
+                                          Command="{Binding RemoveCommand}" VerticalAlignment="Center"/>
+                                  <StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                      <TextBlock Text="Monster ID" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="10"
+                                                 Foreground="{DynamicResource HeaderOnBrownSubtle}" Width="72"/>
+                                      <TextBox Width="80" MinHeight="26" Padding="4,2" FontSize="11" FontFamily="Consolas"
+                                               VerticalAlignment="Center" VerticalContentAlignment="Center"
+                                               Text="{Binding MobIdText, UpdateSourceTrigger=PropertyChanged}"/>
+                                      <TextBlock Text="Cant." VerticalAlignment="Center" Margin="10,0,6,0" FontSize="10"
+                                                 Foreground="{DynamicResource HeaderOnBrownSubtle}"/>
+                                      <TextBox Width="56" MinHeight="26" Padding="4,2" FontSize="11" FontFamily="Consolas"
+                                               VerticalAlignment="Center" VerticalContentAlignment="Center"
+                                               Text="{Binding QtyText, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </StackPanel>
+                                  </StackPanel>
+                                </DockPanel>
+                              </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                          </ItemsControl>
+                          <Button Content="+ Monstruo" Padding="6,2" FontSize="10" Margin="0,2,0,0"
+                                  HorizontalAlignment="Left" Command="{Binding AddMobPairCommand}"
+                                  ToolTip="Añadir otro monstruo a este objetivo"/>
+                        </StackPanel>
+                      </StackPanel>
+                    </DockPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Border Margin="0,2,0,8" Padding="8,6" CornerRadius="6"
+                    BorderBrush="{DynamicResource Border}" BorderThickness="1"
+                    Background="{DynamicResource DialogHeaderBackground}"
+                    TextElement.Foreground="{DynamicResource HeaderForeground}"
+                    Visibility="{Binding ShowAutoReturnBanner, Converter={StaticResource BoolToVis}}">
+              <DockPanel LastChildFill="True">
+                <Border DockPanel.Dock="Right" Padding="6,1" CornerRadius="3" Margin="8,0,0,0"
+                        Background="{DynamicResource InputBackground}" VerticalAlignment="Center">
+                  <TextBlock Text="AUTOMÁTICO" FontSize="9" FontWeight="SemiBold"
+                             Foreground="{DynamicResource TextMuted}"/>
+                </Border>
+                <TextBlock Text="{Binding AutoReturnBannerText}" FontSize="11" TextWrapping="Wrap"
+                           VerticalAlignment="Center" Foreground="{DynamicResource HeaderOnBrownSubtle}"/>
+              </DockPanel>
+            </Border>
+            <ComboBox Margin="0,0,0,6"
+                      ItemsSource="{Binding ObjectiveTypeChoices}"
+                      SelectedItem="{Binding SelectedObjectiveType, Mode=TwoWay}"
+                      DisplayMemberPath="Nombre"
+                      FontSize="11"
+                      HorizontalAlignment="Stretch"
+                      Background="{DynamicResource InputBackground}"
+                      Foreground="{DynamicResource TextPrimary}"
+                      BorderBrush="{DynamicResource InputBorder}"
+                      Visibility="{Binding ShowObjectiveTypePicker, Converter={StaticResource BoolToVis}}"
+                      SelectionChanged="ObjectiveTypePicker_SelectionChanged"/>
+            <Button Content="+" Width="28" Height="28" Padding="0" Margin="0,2,0,8"
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                    FontSize="16" FontWeight="SemiBold"
+                    ToolTip="Añadir objetivo"
+                    Command="{Binding BeginAddObjectiveCommand}"/>
+            <StackPanel Visibility="{Binding HasObjective, Converter={StaticResource BoolToVis}}" HorizontalAlignment="Stretch">
+              <TextBlock Text="{Binding ObjectiveValidation}" Foreground="{DynamicResource Error}"
+                         Visibility="{Binding HasObjectiveValidation, Converter={StaticResource BoolToVis}}"
+                         Margin="0,0,0,6" TextWrapping="Wrap" FontSize="11"/>
+              <!-- Campos del editor inferior: ocultos cuando Map ID / monstruos van en la fila -->
+              <StackPanel>
+                <StackPanel.Style>
+                  <Style TargetType="StackPanel">
+                    <Setter Property="Visibility" Value="Visible"/>
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding HideInlineObjectiveEditor}" Value="True">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                      </DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </StackPanel.Style>
+                <TextBlock FontWeight="SemiBold" FontSize="11" Margin="0,0,0,4">
+                  <Run Text="Editando: "/><Run Text="{Binding ObjectiveTypeLabel, Mode=OneWay}"/>
+                </TextBlock>
+                <StackPanel Visibility="{Binding ShowUnsupportedManual, Converter={StaticResource BoolToVis}}" Margin="0,0,0,6">
+                  <TextBlock Text="{Binding UnsupportedManualBanner}" FontSize="11" TextWrapping="Wrap"
+                             Foreground="{DynamicResource TextSecondary}"/>
+                  <TextBlock Text="Elimínalo con la X o sustitúyelo por otro tipo." FontSize="11" Margin="0,4,0,0"
+                             Foreground="{DynamicResource TextMuted}" TextWrapping="Wrap"/>
+                </StackPanel>
+                <StackPanel Visibility="{Binding ShowNpcFields, Converter={StaticResource BoolToVis}}" Margin="0,0,0,6">
+                  <TextBlock Text="NPC destino" Style="{StaticResource FieldLabel}" Margin="0,0,0,4" FontSize="11"/>
+                  <DockPanel LastChildFill="True">
+                    <Button DockPanel.Dock="Right" Content="Buscar NPC" Command="{Binding PickObjectiveNpcCommand}"
+                            Padding="8,3" Margin="8,0,0,0" FontSize="11"/>
+                    <TextBlock Text="{Binding ObjNpcLabel}" VerticalAlignment="Center" TextWrapping="Wrap" FontSize="11"/>
+                  </DockPanel>
+                </StackPanel>
+                <StackPanel Visibility="{Binding ShowBoundStartNpcInfo, Converter={StaticResource BoolToVis}}" Margin="0,0,0,6">
+                  <TextBlock Text="NPC" Style="{StaticResource FieldLabel}" Margin="0,0,0,4" FontSize="11"/>
+                  <TextBlock Text="{Binding BoundStartNpcDisplay}" VerticalAlignment="Center" TextWrapping="Wrap" FontSize="11"
+                             Foreground="{DynamicResource TextSecondary}"/>
+                </StackPanel>
+                <StackPanel Visibility="{Binding ShowItemFields, Converter={StaticResource BoolToVis}}" Margin="0,0,0,6">
+                  <TextBlock Text="Item ID" Style="{StaticResource FieldLabel}" Margin="0,0,0,4" FontSize="11"/>
+                  <TextBox Width="120" HorizontalAlignment="Left"
+                           Text="{Binding ObjItemId, UpdateSourceTrigger=PropertyChanged}" FontSize="11" FontFamily="Consolas"/>
+                  <TextBlock Margin="0,6,0,0" FontSize="11" TextWrapping="Wrap"
+                             Foreground="{Binding ObjItemNameForeground}"
+                             Text="{Binding ObjItemNameDisplay}"/>
+                </StackPanel>
+                <StackPanel Visibility="{Binding ShowMobFields, Converter={StaticResource BoolToVis}}" Margin="0,0,0,6">
+                  <TextBlock Text="Monster ID" Style="{StaticResource FieldLabel}" Margin="0,0,0,4" FontSize="11"/>
+                  <TextBox Width="120" HorizontalAlignment="Left"
+                           Text="{Binding ObjMobId, UpdateSourceTrigger=PropertyChanged}" FontSize="11" FontFamily="Consolas"/>
+                  <TextBlock Margin="0,6,0,0" FontSize="11" TextWrapping="Wrap"
+                             Foreground="{Binding ObjMobNameForeground}"
+                             Text="{Binding ObjMobNameDisplay}"/>
+                </StackPanel>
+                <StackPanel Visibility="{Binding ShowAreaFields, Converter={StaticResource BoolToVis}}" Margin="0,0,0,6">
+                  <TextBlock Text="Zona (área)" Style="{StaticResource FieldLabel}" Margin="0,0,0,4" FontSize="11"/>
+                  <DockPanel LastChildFill="True">
+                    <Button DockPanel.Dock="Right" Content="Buscar área" Command="{Binding PickObjectiveAreaCommand}"
+                            Padding="8,3" Margin="8,0,0,0" FontSize="11"/>
+                    <TextBlock Text="{Binding ObjAreaLabel}" VerticalAlignment="Center" FontSize="11"/>
+                  </DockPanel>
+                </StackPanel>
+                <StackPanel Visibility="{Binding ShowQtyField, Converter={StaticResource BoolToVis}}" Margin="0,0,0,6">
+                  <TextBlock Text="Cantidad" Style="{StaticResource FieldLabel}" Margin="0,0,0,4" FontSize="11"/>
+                  <TextBox Width="80" HorizontalAlignment="Left"
+                           Text="{Binding ObjQty, UpdateSourceTrigger=PropertyChanged}" FontSize="11"/>
+                </StackPanel>
+                <StackPanel Visibility="{Binding ShowLevelFields, Converter={StaticResource BoolToVis}}" Margin="0,0,0,6">
+                  <TextBlock Text="Nivel mínimo requerido" Style="{StaticResource FieldLabel}" Margin="0,0,0,4" FontSize="11"/>
+                  <TextBox Width="80" HorizontalAlignment="Left"
+                           Text="{Binding ObjLevel, UpdateSourceTrigger=PropertyChanged}" FontSize="11"/>
+                </StackPanel>
+                <StackPanel Visibility="{Binding ShowSpellFields, Converter={StaticResource BoolToVis}}" Margin="0,0,0,6">
+                  <TextBlock Text="Cantidad mínima de hechizos" Style="{StaticResource FieldLabel}" Margin="0,0,0,4" FontSize="11"/>
+                  <TextBox Width="80" HorizontalAlignment="Left"
+                           Text="{Binding ObjSpellCount, UpdateSourceTrigger=PropertyChanged}" FontSize="11"/>
+                </StackPanel>
+                <StackPanel Visibility="{Binding ShowJobFields, Converter={StaticResource BoolToVis}}" Margin="0,0,0,6">
+                  <TextBlock Text="Número de oficios" Style="{StaticResource FieldLabel}" Margin="0,0,0,4" FontSize="11"/>
+                  <TextBox Width="80" HorizontalAlignment="Left" Margin="0,0,0,4"
+                           Text="{Binding ObjJobCount, UpdateSourceTrigger=PropertyChanged}" FontSize="11"/>
+                  <TextBlock Text="Nivel requerido" Style="{StaticResource FieldLabel}" Margin="0,0,0,4" FontSize="11"/>
+                  <TextBox Width="80" HorizontalAlignment="Left"
+                           Text="{Binding ObjJobLevel, UpdateSourceTrigger=PropertyChanged}" FontSize="11"/>
+                </StackPanel>
+                <StackPanel Visibility="{Binding ShowCoordsCheckbox, Converter={StaticResource BoolToVis}}" Margin="0,0,0,6">
+                  <CheckBox Content="Restringir objetivo a coordenadas" IsChecked="{Binding ObjRestrictCoords}"
+                            Margin="0,0,0,4" FontSize="11"/>
+                  <StackPanel Orientation="Horizontal"
+                              Visibility="{Binding ShowCoordsPanel, Converter={StaticResource BoolToVis}}">
+                    <TextBlock Text="X" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="11"/>
+                    <TextBox Width="56" Text="{Binding ObjX, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,12,0" FontSize="11"/>
+                    <TextBlock Text="Y" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="11"/>
+                    <TextBox Width="56" Text="{Binding ObjY, UpdateSourceTrigger=PropertyChanged}" FontSize="11"/>
+                  </StackPanel>
+                </StackPanel>
+                <TextBlock Text="Descripción visible" Style="{StaticResource FieldLabel}" Margin="0,0,0,4" FontSize="11"/>
+                <TextBox Text="{Binding SelectedObjective.Detalle, UpdateSourceTrigger=PropertyChanged}"
+                         TextChanged="Field_Changed" Margin="0,0,0,6" TextWrapping="Wrap" FontSize="11" HorizontalAlignment="Stretch"/>
+              </StackPanel>
+              <Expander Header="Condición · configuración avanzada" Margin="0,0,0,4" HorizontalAlignment="Stretch">
+                <StackPanel Margin="0,6,0,0">
+                  <TextBlock Style="{StaticResource MutedHint}" Margin="0,0,0,4" TextWrapping="Wrap" FontSize="11"
+                             Text="Solo texto técnico conocido. No se inventa sintaxis."/>
+                  <TextBox Text="{Binding SelectedObjective.Condicion, UpdateSourceTrigger=PropertyChanged}"
+                           TextChanged="Field_Changed" FontFamily="Consolas" FontSize="11" HorizontalAlignment="Stretch"/>
+                </StackPanel>
+              </Expander>
+            </StackPanel>
+          </StackPanel>
+        </Expander>
+
+        <!-- PASO 3 · Recompensas básicas -->
+        <Expander IsExpanded="False" Margin="0,0,0,4">
+          <Expander.Header>
+            <DockPanel HorizontalAlignment="Stretch">
+              <TextBlock DockPanel.Dock="Right" Text="{Binding Step3Status}" FontSize="10"
+                         Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center"/>
+              <TextBlock Text="PASO 3 · Recompensas básicas" FontWeight="SemiBold" FontSize="11"
+                         Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center"/>
+            </DockPanel>
+          </Expander.Header>
+          <StackPanel Margin="0,6,0,0">
+            <Grid Margin="0,0,0,6">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="20"/>
+                <ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <TextBlock Grid.Column="0" Text="XP" Style="{StaticResource FieldLabel}" Margin="0,0,6,0" FontSize="11"/>
+              <TextBox Grid.Column="1" Text="{Binding SelectedStage.Rewards.Exp, UpdateSourceTrigger=PropertyChanged}"
+                       TextChanged="Rewards_Changed" FontSize="11" HorizontalAlignment="Stretch"/>
+              <TextBlock Grid.Column="3" Text="Kamas" Style="{StaticResource FieldLabel}" Margin="0,0,6,0" FontSize="11"/>
+              <TextBox Grid.Column="4" Text="{Binding SelectedStage.Rewards.Kamas, UpdateSourceTrigger=PropertyChanged}"
+                       TextChanged="Rewards_Changed" FontSize="11" HorizontalAlignment="Stretch"/>
+            </Grid>
+            <DockPanel Margin="0,0,0,4">
+              <Button DockPanel.Dock="Right" Content="Buscar objeto" Command="{Binding PickRewardItemCommand}" Padding="8,3" FontSize="11"/>
+              <TextBlock Text="OBJETOS" Style="{StaticResource InlineSectionTitle}" Margin="0" VerticalAlignment="Center"/>
+            </DockPanel>
+            <ItemsControl ItemsSource="{Binding RewardItemRows}" Margin="0,0,0,4" HorizontalAlignment="Stretch"
+                          ItemTemplate="{StaticResource StageRewardItemRowTemplate}"/>
+            <Button Content="+" Command="{Binding AddManualRewardItemCommand}"
+                    Padding="10,3" FontSize="11" MinWidth="32" HorizontalAlignment="Center"
+                    Margin="0,0,0,4" ToolTip="Nueva fila de objeto"/>
+          </StackPanel>
+        </Expander>
+
+        <!-- PASO 4 · Recompensas avanzadas -->
+        <Expander IsExpanded="False" Margin="0,0,0,4">
+          <Expander.Header>
+            <DockPanel HorizontalAlignment="Stretch">
+              <TextBlock DockPanel.Dock="Right" Text="{Binding Step4Status}" FontSize="10"
+                         Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center"/>
+              <TextBlock Text="PASO 4 · Recompensas avanzadas" FontWeight="SemiBold" FontSize="11"
+                         Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center"/>
+            </DockPanel>
+          </Expander.Header>
+          <Grid Margin="0,6,0,0">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="90"/><ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+              <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <TextBlock Grid.Row="0" Text="emotes" Style="{StaticResource FieldLabel}" FontSize="11"/>
+            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding SelectedStage.Rewards.Emotes, UpdateSourceTrigger=PropertyChanged}"
+                     TextChanged="Rewards_Changed" Margin="0,0,0,4" FontFamily="Consolas" FontSize="11"/>
+            <TextBlock Grid.Row="1" Text="hechizos" Style="{StaticResource FieldLabel}" FontSize="11"/>
+            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SelectedStage.Rewards.Hechizos, UpdateSourceTrigger=PropertyChanged}"
+                     TextChanged="Rewards_Changed" Margin="0,0,0,4" FontFamily="Consolas" FontSize="11"/>
+            <TextBlock Grid.Row="2" Text="oficios" Style="{StaticResource FieldLabel}" FontSize="11"/>
+            <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding SelectedStage.Rewards.Oficios, UpdateSourceTrigger=PropertyChanged}"
+                     TextChanged="Rewards_Changed" Margin="0,0,0,4" FontFamily="Consolas" FontSize="11"/>
+            <TextBlock Grid.Row="3" Text="acciones" Style="{StaticResource FieldLabel}" FontSize="11"/>
+            <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding SelectedStage.Rewards.Acciones, UpdateSourceTrigger=PropertyChanged}"
+                     TextChanged="Rewards_Changed" FontFamily="Consolas" FontSize="11"/>
+          </Grid>
+        </Expander>
+
+        <!-- PASO 5 · Configuración técnica -->
+        <Expander IsExpanded="False" Margin="0,0,0,4">
+          <Expander.Header>
+            <DockPanel HorizontalAlignment="Stretch">
+              <TextBlock DockPanel.Dock="Right" Text="{Binding Step5Status}" FontSize="10"
+                         Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center"/>
+              <TextBlock Text="PASO 5 · Configuración técnica" FontWeight="SemiBold" FontSize="11"
+                         Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center"/>
+            </DockPanel>
+          </Expander.Header>
+          <StackPanel Margin="0,6,0,0">
+            <TextBlock Style="{StaticResource MutedHint}" TextWrapping="Wrap" FontFamily="Consolas" FontSize="11"
+                       Text="{Binding StageTechnicalPreview, Mode=OneWay}"/>
+            <TextBlock Style="{StaticResource MutedHint}" Margin="0,6,0,0" FontSize="11"
+                       Text="{Binding RewardsRawPreview, StringFormat=recompensas: {0}}" TextWrapping="Wrap"
+                       FontFamily="Consolas"/>
+            <TextBox IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="60"
+                     FontFamily="Consolas" FontSize="11" Margin="0,6,0,0"
+                     Text="{Binding TechnicalPreview, Mode=OneWay}"
+                     Background="{DynamicResource InputBackground}"
+                     Foreground="{DynamicResource TextPrimary}"
+                     BorderBrush="{DynamicResource InputBorder}"
+                     HorizontalAlignment="Stretch"/>
+          </StackPanel>
+        </Expander>
+      </StackPanel>
+
+      <!-- ETAPAS + EDITOR (ventana completa · paso a paso guiado) -->
+      <Border Style="{StaticResource FullLayoutOnly}"
+              Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource Border}"
               BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,0,10">
-        <Grid>
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="240"/>
-            <ColumnDefinition Width="12"/>
-            <ColumnDefinition Width="*"/>
-          </Grid.ColumnDefinitions>
+        <StackPanel>
 
-          <StackPanel>
-            <TextBlock Text="ETAPAS" Style="{StaticResource SectionHeader}" Margin="0,0,0,6"/>
+        <!-- ═══ CABECERA: selector de etapas + navegación ═══ -->
+        <DockPanel Margin="0,0,0,10" LastChildFill="True">
+          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+            <Button Content="◀ Anterior" Command="{Binding PrevStageCommand}" Padding="8,4" Margin="0,0,4,0"
+                    ToolTip="Etapa anterior" FontSize="11"/>
+            <Button Content="Siguiente ▶" Command="{Binding NextStageCommand}" Padding="8,4" Margin="0,0,8,0"
+                    ToolTip="Etapa siguiente" FontSize="11"/>
+            <Button Content="Duplicar" Command="{Binding DuplicateStageCommand}" Padding="8,4" Margin="0,0,4,0"
+                    ToolTip="Duplicar etapa" FontSize="11"/>
+            <Button Content="Eliminar" Command="{Binding DeleteStageCommand}" Padding="8,4" Margin="0,0,4,0"
+                    ToolTip="Eliminar etapa" FontSize="11"/>
+            <Button Content="+ Etapa" Command="{Binding AddStageCommand}" Padding="8,4" FontSize="11"/>
+          </StackPanel>
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock Text="ETAPAS" Style="{StaticResource SectionHeader}" Margin="0"/>
             <ListBox ItemsSource="{Binding StageRows}" SelectedItem="{Binding SelectedStageRow}"
-                     Height="150" Margin="0,0,0,8">
+                     Height="80" Margin="0,6,0,0">
+              <ListBox.ItemsPanel>
+                <ItemsPanelTemplate><WrapPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+              </ListBox.ItemsPanel>
               <ListBox.ItemTemplate>
                 <DataTemplate>
-                  <StackPanel Margin="0,2">
-                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                    <TextBlock Text="{Binding IdHint}" Style="{StaticResource MutedHint}"/>
-                  </StackPanel>
+                  <Border Padding="10,4" Margin="0,0,4,4" CornerRadius="6"
+                          BorderBrush="{DynamicResource Border}" BorderThickness="1"
+                          Background="{DynamicResource SecondaryButtonBackground}">
+                    <StackPanel>
+                      <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="11"/>
+                      <TextBlock Text="{Binding IdHint}" Style="{StaticResource MutedHint}" FontSize="10"/>
+                    </StackPanel>
+                  </Border>
                 </DataTemplate>
               </ListBox.ItemTemplate>
             </ListBox>
-            <WrapPanel>
-              <Button Content="Duplicar" Command="{Binding DuplicateStageCommand}" Padding="8,4" Margin="0,0,4,4"
-                      ToolTip="Duplicar etapa"/>
-              <Button Content="Eliminar" Command="{Binding DeleteStageCommand}" Padding="8,4" Margin="0,0,4,4"
-                      ToolTip="Eliminar etapa"/>
-              <Button Content="Mover arriba" Command="{Binding MoveStageUpCommand}" Padding="8,4" Margin="0,0,4,4"
-                      ToolTip="Mover etapa arriba"/>
-              <Button Content="Mover abajo" Command="{Binding MoveStageDownCommand}" Padding="8,4" Margin="0,0,4,4"
-                      ToolTip="Mover etapa abajo"/>
-            </WrapPanel>
           </StackPanel>
+        </DockPanel>
 
-          <StackPanel Grid.Column="2" Visibility="{Binding HasStage, Converter={StaticResource BoolToVis}}">
-            <TextBlock Text="Etapa seleccionada" Style="{StaticResource SectionHeader}" Margin="0,0,0,4"/>
-            <TextBlock Text="{Binding SelectedStageProvisionalLabel}" Style="{StaticResource MutedHint}" Margin="0,0,0,8"/>
-            <TextBlock Text="{Binding StageNameValidation}" Foreground="{DynamicResource Error}"
-                       Visibility="{Binding HasStageNameValidation, Converter={StaticResource BoolToVis}}"
-                       Margin="0,0,0,6" TextWrapping="Wrap"/>
-            <Grid>
+        <!-- ═══ RESUMEN COMPACTO DE ETAPA ═══ -->
+        <Border Visibility="{Binding HasStage, Converter={StaticResource BoolToVis}}"
+                Background="{DynamicResource ElevatedSurface}" CornerRadius="6" Padding="12,8" Margin="0,0,0,10"
+                BorderBrush="{DynamicResource Border}" BorderThickness="1">
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto"/><ColumnDefinition Width="16"/>
+              <ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="{Binding StageIndexLabel}" FontWeight="SemiBold" FontSize="13"
+                       VerticalAlignment="Center" Foreground="{DynamicResource BrandAccent}"/>
+            <TextBlock Grid.Column="2" Text="{Binding SelectedStageProvisionalLabel}" Style="{StaticResource MutedHint}"
+                       VerticalAlignment="Center" Margin="0,0,8,0"/>
+            <TextBlock Grid.Column="3" Text="{Binding StageSummaryLine}" Style="{StaticResource MutedHint}"
+                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+          </Grid>
+        </Border>
+
+        <TextBlock Text="{Binding StageNameValidation}" Foreground="{DynamicResource Error}"
+                   Visibility="{Binding HasStageNameValidation, Converter={StaticResource BoolToVis}}"
+                   Margin="0,0,0,6" TextWrapping="Wrap"/>
+
+        <!-- ═══ PASO 1 · Información básica ═══ -->
+        <StackPanel Visibility="{Binding HasStage, Converter={StaticResource BoolToVis}}">
+        <Expander IsExpanded="True" Margin="0,0,0,6">
+          <Expander.Header>
+            <DockPanel HorizontalAlignment="Stretch" Width="700">
+              <TextBlock DockPanel.Dock="Right" Text="{Binding Step1Status}" FontSize="11"
+                         Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center"/>
+              <TextBlock Text="PASO 1 · Información básica" FontWeight="SemiBold" FontSize="12"
+                         Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center"/>
+            </DockPanel>
+          </Expander.Header>
+          <StackPanel Margin="0,8,0,0">
+            <Grid Margin="0,0,0,6">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="110"/><ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
@@ -239,54 +980,169 @@
               <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SelectedStage.Descripcion, UpdateSourceTrigger=PropertyChanged}"
                        TextChanged="Field_Changed" AcceptsReturn="True" Height="48" TextWrapping="Wrap"/>
             </Grid>
-            <Expander Header="Configuración avanzada de etapa" Margin="0,8,0,0">
-              <StackPanel Margin="0,8,0,0">
-                <TextBlock Text="variosobj" Style="{StaticResource FieldLabel}" Margin="0,0,0,4"/>
-                <TextBox Text="{Binding SelectedStage.VariosObj, UpdateSourceTrigger=PropertyChanged}"
-                         TextChanged="Field_Changed" FontFamily="Consolas"/>
-              </StackPanel>
-            </Expander>
+            <TextBlock Text="Dale un nombre claro a la etapa y una breve descripción de lo que el jugador debe hacer."
+                       Style="{StaticResource MutedHint}" Margin="0,4,0,0" TextWrapping="Wrap"/>
+          </StackPanel>
+        </Expander>
 
-            <!-- RECOMPENSAS -->
-            <TextBlock Text="RECOMPENSAS" Style="{StaticResource SectionHeader}"/>
+        <!-- ═══ PASO 2 · Recompensas básicas ═══ -->
+        <Expander IsExpanded="False" Margin="0,0,0,6">
+          <Expander.Header>
+            <DockPanel HorizontalAlignment="Stretch" Width="700">
+              <TextBlock DockPanel.Dock="Right" Text="{Binding Step3Status}" FontSize="11"
+                         Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center"/>
+              <TextBlock Text="PASO 2 · Recompensas básicas" FontWeight="SemiBold" FontSize="12"
+                         Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center"/>
+            </DockPanel>
+          </Expander.Header>
+          <StackPanel Margin="0,8,0,0">
             <Grid Margin="0,0,0,8">
               <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="110"/><ColumnDefinition Width="140"/>
+                <ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="24"/>
+                <ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-              </Grid.RowDefinitions>
-              <TextBlock Grid.Row="0" Text="EXPERIENCIA" Style="{StaticResource FieldLabel}" FontWeight="SemiBold"/>
-              <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding SelectedStage.Rewards.Exp, UpdateSourceTrigger=PropertyChanged}"
-                       TextChanged="Rewards_Changed" Margin="0,0,0,6"/>
-              <TextBlock Grid.Row="1" Text="KAMAS" Style="{StaticResource FieldLabel}" FontWeight="SemiBold"/>
-              <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SelectedStage.Rewards.Kamas, UpdateSourceTrigger=PropertyChanged}"
-                       TextChanged="Rewards_Changed"/>
+              <TextBlock Grid.Column="0" Text="XP" Style="{StaticResource FieldLabel}" FontWeight="SemiBold" Margin="0,0,8,0"/>
+              <TextBox Grid.Column="1" Text="{Binding SelectedStage.Rewards.Exp, UpdateSourceTrigger=PropertyChanged}"
+                       TextChanged="Rewards_Changed" HorizontalAlignment="Stretch"/>
+              <TextBlock Grid.Column="3" Text="Kamas" Style="{StaticResource FieldLabel}" FontWeight="SemiBold" Margin="0,0,8,0"/>
+              <TextBox Grid.Column="4" Text="{Binding SelectedStage.Rewards.Kamas, UpdateSourceTrigger=PropertyChanged}"
+                       TextChanged="Rewards_Changed" HorizontalAlignment="Stretch"/>
             </Grid>
-            <DockPanel Margin="0,0,0,6">
-              <Button DockPanel.Dock="Right" Content="+ Añadir objeto" Command="{Binding PickRewardItemCommand}" Padding="10,4"/>
-              <TextBlock Text="OBJETOS" VerticalAlignment="Center" FontWeight="SemiBold"/>
+            <DockPanel Margin="0,0,0,4">
+              <Button DockPanel.Dock="Right" Content="Buscar objeto" Command="{Binding PickRewardItemCommand}" Padding="10,4"/>
+              <TextBlock Text="OBJETOS DE RECOMPENSA" VerticalAlignment="Center" FontWeight="SemiBold" FontSize="11"/>
             </DockPanel>
-            <ItemsControl ItemsSource="{Binding RewardItemRows}" Margin="0,0,0,6">
+            <ItemsControl ItemsSource="{Binding RewardItemRows}" Margin="0,0,0,6"
+                          ItemTemplate="{StaticResource StageRewardItemRowTemplate}"/>
+            <Button Content="+" Command="{Binding AddManualRewardItemCommand}"
+                    Padding="12,4" MinWidth="36" HorizontalAlignment="Center"
+                    Margin="0,0,0,4" ToolTip="Nueva fila de objeto"/>
+          </StackPanel>
+        </Expander>
+
+        <!-- ═══ PASO 3 · Recompensas avanzadas ═══ -->
+        <Expander IsExpanded="False" Margin="0,0,0,6">
+          <Expander.Header>
+            <DockPanel HorizontalAlignment="Stretch" Width="700">
+              <TextBlock DockPanel.Dock="Right" Text="{Binding Step4Status}" FontSize="11"
+                         Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center"/>
+              <TextBlock Text="PASO 3 · Recompensas avanzadas" FontWeight="SemiBold" FontSize="12"
+                         Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center"/>
+            </DockPanel>
+          </Expander.Header>
+          <Grid Margin="0,8,0,0">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="110"/><ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+              <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <TextBlock Grid.Row="0" Text="emotes" Style="{StaticResource FieldLabel}"/>
+            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding SelectedStage.Rewards.Emotes, UpdateSourceTrigger=PropertyChanged}"
+                     TextChanged="Rewards_Changed" Margin="0,0,0,4" FontFamily="Consolas"/>
+            <TextBlock Grid.Row="1" Text="hechizos" Style="{StaticResource FieldLabel}"/>
+            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SelectedStage.Rewards.Hechizos, UpdateSourceTrigger=PropertyChanged}"
+                     TextChanged="Rewards_Changed" Margin="0,0,0,4" FontFamily="Consolas"/>
+            <TextBlock Grid.Row="2" Text="oficios" Style="{StaticResource FieldLabel}"/>
+            <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding SelectedStage.Rewards.Oficios, UpdateSourceTrigger=PropertyChanged}"
+                     TextChanged="Rewards_Changed" Margin="0,0,0,4" FontFamily="Consolas"/>
+            <TextBlock Grid.Row="3" Text="acciones" Style="{StaticResource FieldLabel}"/>
+            <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding SelectedStage.Rewards.Acciones, UpdateSourceTrigger=PropertyChanged}"
+                     TextChanged="Rewards_Changed" FontFamily="Consolas"/>
+          </Grid>
+        </Expander>
+
+        <!-- ═══ PASO 4 · Objetivos ═══ -->
+        <Expander IsExpanded="False" Margin="0,0,0,6">
+          <Expander.Header>
+            <DockPanel HorizontalAlignment="Stretch" Width="700">
+              <TextBlock DockPanel.Dock="Right" Text="{Binding Step2Status}" FontSize="11"
+                         Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center"/>
+              <TextBlock Text="PASO 4 · Objetivos" FontWeight="SemiBold" FontSize="12"
+                         Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center"/>
+            </DockPanel>
+          </Expander.Header>
+          <StackPanel Margin="0,8,0,0">
+            <TextBlock Text="Define qué debe cumplir el jugador en esta etapa."
+                       Style="{StaticResource MutedHint}" Margin="0,0,0,6" TextWrapping="Wrap"/>
+            <TextBlock Text="Esta etapa no tiene objetivos."
+                       Style="{StaticResource MutedHint}" Margin="0,0,0,6"
+                       Visibility="{Binding ShowStageNoObjectivesHint, Converter={StaticResource BoolToVis}}"/>
+            <ItemsControl ItemsSource="{Binding ObjectiveRows}" Margin="0,0,0,8">
               <ItemsControl.ItemTemplate>
                 <DataTemplate>
                   <Border BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="6"
-                          Padding="8" Margin="0,0,0,6" Background="{DynamicResource DialogHeaderBackground}">
-                    <DockPanel>
-                      <Button DockPanel.Dock="Right" Content="Quitar" Padding="8,3" VerticalAlignment="Center"
-                              Click="RewardRemove_Click" Tag="{Binding}"/>
-                      <Image DockPanel.Dock="Left" Width="36" Height="36" Margin="0,0,10,0"
-                             Source="{Binding Icon}" Stretch="Uniform"/>
-                      <StackPanel>
-                        <TextBlock Text="{Binding Nombre}" FontWeight="SemiBold"/>
-                        <TextBlock Style="{StaticResource MutedHint}">
-                          <Run Text="{Binding IdLine, Mode=OneWay}"/>
-                          <Run Text="  "/><Run Text="{Binding Meta, Mode=OneWay}"/>
+                          Padding="8,6" Margin="0,0,0,4" Background="{DynamicResource DialogHeaderBackground}"
+                          TextElement.Foreground="{DynamicResource HeaderForeground}">
+                    <DockPanel LastChildFill="True">
+                      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Content="Editar" Padding="6,2" Margin="0,0,3,0" FontSize="11"
+                                Click="ObjectiveEdit_Click" Tag="{Binding}"/>
+                        <Button Content="Duplicar" Padding="6,2" Margin="0,0,3,0" FontSize="11"
+                                Click="ObjectiveDuplicate_Click" Tag="{Binding}"/>
+                        <Button Content="✕" Padding="6,2" ToolTip="Eliminar objetivo" FontSize="11"
+                                PreviewMouseLeftButtonDown="ObjectiveDelete_PreviewMouseLeftButtonDown"
+                                Click="ObjectiveDelete_Click" Tag="{Binding}"/>
+                      </StackPanel>
+                      <StackPanel VerticalAlignment="Center">
+                        <TextBlock FontSize="12" Foreground="{DynamicResource HeaderForeground}">
+                          <Run Text="{Binding Ordinal, StringFormat={}{0}. , Mode=OneWay}" FontWeight="SemiBold"/>
+                          <Run Text="{Binding TypeLabel, Mode=OneWay}" FontWeight="SemiBold"/>
                         </TextBlock>
-                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                          <TextBlock Text="Cantidad:" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                          <TextBox Width="56" Text="{Binding Cantidad, UpdateSourceTrigger=LostFocus}"
-                                   TextChanged="RewardQty_Changed"/>
+                        <TextBlock Text="{Binding CardSubtitle}" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource HeaderOnBrownSubtle}" FontSize="11">
+                          <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                              <Setter Property="Visibility" Value="Visible"/>
+                              <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsDefeatMobs}" Value="True">
+                                  <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                              </Style.Triggers>
+                            </Style>
+                          </TextBlock.Style>
+                        </TextBlock>
+                        <StackPanel Margin="0,6,0,0">
+                          <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                              <Setter Property="Visibility" Value="Collapsed"/>
+                              <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsDefeatMobs}" Value="True">
+                                  <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                              </Style.Triggers>
+                            </Style>
+                          </StackPanel.Style>
+                          <ItemsControl ItemsSource="{Binding MobPairs}">
+                            <ItemsControl.ItemTemplate>
+                              <DataTemplate>
+                                <DockPanel Margin="0,0,0,4" LastChildFill="True">
+                                  <Button DockPanel.Dock="Right" Content="✕" Padding="4,1" FontSize="10"
+                                          ToolTip="Quitar monstruo" Margin="6,0,0,0"
+                                          Command="{Binding RemoveCommand}" VerticalAlignment="Center"/>
+                                  <StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                      <TextBlock Text="Monster ID" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="10"
+                                                 Foreground="{DynamicResource HeaderOnBrownSubtle}" Width="72"/>
+                                      <TextBox Width="80" MinHeight="26" Padding="4,2" FontSize="11" FontFamily="Consolas"
+                                               VerticalAlignment="Center" VerticalContentAlignment="Center"
+                                               Text="{Binding MobIdText, UpdateSourceTrigger=PropertyChanged}"/>
+                                      <TextBlock Text="Cant." VerticalAlignment="Center" Margin="10,0,6,0" FontSize="10"
+                                                 Foreground="{DynamicResource HeaderOnBrownSubtle}"/>
+                                      <TextBox Width="56" MinHeight="26" Padding="4,2" FontSize="11" FontFamily="Consolas"
+                                               VerticalAlignment="Center" VerticalContentAlignment="Center"
+                                               Text="{Binding QtyText, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </StackPanel>
+                                  </StackPanel>
+                                </DockPanel>
+                              </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                          </ItemsControl>
+                          <Button Content="+ Monstruo" Padding="6,2" FontSize="10" Margin="0,2,0,0"
+                                  HorizontalAlignment="Left" Command="{Binding AddMobPairCommand}"
+                                  ToolTip="Añadir otro monstruo a este objetivo"/>
                         </StackPanel>
                       </StackPanel>
                     </DockPanel>
@@ -294,67 +1150,34 @@
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
-            <Expander Header="Recompensas avanzadas" IsExpanded="{Binding AdvancedRewards}">
-              <Grid Margin="0,8,0,0">
-                <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="110"/><ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <Grid.RowDefinitions>
-                  <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-                  <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-                <TextBlock Grid.Row="0" Text="emotes" Style="{StaticResource FieldLabel}"/>
-                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding SelectedStage.Rewards.Emotes, UpdateSourceTrigger=PropertyChanged}"
-                         TextChanged="Rewards_Changed" Margin="0,0,0,4" FontFamily="Consolas"/>
-                <TextBlock Grid.Row="1" Text="hechizos" Style="{StaticResource FieldLabel}"/>
-                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SelectedStage.Rewards.Hechizos, UpdateSourceTrigger=PropertyChanged}"
-                         TextChanged="Rewards_Changed" Margin="0,0,0,4" FontFamily="Consolas"/>
-                <TextBlock Grid.Row="2" Text="oficios" Style="{StaticResource FieldLabel}"/>
-                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding SelectedStage.Rewards.Oficios, UpdateSourceTrigger=PropertyChanged}"
-                         TextChanged="Rewards_Changed" Margin="0,0,0,4" FontFamily="Consolas"/>
-                <TextBlock Grid.Row="3" Text="acciones" Style="{StaticResource FieldLabel}"/>
-                <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding SelectedStage.Rewards.Acciones, UpdateSourceTrigger=PropertyChanged}"
-                         TextChanged="Rewards_Changed" FontFamily="Consolas"/>
-              </Grid>
-            </Expander>
-
-            <!-- OBJETIVOS -->
-            <TextBlock Text="OBJETIVOS" Style="{StaticResource SectionHeader}"/>
-            <ListBox ItemsSource="{Binding ObjectiveRows}" SelectedItem="{Binding SelectedObjectiveRow}"
-                     Height="110" Margin="0,0,0,6">
-              <ListBox.ItemTemplate>
-                <DataTemplate>
-                  <StackPanel Margin="0,2">
-                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold"/>
-                    <TextBlock Text="{Binding Summary}" TextWrapping="Wrap"/>
-                    <TextBlock Text="{Binding IdHint}" Style="{StaticResource MutedHint}"/>
-                  </StackPanel>
-                </DataTemplate>
-              </ListBox.ItemTemplate>
-            </ListBox>
             <DockPanel Margin="0,0,0,8">
               <Button DockPanel.Dock="Right" Content="+ Añadir objetivo" Command="{Binding AddObjectiveCommand}"
-                      Padding="10,4" Margin="8,0,0,0"/>
+                      Padding="8,3" FontSize="11" Margin="8,0,0,0"/>
               <ComboBox ItemsSource="{Binding ObjectiveTypeChoices}"
                         SelectedItem="{Binding SelectedObjectiveType}"
-                        DisplayMemberPath="Nombre"
+                        DisplayMemberPath="Nombre" FontSize="11"
                         Background="{DynamicResource InputBackground}"
                         Foreground="{DynamicResource TextPrimary}"
                         BorderBrush="{DynamicResource InputBorder}"/>
             </DockPanel>
-            <Button Content="Eliminar objetivo" Command="{Binding DeleteObjectiveCommand}"
-                    Padding="8,4" HorizontalAlignment="Left" Margin="0,0,0,10"/>
 
-            <StackPanel Visibility="{Binding HasObjective, Converter={StaticResource BoolToVis}}">
-              <TextBlock FontWeight="SemiBold" Margin="0,0,0,6" Text="{Binding ObjectiveTypeLabel}"/>
+            <!-- Editor de objetivo seleccionado -->
+            <Border Visibility="{Binding HasObjective, Converter={StaticResource BoolToVis}}"
+                    Background="{DynamicResource PanelBackground}" CornerRadius="6"
+                    Padding="12,10" BorderBrush="{DynamicResource Border}" BorderThickness="1">
+            <StackPanel>
+              <TextBlock FontWeight="SemiBold" Margin="0,0,0,6" FontSize="12">
+                <Run Text="Editando: "/><Run Text="{Binding ObjectiveTypeLabel, Mode=OneWay}"/>
+              </TextBlock>
               <TextBlock Text="{Binding ObjectiveValidation}" Foreground="{DynamicResource Error}"
                          Visibility="{Binding HasObjectiveValidation, Converter={StaticResource BoolToVis}}"
                          Margin="0,0,0,8" TextWrapping="Wrap"/>
 
-              <StackPanel Visibility="{Binding ShowManualFields, Converter={StaticResource BoolToVis}}" Margin="0,0,0,8">
-                <TextBlock Text="Descripción visible" Style="{StaticResource FieldLabel}" Margin="0,0,0,4"/>
-                <TextBox Text="{Binding ObjManualText, UpdateSourceTrigger=PropertyChanged}"
-                         AcceptsReturn="True" Height="48" TextWrapping="Wrap"/>
+              <StackPanel Visibility="{Binding ShowUnsupportedManual, Converter={StaticResource BoolToVis}}" Margin="0,0,0,8">
+                <TextBlock Text="{Binding UnsupportedManualBanner}" TextWrapping="Wrap"
+                           Foreground="{DynamicResource TextSecondary}"/>
+                <TextBlock Text="Elimínalo con la X o sustitúyelo por otro tipo." Margin="0,4,0,0"
+                           Foreground="{DynamicResource TextMuted}" TextWrapping="Wrap"/>
               </StackPanel>
 
               <StackPanel Visibility="{Binding ShowNpcFields, Converter={StaticResource BoolToVis}}" Margin="0,0,0,8">
@@ -366,16 +1189,19 @@
                 </DockPanel>
               </StackPanel>
 
+              <StackPanel Visibility="{Binding ShowBoundStartNpcInfo, Converter={StaticResource BoolToVis}}" Margin="0,0,0,8">
+                <TextBlock Text="NPC" Style="{StaticResource FieldLabel}" Margin="0,0,0,4"/>
+                <TextBlock Text="{Binding BoundStartNpcDisplay}" VerticalAlignment="Center" TextWrapping="Wrap"
+                           Foreground="{DynamicResource TextSecondary}"/>
+              </StackPanel>
+
               <StackPanel Visibility="{Binding ShowItemFields, Converter={StaticResource BoolToVis}}" Margin="0,0,0,8">
-                <TextBlock Text="Objeto" Style="{StaticResource FieldLabel}" Margin="0,0,0,4"/>
-                <DockPanel>
-                  <Button DockPanel.Dock="Right" Content="Buscar objeto" Command="{Binding PickObjectiveItemCommand}"
-                          Padding="8,3" Margin="8,0,0,0"/>
-                  <StackPanel Orientation="Horizontal">
-                    <Image Width="28" Height="28" Source="{Binding ObjItemPreview}" Margin="0,0,8,0"/>
-                    <TextBlock Text="{Binding ObjItemLabel}" VerticalAlignment="Center" TextWrapping="Wrap"/>
-                  </StackPanel>
-                </DockPanel>
+                <TextBlock Text="Item ID" Style="{StaticResource FieldLabel}" Margin="0,0,0,4"/>
+                <TextBox Width="140" HorizontalAlignment="Left"
+                         Text="{Binding ObjItemId, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas"/>
+                <TextBlock Margin="0,6,0,0" FontSize="12" TextWrapping="Wrap"
+                           Foreground="{Binding ObjItemNameForeground}"
+                           Text="{Binding ObjItemNameDisplay}"/>
                 <TextBlock Margin="0,6,0,0" FontSize="11" TextWrapping="Wrap"
                            Foreground="{DynamicResource TextSecondary}"
                            Visibility="{Binding ShowItemSemanticsNote, Converter={StaticResource BoolToVis}}"
@@ -383,15 +1209,12 @@
               </StackPanel>
 
               <StackPanel Visibility="{Binding ShowMobFields, Converter={StaticResource BoolToVis}}" Margin="0,0,0,8">
-                <TextBlock Text="Monstruo" Style="{StaticResource FieldLabel}" Margin="0,0,0,4"/>
-                <DockPanel>
-                  <Button DockPanel.Dock="Right" Content="Buscar mob" Command="{Binding PickObjectiveMobCommand}"
-                          Padding="8,3" Margin="8,0,0,0"/>
-                  <StackPanel Orientation="Horizontal">
-                    <Image Width="36" Height="36" Source="{Binding ObjMobPreview}" Margin="0,0,8,0"/>
-                    <TextBlock Text="{Binding ObjMobLabel}" VerticalAlignment="Center"/>
-                  </StackPanel>
-                </DockPanel>
+                <TextBlock Text="Monster ID" Style="{StaticResource FieldLabel}" Margin="0,0,0,4"/>
+                <TextBox Width="140" HorizontalAlignment="Left"
+                         Text="{Binding ObjMobId, UpdateSourceTrigger=PropertyChanged}" FontFamily="Consolas"/>
+                <TextBlock Margin="0,6,0,0" FontSize="12" TextWrapping="Wrap"
+                           Foreground="{Binding ObjMobNameForeground}"
+                           Text="{Binding ObjMobNameDisplay}"/>
               </StackPanel>
 
               <StackPanel Visibility="{Binding ShowMapFields, Converter={StaticResource BoolToVis}}" Margin="0,0,0,8">
@@ -455,7 +1278,7 @@
               <TextBox Text="{Binding SelectedObjective.Detalle, UpdateSourceTrigger=PropertyChanged}"
                        TextChanged="Field_Changed" Margin="0,0,0,8" TextWrapping="Wrap"/>
 
-              <Expander Header="Condición · configuración avanzada" Margin="0,0,0,8">
+              <Expander Header="Condición · configuración avanzada" Margin="0,0,0,4">
                 <StackPanel Margin="0,8,0,0">
                   <TextBlock Style="{StaticResource MutedHint}" Margin="0,0,0,4" TextWrapping="Wrap"
                              Text="Solo texto técnico conocido. No se inventa sintaxis."/>
@@ -464,26 +1287,40 @@
                 </StackPanel>
               </Expander>
             </StackPanel>
-
-            <Expander Header="Vista técnica (solo lectura)" IsExpanded="{Binding ShowTechnical}" Margin="0,8,0,0">
-              <StackPanel Margin="0,8,0,0">
-                <TextBlock Style="{StaticResource MutedHint}" Margin="0,0,0,4"
-                           Text="{Binding RewardsRawPreview, StringFormat=recompensas: {0}}" TextWrapping="Wrap"
-                           FontFamily="Consolas"/>
-                <TextBox IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="90"
-                         FontFamily="Consolas" FontSize="11"
-                         Text="{Binding TechnicalPreview, Mode=OneWay}"
-                         Background="{DynamicResource InputBackground}"
-                         Foreground="{DynamicResource TextPrimary}"
-                         BorderBrush="{DynamicResource InputBorder}"/>
-              </StackPanel>
-            </Expander>
-
-            <TextBlock Margin="0,10,0,0" Style="{StaticResource MutedHint}" TextWrapping="Wrap"
-                       Text="{Binding QuestsEsStatusLine}"/>
+            </Border>
           </StackPanel>
-        </Grid>
+        </Expander>
+
+        <!-- ═══ PASO 5 · Configuración técnica ═══ -->
+        <Expander IsExpanded="False" Margin="0,0,0,6">
+          <Expander.Header>
+            <DockPanel HorizontalAlignment="Stretch" Width="700">
+              <TextBlock DockPanel.Dock="Right" Text="{Binding Step5Status}" FontSize="11"
+                         Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center"/>
+              <TextBlock Text="PASO 5 · Configuración técnica" FontWeight="SemiBold" FontSize="12"
+                         Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center"/>
+            </DockPanel>
+          </Expander.Header>
+          <StackPanel Margin="0,8,0,0">
+            <TextBlock Style="{StaticResource MutedHint}" TextWrapping="Wrap" FontFamily="Consolas"
+                       Text="{Binding StageTechnicalPreview, Mode=OneWay}"/>
+            <TextBlock Style="{StaticResource MutedHint}" Margin="0,8,0,0"
+                       Text="{Binding RewardsRawPreview, StringFormat=recompensas: {0}}" TextWrapping="Wrap"
+                       FontFamily="Consolas"/>
+            <TextBox IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="60"
+                     FontFamily="Consolas" FontSize="11" Margin="0,8,0,0"
+                     Text="{Binding TechnicalPreview, Mode=OneWay}"
+                     Background="{DynamicResource InputBackground}"
+                     Foreground="{DynamicResource TextPrimary}"
+                     BorderBrush="{DynamicResource InputBorder}"/>
+          </StackPanel>
+        </Expander>
+
+        </StackPanel>
+
+        <TextBlock Margin="0,10,0,0" Style="{StaticResource MutedHint}" TextWrapping="Wrap"
+                   Text="{Binding QuestsEsStatusLine}"/>
+        </StackPanel>
       </Border>
     </StackPanel>
-  </ScrollViewer>
 </UserControl>

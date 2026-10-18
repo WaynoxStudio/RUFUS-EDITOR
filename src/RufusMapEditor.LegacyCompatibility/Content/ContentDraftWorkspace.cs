@@ -12,15 +12,23 @@ public sealed class ContentDraftWorkspace
     public DialogDraftBatch Dialogs { get; } = new();
     public MissionDraftBatch Missions { get; } = new();
 
+    /// <summary>npcId → layoutKey (q:id / r:guid) → posición en lienzo de conversación.</summary>
+    public Dictionary<string, Dictionary<string, double[]>> DialogBubbleLayouts { get; } = new();
+
     public ContentWorkspaceSnapshot ToSnapshot() => new()
     {
         NpcDbMaxId = Npcs.DbMaxId,
         QuestionDbMaxId = Dialogs.DbMaxQuestionId,
+        ResponseDbMaxId = Dialogs.DbMaxResponseId,
+        QuestDbMaxId = Missions.DbMaxQuestId,
         StageDbMaxId = Missions.DbMaxStageId,
         ObjectiveDbMaxId = Missions.DbMaxObjectiveId,
         Npcs = Npcs.Drafts.Select(n => n.CloneData()).ToList(),
         Questions = Dialogs.Questions.Select(CloneQuestion).ToList(),
         Missions = Missions.Missions.Select(CloneMission).ToList(),
+        DialogBubbleLayouts = DialogBubbleLayouts.ToDictionary(
+            kv => kv.Key,
+            kv => kv.Value.ToDictionary(p => p.Key, p => p.Value)),
     };
 
     public void LoadSnapshot(ContentWorkspaceSnapshot snap)
@@ -32,11 +40,24 @@ public sealed class ContentDraftWorkspace
             Npcs.ImportPreservingId(n);
 
         Dialogs.SetDbMaxQuestionId(snap.QuestionDbMaxId);
+        Dialogs.SetDbMaxResponseId(snap.ResponseDbMaxId);
         Dialogs.LoadQuestions(snap.Questions.Select(CloneQuestion));
 
+        Missions.SetDbMaxQuestId(snap.QuestDbMaxId);
         Missions.SetDbMaxStageId(snap.StageDbMaxId);
         Missions.SetDbMaxObjectiveId(snap.ObjectiveDbMaxId);
         Missions.LoadMissions(snap.Missions.Select(CloneMission));
+
+        DialogBubbleLayouts.Clear();
+        if (snap.DialogBubbleLayouts is not null)
+        {
+            foreach (var (npcKey, positions) in snap.DialogBubbleLayouts)
+            {
+                DialogBubbleLayouts[npcKey] = positions.ToDictionary(
+                    kv => kv.Key,
+                    kv => kv.Value.Length >= 2 ? kv.Value : new[] { 0d, 0d });
+            }
+        }
     }
 
     private static DialogQuestionDraft CloneQuestion(DialogQuestionDraft q)
@@ -72,6 +93,13 @@ public sealed class ContentDraftWorkspace
             DraftId = m.DraftId == Guid.Empty ? Guid.NewGuid() : m.DraftId,
             PublishedQuestId = m.PublishedQuestId,
             PublishedBd = m.PublishedBd,
+            PreviewPlannedQuestId = m.PreviewPlannedQuestId,
+            QuestsEsPublished = m.QuestsEsPublished,
+            QuestsEsPublishedVersion = m.QuestsEsPublishedVersion,
+            HasPendingBdChanges = m.HasPendingBdChanges,
+            PublishedStageIds = m.PublishedStageIds?.ToList() ?? new List<int>(),
+            PublishedObjectiveIds = m.PublishedObjectiveIds?.ToList() ?? new List<int>(),
+            PendingDeletedObjectiveIds = m.PendingDeletedObjectiveIds?.ToList() ?? new List<int>(),
             Nombre = m.Nombre,
             PuedeRepetirse = m.PuedeRepetirse,
             StartNpcId = m.StartNpcId,
@@ -101,11 +129,14 @@ public sealed class ContentWorkspaceSnapshot
 {
     public int NpcDbMaxId { get; set; }
     public int QuestionDbMaxId { get; set; }
+    public int ResponseDbMaxId { get; set; }
+    public int QuestDbMaxId { get; set; }
     public int StageDbMaxId { get; set; }
     public int ObjectiveDbMaxId { get; set; }
     public List<NpcsModeloDraft> Npcs { get; set; } = new();
     public List<DialogQuestionDraft> Questions { get; set; } = new();
     public List<MissionDraft> Missions { get; set; } = new();
+    public Dictionary<string, Dictionary<string, double[]>>? DialogBubbleLayouts { get; set; }
 }
 
 public static class ContentWorkspaceSerializer

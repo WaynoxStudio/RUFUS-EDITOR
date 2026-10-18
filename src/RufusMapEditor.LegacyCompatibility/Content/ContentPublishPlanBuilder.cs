@@ -13,13 +13,23 @@ public static class ContentPublishPlanBuilder
         ContentDraftWorkspace workspace,
         ContentPublishMaxSnapshot maxes,
         DialogEsSnapshot? dialogEs = null,
-        DialogEsIdOccupancy? dialogEsOccupancy = null)
+        DialogEsIdOccupancy? dialogEsOccupancy = null,
+        QuestsEsSnapshot? questsEs = null,
+        Func<int, bool>? itemIdExistsInObjetosModelo = null,
+        Func<int, bool>? mobIdExistsInMobsModelo = null,
+        IReadOnlySet<int>? npcIdFilter = null)
     {
         ArgumentNullException.ThrowIfNull(workspace);
         ArgumentNullException.ThrowIfNull(maxes);
+        maxes = ContentIdReservation.EffectiveContentMax(maxes, questsEs);
         var plan = new ContentPublishPlan { Maxes = maxes };
+        itemIdExistsInObjetosModelo ??= ObjetosModeloNameCache.SharedExistsPredicate;
+        mobIdExistsInMobsModelo ??= MobsModeloNameCache.SharedExistsPredicate;
 
-        var npcs = workspace.Npcs.Drafts.Where(n => !n.PublishedBd).ToList();
+
+        var npcs = workspace.Npcs.Drafts
+            .Where(n => !n.PublishedBd && ContentPublishNpcSelection.Includes(n.Id, npcIdFilter))
+            .ToList();
         var npcIds = npcs.Select(n => n.Id).ToHashSet();
         var interactiveNpcIds = npcs
             .Where(n => n.DialogMode == NpcDialogMode.Interactive)
@@ -28,6 +38,7 @@ public static class ContentPublishPlanBuilder
 
         // CONT.5.1 — only content reachable from NPCs in this publish batch.
         // CONT-DIALOG.3 — Simple mode never publishes npc_preguntas / npc_respuestas.
+        // Diálogo simple → no misiones (ni nuevas ni updates) en el plan BD.
         // Missions without StartNpcId on a batch NPC are orphans (toggle off / leftovers).
         var questions = workspace.Dialogs.Questions
             .Where(q => !q.PublishedBd
@@ -37,7 +48,17 @@ public static class ContentPublishPlanBuilder
         var missions = workspace.Missions.Missions
             .Where(m => !m.PublishedBd
                         && m.StartNpcId is int sid
-                        && npcIds.Contains(sid))
+                        && npcIds.Contains(sid)
+                        && !IsStartNpcSimpleDialog(workspace, m))
+            .ToList();
+        var updateMissions = workspace.Missions.Missions
+            .Where(m => m.PublishedBd
+                        && m.HasPendingBdChanges
+                        && m.PublishedQuestId is int and > 0
+                        && !IsStartNpcSimpleDialog(workspace, m)
+                        && (npcIdFilter is null
+                            || (m.StartNpcId is int usid
+                                && ContentPublishNpcSelection.Includes(usid, npcIdFilter))))
             .ToList();
 
         // --- Reserve ID blocks (order: NPC, Question, Response, Quest, Stage, Objective) ---
@@ -82,16 +103,48 @@ public static class ContentPublishPlanBuilder
         var nextQuest = maxes.Misiones + 1;
         foreach (var m in missions)
             plan.QuestIdMap[m.DraftId] = nextQuest++;
+        foreach (var m in updateMissions)
+            plan.QuestIdMap[m.DraftId] = m.PublishedQuestId!.Value;
 
-        var stages = missions.SelectMany(m => m.Stages).ToList();
         var nextStage = maxes.MisionEtapas + 1;
-        foreach (var s in stages)
-            plan.StageIdMap[s.Id] = nextStage++;
+        foreach (var m in missions)
+        {
+            foreach (var s in m.Stages)
+                plan.StageIdMap[s.Id] = nextStage++;
+        }
 
-        var objectives = stages.SelectMany(s => s.Objectives).ToList();
+        foreach (var m in updateMissions)
+        {
+            var legacyAllPublished = m.PublishedStageIds.Count == 0;
+            foreach (var s in m.Stages)
+            {
+                if (legacyAllPublished || m.PublishedStageIds.Contains(s.Id))
+                    plan.StageIdMap[s.Id] = s.Id;
+                else
+                    plan.StageIdMap[s.Id] = nextStage++;
+            }
+        }
+
         var nextObj = maxes.MisionObjetivos + 1;
-        foreach (var o in objectives)
-            plan.ObjectiveIdMap[o.Id] = nextObj++;
+        foreach (var m in missions)
+        {
+            foreach (var s in m.Stages)
+            foreach (var o in s.Objectives)
+                plan.ObjectiveIdMap[o.Id] = nextObj++;
+        }
+
+        foreach (var m in updateMissions)
+        {
+            var legacyAllPublished = m.PublishedObjectiveIds.Count == 0;
+            foreach (var s in m.Stages)
+            foreach (var o in s.Objectives)
+            {
+                if (legacyAllPublished || m.PublishedObjectiveIds.Contains(o.Id))
+                    plan.ObjectiveIdMap[o.Id] = o.Id;
+                else
+                    plan.ObjectiveIdMap[o.Id] = nextObj++;
+            }
+        }
 
         // --- Resolve rows ---
         foreach (var n in npcs)
@@ -192,8 +245,9 @@ public static class ContentPublishPlanBuilder
             }
         }
 
-        foreach (var m in missions)
+        foreach (var m in missions.Concat(updateMissions))
         {
+            var isUpdate = m.PublishedBd && m.HasPendingBdChanges;
             var questId = plan.QuestIdMap[m.DraftId];
             var stageFinals = new List<int>();
             foreach (var s in m.Stages)
@@ -225,7 +279,50 @@ public static class ContentPublishPlanBuilder
                         else if (detalle.StartsWith('[') && detalle.Contains(','))
                             detalle = RemapDeliverArgs(detalle, plan);
                     }
+                    else if (MissionObjectiveNpcRemap.UsesNpcInArgs(o.Tipo))
+                    {
+                        args = MissionObjectiveNpcRemap.RemapLeadingNpc(args, plan.NpcIdMap);
+                        if (string.Equals(detalle, o.Args, StringComparison.Ordinal))
+                            detalle = args;
+                        else if (MissionObjectiveNpcRemap.UsesNpcInArgs(o.Tipo))
+                            detalle = MissionObjectiveNpcRemap.RemapLeadingNpc(detalle, plan.NpcIdMap);
+                    }
 
+                    // QUICK_DELETE_AND_START_NPC_BINDING.2 — tipo 2/3 always publish under StartNpc.
+                    if (MissionShowDeliverNpcBinding.IsBoundTipo(o.Tipo))
+                    {
+                        var startFinal = ResolveNpcRef(m.StartNpcId, plan);
+                        if (startFinal is not int sn || sn <= 0)
+                        {
+                            plan.Errors.Add(string.Create(CultureInfo.InvariantCulture,
+                                $"Objetivo {oid}: {MissionShowDeliverNpcBinding.MissingStartNpcMessage}"));
+                        }
+                        else
+                        {
+                            var rewritten = MissionShowDeliverNpcBinding.RewriteArgsNpc(args, sn);
+                            if (!string.Equals(rewritten, args, StringComparison.Ordinal))
+                            {
+                                if (string.Equals(detalle, args, StringComparison.Ordinal))
+                                    detalle = rewritten;
+                                args = rewritten;
+                            }
+                        }
+                    }
+
+                    // Auto-return must publish under definitive StartNpc.
+                    if (o.IsAutoReturnToStartNpc)
+                    {
+                        var startFinal = ResolveNpcRef(m.StartNpcId, plan);
+                        if (startFinal is int sn && sn > 0)
+                        {
+                            var (_, x, y) = MissionObjectiveArgsCodec.StripCoords(args);
+                            args = MissionObjectiveArgsCodec.BuildTalk(sn, x, y);
+                            detalle = args;
+                        }
+                    }
+
+                    var objIsUpdate = isUpdate
+                        && (m.PublishedObjectiveIds.Count == 0 || m.PublishedObjectiveIds.Contains(o.Id));
                     plan.Objectives.Add(new MisionObjetivoInsertRow
                     {
                         Id = oid,
@@ -236,9 +333,12 @@ public static class ContentPublishPlanBuilder
                         EsAlHablar = string.IsNullOrWhiteSpace(o.EsAlHablar) ? "0" : o.EsAlHablar,
                         EsOculto = o.EsOculto,
                         Condicion = o.Condicion ?? "",
+                        IsUpdate = objIsUpdate,
                     });
                 }
 
+                var stageIsUpdate = isUpdate
+                    && (m.PublishedStageIds.Count == 0 || m.PublishedStageIds.Contains(s.Id));
                 plan.Stages.Add(new MisionEtapaInsertRow
                 {
                     Id = sid,
@@ -247,7 +347,8 @@ public static class ContentPublishPlanBuilder
                     Descripcion = s.Descripcion ?? "",
                     Recompensas = s.Rewards.ToRaw(),
                     Objetivos = BuildObjetivosField(objFinals),
-                    VariosObj = string.IsNullOrWhiteSpace(s.VariosObj) ? "0" : s.VariosObj,
+                    VariosObj = string.IsNullOrWhiteSpace(s.VariosObj) ? "" : s.VariosObj.Trim(),
+                    IsUpdate = stageIsUpdate,
                 });
             }
 
@@ -262,11 +363,26 @@ public static class ContentPublishPlanBuilder
                 PregMisCompletada = BuildPreg(startNpc, ResolveQuestionRef(m.PregCompletadaPreguntaId, plan)),
                 PregMisIncompleta = BuildPreg(startNpc, ResolveQuestionRef(m.PregIncompletaPreguntaId, plan)),
                 PuedeRepetirse = m.PuedeRepetirse,
+                IsUpdate = isUpdate,
             });
+
+            if (isUpdate)
+            {
+                var present = m.Stages.SelectMany(s => s.Objectives).Select(o => o.Id).ToHashSet();
+                foreach (var id in m.PublishedObjectiveIds
+                             .Concat(m.PendingDeletedObjectiveIds)
+                             .Where(id => id > 0)
+                             .Distinct())
+                {
+                    if (present.Contains(id)) continue;
+                    if (!plan.ObjectiveIdsToDelete.Contains(id))
+                        plan.ObjectiveIdsToDelete.Add(id);
+                }
+            }
         }
 
         FillDialogEsPreview(plan, npcs, questions, dialogResolver);
-        ValidatePlan(plan, workspace);
+        ValidatePlan(plan, workspace, itemIdExistsInObjetosModelo, mobIdExistsInMobsModelo);
         return plan;
     }
 
@@ -339,13 +455,15 @@ public static class ContentPublishPlanBuilder
 
     private static void TryAddAssignment(ContentPublishPlan plan, DialogEsSpace space, int id, string text, string label)
     {
+        string prepared;
         try
         {
-            DialogEsLatin1.Validate(text, label);
+            // Latin1 belongs to client/dialog_es scope — never block BD publish.
+            prepared = DialogEsLatin1.Prepare(text, label);
         }
         catch (DialogEsEncodingException ex)
         {
-            plan.Errors.Add(ex.Message);
+            plan.ClientWarnings.Add(ex.Message);
             return;
         }
 
@@ -353,16 +471,108 @@ public static class ContentPublishPlanBuilder
         {
             Space = space,
             Id = id,
-            Text = text,
+            Text = prepared,
         });
     }
 
-    private static void ValidatePlan(ContentPublishPlan plan, ContentDraftWorkspace workspace)
+    private static void ValidatePlan(
+        ContentPublishPlan plan,
+        ContentDraftWorkspace workspace,
+        Func<int, bool>? itemIdExistsInObjetosModelo,
+        Func<int, bool>? mobIdExistsInMobsModelo)
     {
         if (!plan.HasWork)
         {
             plan.Errors.Add("No hay borradores pendientes de publicar (¿ya Publicados BD?).");
             return;
+        }
+
+        // MISSIONS.OBJECTIVES.REMOVE_UNCONFIRMED_MANUAL_TYPE0.3
+        foreach (var o in plan.Objectives)
+        {
+            if (o.Tipo == MissionObjectiveTypes.Manual)
+            {
+                plan.Errors.Add(string.Create(CultureInfo.InvariantCulture,
+                    $"Objetivo {o.Id}: {MissionObjectiveUiSync.UnsupportedManualMessage}"));
+            }
+        }
+
+        // MISSIONS.OBJECTIVES.ITEM_ID_DIRECT_INPUT.1 — tipo 2/3 Item ID vs objetos_modelo.
+        foreach (var o in plan.Objectives)
+        {
+            if (o.Tipo is not (MissionObjectiveTypes.ShowItemToNpc or MissionObjectiveTypes.DeliverItemsToNpc))
+                continue;
+
+            if (!MissionObjectiveArgsCodec.TryGetShowOrDeliverItemId(o.Args, out var itemId))
+            {
+                plan.Errors.Add(string.Create(CultureInfo.InvariantCulture,
+                    $"Objetivo {o.Id}: Indica un Item ID."));
+                continue;
+            }
+
+            if (itemIdExistsInObjetosModelo is not null && !itemIdExistsInObjetosModelo(itemId))
+            {
+                plan.Errors.Add(string.Create(CultureInfo.InvariantCulture,
+                    $"Objetivo {o.Id}: {ObjetosModeloNameCache.NotFoundMessage} (Item ID {itemId})."));
+            }
+        }
+
+        // MAP_DELETE_AND_MONSTER_ID_INPUT.4 — tipo 6 Monster ID vs mobs_modelo.
+        foreach (var o in plan.Objectives)
+        {
+            if (o.Tipo != MissionObjectiveTypes.DefeatMobs)
+                continue;
+
+            var pairs = MissionObjectiveArgsCodec.ParseDefeatMobPairs(o.Args);
+            if (pairs.Count == 0)
+            {
+                plan.Errors.Add(string.Create(CultureInfo.InvariantCulture,
+                    $"Objetivo {o.Id}: Indica un Monster ID."));
+                continue;
+            }
+
+            foreach (var (mobId, _) in pairs)
+            {
+                if (mobIdExistsInMobsModelo is not null && !mobIdExistsInMobsModelo(mobId))
+                {
+                    plan.Errors.Add(string.Create(CultureInfo.InvariantCulture,
+                        $"Objetivo {o.Id}: {MobsModeloNameCache.NotFoundMessage} (Monster ID {mobId})."));
+                }
+            }
+        }
+
+        // QUICK_DELETE_AND_START_NPC_BINDING.2 — tipo 2/3 require StartNpc.
+        foreach (var draft in workspace.Missions.Missions)
+        {
+            if (!plan.QuestIdMap.ContainsKey(draft.DraftId))
+                continue;
+
+            var bound = draft.Stages.SelectMany(s => s.Objectives)
+                .Where(o => MissionShowDeliverNpcBinding.IsBoundTipo(o.Tipo))
+                .ToList();
+            if (bound.Count == 0)
+                continue;
+
+            var startFinal = ResolveNpcRef(draft.StartNpcId, plan);
+            if (startFinal is not int expectedNpc || expectedNpc <= 0)
+            {
+                plan.Errors.Add(string.Create(CultureInfo.InvariantCulture,
+                    $"Misión '{draft.Nombre}': {MissionShowDeliverNpcBinding.MissingStartNpcMessage}"));
+                continue;
+            }
+
+            foreach (var o in bound)
+            {
+                var planned = plan.Objectives.FirstOrDefault(r => r.ProvisionalId == o.Id);
+                if (planned is null)
+                    continue;
+                if (!MissionObjectiveNpcRemap.TryReadLeadingNpc(planned.Args, out var plannedNpc)
+                    || plannedNpc != expectedNpc)
+                {
+                    plan.Errors.Add(string.Create(CultureInfo.InvariantCulture,
+                        $"Objetivo {planned.Id}: NPC destino ≠ StartNpc {expectedNpc}."));
+                }
+            }
         }
 
         // Structured accion=1 must resolve
@@ -427,6 +637,30 @@ public static class ContentPublishPlanBuilder
             }
         }
 
+        // NPC_ID_SYNC.FIX.7 — planned auto-return args must use definitive StartNpc.
+        foreach (var draft in workspace.Missions.Missions)
+        {
+            if (!plan.QuestIdMap.ContainsKey(draft.DraftId))
+                continue;
+
+            var startFinal = ResolveNpcRef(draft.StartNpcId, plan);
+            if (startFinal is not int expectedNpc || expectedNpc <= 0)
+                continue;
+
+            foreach (var o in draft.Stages.SelectMany(s => s.Objectives).Where(x => x.IsAutoReturnToStartNpc))
+            {
+                var planned = plan.Objectives.FirstOrDefault(r => r.ProvisionalId == o.Id);
+                if (planned is null)
+                    continue;
+                if (!MissionObjectiveNpcRemap.TryReadLeadingNpc(planned.Args, out var plannedNpc)
+                    || plannedNpc != expectedNpc)
+                {
+                    plan.Errors.Add(string.Create(CultureInfo.InvariantCulture,
+                        $"Misión auto-return NPC ≠ StartNpc {expectedNpc}. {QuestsEsAutoReturnCoordsRepair.NpcMismatchMessage}"));
+                }
+            }
+        }
+
         // NPC initial question: if non-zero must exist as reserved or leave as external (>0 without map is OK for existing BD)
         foreach (var n in plan.Npcs)
         {
@@ -439,15 +673,37 @@ public static class ContentPublishPlanBuilder
             _ = isExternalDraftPending;
         }
 
-        // CONT-DIALOG.3 — Simple mode requires an existing dialog text ID (no inventing dialog_es).
+        // CONT-DIALOG.3 — Simple mode: local text must be in dialog_es before BD.
+        // Only NPCs in this publish batch (selection / filter) — others can wait.
         foreach (var draft in workspace.Npcs.Drafts.Where(n => !n.PublishedBd))
         {
+            if (!plan.NpcIdMap.ContainsKey(draft.Id))
+                continue;
             if (draft.DialogMode != NpcDialogMode.Simple) continue;
-            if (draft.Pregunta <= 0)
+            if (draft.IsPendingDialogEs)
             {
-                plan.Errors.Add(draft.IsPendingDialogEs
-                    ? $"NPC {draft.Id}: diálogo simple pendiente de publicación dialog_es."
-                    : $"NPC {draft.Id}: diálogo simple sin texto ni ID existente.");
+                plan.Errors.Add($"NPC {draft.Id}: diálogo simple pendiente de publicación dialog_es.");
+            }
+            else if (draft.Pregunta <= 0)
+            {
+                plan.Errors.Add($"NPC {draft.Id}: diálogo simple sin texto ni ID existente.");
+            }
+        }
+
+        // CONTENT.NPC.SCALEX.OUT_OF_RANGE.FIX.1 — tinyint signed; block before MySQL Out of range.
+        foreach (var n in plan.Npcs)
+        {
+            foreach (var err in NpcsModeloScale.ValidateNpc(n.Id, n.Nombre, n.ScaleX, n.ScaleY))
+                plan.Errors.Add(err);
+        }
+
+        // DIALOGFLOW.3 — duplicate friendly actions / Teleport ↔ GotoQuestion on same response.
+        foreach (var q in workspace.Dialogs.Questions)
+        {
+            foreach (var r in q.Responses)
+            {
+                foreach (var err in DialogResponseActionRules.ValidateResponse(r))
+                    plan.Errors.Add($"{err} (respuesta {r.DraftId}).");
             }
         }
 
@@ -460,15 +716,35 @@ public static class ContentPublishPlanBuilder
                 plan.Errors.Add($"Ubicación apunta a NPC no reservado {loc.Npc}.");
         }
 
-        // Duplicate reserved IDs inside plan
-        if (plan.ReservedNpcIds.Count != plan.ReservedNpcIds.Distinct().Count())
-            plan.Errors.Add("IDs NPC reservados duplicados en el plan.");
-        if (plan.ReservedQuestionIds.Count != plan.ReservedQuestionIds.Distinct().Count())
-            plan.Errors.Add("IDs pregunta reservados duplicados en el plan.");
-        if (plan.ReservedResponseIds.Count != plan.ReservedResponseIds.Distinct().Count())
-            plan.Errors.Add("IDs respuesta reservados duplicados en el plan.");
-        if (plan.ReservedQuestIds.Count != plan.ReservedQuestIds.Distinct().Count())
-            plan.Errors.Add("IDs quest reservados duplicados en el plan.");
+        // Duplicate reserved IDs inside plan (CONTENT.IDS.MAX.1)
+        AddDuplicateIdErrors(plan, plan.ReservedNpcIds, "NPC");
+        AddDuplicateIdErrors(plan, plan.ReservedQuestionIds, "pregunta");
+        AddDuplicateIdErrors(plan, plan.ReservedResponseIds, "respuesta");
+        AddDuplicateIdErrors(plan, plan.ReservedQuestIds, "misión");
+        AddDuplicateIdErrors(plan, plan.ReservedStageIds, "etapa");
+        AddDuplicateIdErrors(plan, plan.ReservedObjectiveIds, "objetivo");
+    }
+
+    /// <summary>
+    /// Diálogo simple never owns quest BD work — leftover HasPendingBdChanges on a
+    /// mission whose StartNpc is Simple must not pollute «Publicar contenido en BD».
+    /// </summary>
+    internal static bool IsStartNpcSimpleDialog(ContentDraftWorkspace workspace, MissionDraft mission)
+    {
+        if (mission.StartNpcId is not int sid || sid <= 0)
+            return false;
+        var npc = workspace.Npcs.FindById(sid);
+        return npc is not null && npc.DialogMode == NpcDialogMode.Simple;
+    }
+
+    private static void AddDuplicateIdErrors(ContentPublishPlan plan, IReadOnlyList<int> ids, string kind)
+    {
+        var seen = new HashSet<int>();
+        foreach (var id in ids)
+        {
+            if (!seen.Add(id))
+                plan.Errors.Add(ContentIdReservation.FormatDuplicateError(kind, id));
+        }
     }
 
     private static int ResolveNpcPregunta(int pregunta, ContentPublishPlan plan)

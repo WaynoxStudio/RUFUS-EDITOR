@@ -94,6 +94,106 @@ internal static class LangMapsMutator
         return ms.ToArray();
     }
 
+    /// <summary>
+    /// Replaces all MA.m[mapId] blocks with the given (sa,ep) variants at the same (x,y).
+    /// Used for intentional dual-layer entries (e.g. sa=30/ep=2 + sa=612/ep=18).
+    /// </summary>
+    public static byte[] ReplaceVariants(
+        LangMapsParsed parsed,
+        int mapId,
+        int x,
+        int y,
+        IReadOnlyList<(int SubArea, int Ep)> variants,
+        int newVersion,
+        out bool inserted,
+        out bool updated)
+    {
+        ArgumentNullException.ThrowIfNull(parsed);
+        ArgumentNullException.ThrowIfNull(variants);
+        if (variants.Count == 0)
+            throw new InvalidOperationException($"MA.m[{mapId}]: no hay variantes sa/ep que escribir.");
+
+        var seen = new HashSet<(int, int)>();
+        foreach (var (sa, ep) in variants)
+        {
+            if (!seen.Add((sa, ep)))
+                throw new InvalidOperationException(
+                    $"MA.m[{mapId}]: variante sa={sa} ep={ep} duplicada.");
+        }
+
+        inserted = false;
+        updated = false;
+        var data = (byte[])parsed.ActionData.Clone();
+        BitConverter.TryWriteBytes(data.AsSpan(parsed.VersionIntOffset, 4), newVersion);
+
+        var matches = parsed.Entries.Where(e => e.MapId == mapId).OrderByDescending(e => e.ActionStart).ToList();
+        if (matches.Count > 0)
+        {
+            foreach (var old in matches)
+                data = RemoveRange(data, old.ActionStart, old.ActionEnd);
+            updated = true;
+        }
+        else
+        {
+            inserted = true;
+        }
+
+        // After removals, FILE_END push offset shifts; recompute from remaining length delta.
+        var removedBytes = matches.Sum(m => m.ActionEnd - m.ActionStart);
+        var insertAt = parsed.FileEndPushOffset - removedBytes;
+        if (insertAt < 0 || insertAt > data.Length)
+            throw new InvalidOperationException($"MA.m[{mapId}]: offset FILE_END inválido tras quitar variantes.");
+
+        using var ms = new MemoryStream();
+        foreach (var (sa, ep) in variants)
+        {
+            var block = BuildNewEntryBlock(
+                parsed.IdxMa, parsed.IdxM, parsed.IdxX, parsed.IdxY, parsed.IdxSa, parsed.IdxEp,
+                mapId, x, y, sa, ep);
+            ms.Write(block);
+        }
+
+        var blocks = ms.ToArray();
+        var newData = new byte[data.Length + blocks.Length];
+        Buffer.BlockCopy(data, 0, newData, 0, insertAt);
+        Buffer.BlockCopy(blocks, 0, newData, insertAt, blocks.Length);
+        Buffer.BlockCopy(data, insertAt, newData, insertAt + blocks.Length, data.Length - insertAt);
+        return newData;
+    }
+
+    /// <summary>
+    /// Removes all MA.m[mapId] action blocks for the given ids and writes <paramref name="newVersion"/> into VERSION.
+    /// </summary>
+    public static byte[] RemoveMapIds(
+        LangMapsParsed parsed,
+        IReadOnlyList<int> mapIds,
+        int newVersion,
+        out int removedCount)
+    {
+        ArgumentNullException.ThrowIfNull(parsed);
+        ArgumentNullException.ThrowIfNull(mapIds);
+        var wanted = mapIds.Where(id => id > 0).ToHashSet();
+        if (wanted.Count == 0)
+            throw new InvalidOperationException("No hay MapId válidos que eliminar.");
+
+        var data = (byte[])parsed.ActionData.Clone();
+        BitConverter.TryWriteBytes(data.AsSpan(parsed.VersionIntOffset, 4), newVersion);
+
+        var toRemove = parsed.Entries
+            .Where(e => wanted.Contains(e.MapId))
+            .OrderByDescending(e => e.ActionStart)
+            .ToList();
+        if (toRemove.Count == 0)
+            throw new InvalidOperationException(
+                "Ningún MA.m[" + string.Join(",", wanted.OrderBy(x => x)) + "] encontrado en el SWF.");
+
+        foreach (var entry in toRemove)
+            data = RemoveRange(data, entry.ActionStart, entry.ActionEnd);
+
+        removedCount = toRemove.Count;
+        return data;
+    }
+
     private static byte[] RemoveRange(byte[] data, int start, int end)
     {
         if (start < 0 || end > data.Length || end < start)

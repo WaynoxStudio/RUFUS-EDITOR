@@ -13,6 +13,12 @@ public static class AiBackendErrorCodes
     public const string InvalidAction = "INVALID_ACTION";
     public const string OpenAiError = "OPENAI_ERROR";
     public const string OpenAiTimeout = "OPENAI_TIMEOUT";
+    public const string OpenAiAuthError = "OPENAI_AUTH_ERROR";
+    public const string OpenAiRateLimit = "OPENAI_RATE_LIMIT";
+    public const string OpenAiBadRequest = "OPENAI_BAD_REQUEST";
+    public const string OpenAiConnectionError = "OPENAI_CONNECTION_ERROR";
+    public const string OpenAiResponseInvalid = "OPENAI_RESPONSE_INVALID";
+    public const string OpenAiClientError = "OPENAI_CLIENT_ERROR";
     public const string InvalidAiResponse = "INVALID_AI_RESPONSE";
     public const string InternalError = "INTERNAL_ERROR";
 }

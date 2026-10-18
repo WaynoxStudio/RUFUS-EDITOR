@@ -23,7 +23,15 @@ public static class NpcClientActionsUi
         return n.Count == 1 && n[0] == NpcEsClientActions.Talk;
     }
 
-    /// <summary>Ventas / ObjetoCompra visible for any selection other than exclusively Hablar.</summary>
-    public static bool ShowCommerceFields(IEnumerable<int>? ids) =>
-        !IsTalkOnlySelection(ids);
+    /// <summary>
+    /// Ventas / ObjetoCompra: ocultos si no hay acciones o solo Hablar.
+    /// No hay mapeo por acción a Ventas vs ObjetoCompra en el editor; ambos van juntos.
+    /// </summary>
+    public static bool ShowCommerceFields(IEnumerable<int>? ids)
+    {
+        var n = NpcEsClientActions.Normalize(ids);
+        if (n.Count == 0)
+            return false;
+        return !IsTalkOnlySelection(n);
+    }
 }

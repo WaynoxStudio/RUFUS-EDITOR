@@ -130,7 +130,7 @@ public sealed class AiIdentityAssistantSimplifiedTests
 
         Assert.True(result.Success, result.ErrorMessage);
         Assert.Equal("", result.OutboundRequest!.CreativeRequest.Role);
-        Assert.Contains("3 respuestas", result.OutboundRequest.Prompt.Task, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("1 respuesta", result.OutboundRequest.Prompt.Task, StringComparison.OrdinalIgnoreCase);
     }
 
     private static AiCreativeRequest SimplifiedBuild(

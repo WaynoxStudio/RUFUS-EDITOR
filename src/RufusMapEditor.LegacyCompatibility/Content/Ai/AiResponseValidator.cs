@@ -107,6 +107,18 @@ public static class AiResponseValidator
             return Fail(action,
                 $"Apertura NPC supera {AiResponseLimits.MaxDialogueLength} caracteres.",
                 rawJson);
+        if (string.IsNullOrWhiteSpace(c.TextoIncompleta))
+            return Fail(action, "Texto de misión incompleta vacío.", rawJson);
+        if (c.TextoIncompleta.Trim().Length > AiResponseLimits.MaxDialogueLength)
+            return Fail(action,
+                $"Texto incompleta supera {AiResponseLimits.MaxDialogueLength} caracteres.",
+                rawJson);
+        if (string.IsNullOrWhiteSpace(c.TextoCompletada))
+            return Fail(action, "Texto de misión completada vacío.", rawJson);
+        if (c.TextoCompletada.Trim().Length > AiResponseLimits.MaxDialogueLength)
+            return Fail(action,
+                $"Texto completada supera {AiResponseLimits.MaxDialogueLength} caracteres.",
+                rawJson);
         if (c.RespuestasJugador is null)
             return Fail(action, "Falta «respuestasJugador».", rawJson);
         if (c.RespuestasJugador.Count != AiResponseLimits.ExactPlayerReplyCount)

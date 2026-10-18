@@ -31,13 +31,13 @@
   <SolidColorBrush x:Key="BrandBarBackground" Color="#FF1A1A1A"/>
   <SolidColorBrush x:Key="Border" Color="#FFC4BAA0"/>
   <SolidColorBrush x:Key="Divider" Color="#FFD5CCB5"/>
-  <SolidColorBrush x:Key="TextPrimary" Color="#FF2C2416"/>
-  <SolidColorBrush x:Key="TextSecondary" Color="#FF5C4F3A"/>
-  <SolidColorBrush x:Key="TextMuted" Color="#FF7A6B55"/>
-  <SolidColorBrush x:Key="TextDisabled" Color="#FF9A8E7A"/>
+  <SolidColorBrush x:Key="TextPrimary" Color="#FF1F1A12"/>
+  <SolidColorBrush x:Key="TextSecondary" Color="#FF3D3428"/>
+  <SolidColorBrush x:Key="TextMuted" Color="#FF5C4F3A"/>
+  <SolidColorBrush x:Key="TextDisabled" Color="#FF8A7C66"/>
   <SolidColorBrush x:Key="ShellForeground" Color="#FFF3F3F3"/>
   <SolidColorBrush x:Key="HeaderForeground" Color="#FFFFFFFF"/>
-  <SolidColorBrush x:Key="InputForeground" Color="#FF333333"/>
+  <SolidColorBrush x:Key="InputForeground" Color="#FF1F1A12"/>
   <SolidColorBrush x:Key="SecondaryButtonBackground" Color="#FFD5CCB5"/>
   <SolidColorBrush x:Key="OverlayPaintTargetFill" Color="#66FF1493"/>
   <SolidColorBrush x:Key="OverlayPaintTargetStroke" Color="#FFFF1493"/>
@@ -87,9 +87,9 @@
   <SolidColorBrush x:Key="MapBoundaryBrush" Color="#FFF39C12"/>
   <SolidColorBrush x:Key="InspectorCardBackground" Color="#FFE6E0C8"/>
   <SolidColorBrush x:Key="DialogHeaderBackground" Color="#FF8B7355"/>
-  <SolidColorBrush x:Key="HeaderOnBrownSubtle" Color="#FFE8DFD0"/>
+  <SolidColorBrush x:Key="HeaderOnBrownSubtle" Color="#FFF5F0E6"/>
   <SolidColorBrush x:Key="ChromeForeground" Color="#FFF3F3F3"/>
-  <SolidColorBrush x:Key="ChromeForegroundMuted" Color="#FFCCCCCC"/>
+  <SolidColorBrush x:Key="ChromeForegroundMuted" Color="#FFE0D8C8"/>
   <SolidColorBrush x:Key="PanelCardBackground" Color="#FFE6E0C8"/>
   <SolidColorBrush x:Key="ViewportFrameBorder" Color="#FFC4BAA0"/>
   <SolidColorBrush x:Key="LogConsoleBackground" Color="#FF1A1A1A"/>

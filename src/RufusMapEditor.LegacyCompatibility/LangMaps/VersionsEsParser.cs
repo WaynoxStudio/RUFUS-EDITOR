@@ -68,6 +68,10 @@ public static class VersionsEsParser
         @"(?<![A-Za-z0-9_])dialog\s*,\s*es\s*,\s*(\d+)(?!\d)",
         RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
+    private static readonly Regex QuestsEsToken = new(
+        @"(?<![A-Za-z0-9_])quests\s*,\s*es\s*,\s*(\d+)(?!\d)",
+        RegexOptions.CultureInvariant | RegexOptions.Compiled);
+
     /// <summary>CONT.6A/6B.2 — token activo dialog,es,N (independiente de maps,es).</summary>
     public static bool TryParseDialogVersion(string versionsEsText, out int dialogVersion, out string? error)
     {
@@ -325,9 +329,47 @@ public static class VersionsEsParser
         return true;
     }
 
+    /// <summary>Token activo quests,es,N desde versions_es.txt.</summary>
+    public static bool TryParseQuestsVersion(string versionsEsText, out int questsVersion, out string? error)
+    {
+        questsVersion = 0;
+        error = null;
+        var text = StripBom(versionsEsText);
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            error = "versions_es.txt vacío.";
+            return false;
+        }
+
+        var matches = QuestsEsToken.Matches(text);
+        if (matches.Count > 1)
+        {
+            error = "versions_es.txt contiene más de un token quests,es,N.";
+            return false;
+        }
+
+        if (matches.Count == 0)
+        {
+            error = "Token quests,es,N no encontrado en versions_es.txt.";
+            return false;
+        }
+
+        if (!int.TryParse(matches[0].Groups[1].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out questsVersion)
+            || questsVersion <= 0)
+        {
+            error = "Versión quests,es inválida en versions_es.txt.";
+            return false;
+        }
+
+        return true;
+    }
+
+    public static string BuildQuestsSwfFileName(int questsVersion) =>
+        string.Create(CultureInfo.InvariantCulture, $"quests_es_{questsVersion}.swf");
+
     /// <summary>
-    /// CONT.8 — bump opcional de dialog,es y/o npc,es en una sola pasada.
-    /// Pasa null en la capa que no cambia. Conserva maps/quests/resto.
+    /// CONT.8 — bump opcional de dialog,es / npc,es / quests,es en una sola pasada.
+    /// Pasa null en la capa que no cambia. Conserva maps/resto.
     /// </summary>
     public static bool TryBumpContentClientVersions(
         string versionsEsText,
@@ -336,14 +378,17 @@ public static class VersionsEsParser
         int? npcExpectedCurrent,
         int? npcNewVersion,
         out string updatedText,
-        out string? error)
+        out string? error,
+        int? questsExpectedCurrent = null,
+        int? questsNewVersion = null)
     {
         updatedText = "";
         error = null;
 
         var bumpDialog = dialogExpectedCurrent is int && dialogNewVersion is int;
         var bumpNpc = npcExpectedCurrent is int && npcNewVersion is int;
-        if (!bumpDialog && !bumpNpc)
+        var bumpQuests = questsExpectedCurrent is int && questsNewVersion is int;
+        if (!bumpDialog && !bumpNpc && !bumpQuests)
         {
             error = "Ningún token cliente a actualizar.";
             return false;
@@ -393,6 +438,28 @@ public static class VersionsEsParser
             }
         }
 
+        if (bumpQuests)
+        {
+            if (questsNewVersion != questsExpectedCurrent + 1)
+            {
+                error = $"Bump quests inválido: se espera N+1 ({questsExpectedCurrent + 1}), recibido {questsNewVersion}.";
+                return false;
+            }
+
+            if (!TryParseQuestsVersion(versionsEsText, out var currentQuests, out var parseQuestsErr))
+            {
+                error = parseQuestsErr;
+                return false;
+            }
+
+            if (currentQuests != questsExpectedCurrent)
+            {
+                error =
+                    $"Token quests,es remoto es {currentQuests}, esperado {questsExpectedCurrent}.";
+                return false;
+            }
+        }
+
         var text = StripBom(versionsEsText);
         if (bumpDialog)
         {
@@ -419,6 +486,20 @@ public static class VersionsEsParser
 
             var m = matches[0];
             var replacement = string.Create(CultureInfo.InvariantCulture, $"npc,es,{npcNewVersion}");
+            text = text.Substring(0, m.Index) + replacement + text.Substring(m.Index + m.Length);
+        }
+
+        if (bumpQuests)
+        {
+            var matches = QuestsEsToken.Matches(text);
+            if (matches.Count != 1)
+            {
+                error = "No se puede actualizar quests,es: token ambiguo o ausente.";
+                return false;
+            }
+
+            var m = matches[0];
+            var replacement = string.Create(CultureInfo.InvariantCulture, $"quests,es,{questsNewVersion}");
             text = text.Substring(0, m.Index) + replacement + text.Substring(m.Index + m.Length);
         }
 
@@ -454,6 +535,22 @@ public static class VersionsEsParser
                  && keepN != afterN)
         {
             error = "Post-bump: npc,es fue alterado (no permitido).";
+            return false;
+        }
+
+        if (bumpQuests)
+        {
+            if (!TryParseQuestsVersion(text, out var verifyQ, out var verifyQErr) || verifyQ != questsNewVersion)
+            {
+                error = verifyQErr ?? "Verificación post-bump quests_es fallida.";
+                return false;
+            }
+        }
+        else if (TryParseQuestsVersion(versionsEsText, out var keepQ, out _)
+                 && TryParseQuestsVersion(text, out var afterQ, out _)
+                 && keepQ != afterQ)
+        {
+            error = "Post-bump: quests,es fue alterado (no permitido).";
             return false;
         }
 

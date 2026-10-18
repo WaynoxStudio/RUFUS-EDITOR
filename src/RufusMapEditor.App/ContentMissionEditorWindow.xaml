@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:RufusMapEditor.App.ViewModels"
+        xmlns:conv="clr-namespace:RufusMapEditor.App.Converters"
         Title="Contenido · Misiones"
         Width="1120" Height="720"
         MinWidth="920" MinHeight="580"
@@ -10,6 +11,7 @@
         Foreground="{DynamicResource TextPrimary}"
         FontFamily="{DynamicResource AppFontFamily}">
   <Window.Resources>
+    <conv:MissionQuestionLabelConverter x:Key="MissionQuestionLabelConverter"/>
     <BooleanToVisibilityConverter x:Key="BoolToVis"/>
     <Style x:Key="SectionHeader" TargetType="TextBlock">
       <Setter Property="FontWeight" Value="SemiBold"/>
@@ -20,6 +22,21 @@
       <Setter Property="VerticalAlignment" Value="Center"/>
       <Setter Property="Foreground" Value="{DynamicResource TextSecondary}"/>
     </Style>
+    <DataTemplate x:Key="StageRewardItemRowTemplate">
+      <DockPanel Margin="0,0,0,6" LastChildFill="False">
+        <Button DockPanel.Dock="Right" Content="X" Padding="8,3" MinWidth="28"
+                VerticalAlignment="Center" ToolTip="Quitar fila"
+                Click="RewardRemove_Click" Tag="{Binding}"/>
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+          <TextBlock Text="Item ID" VerticalAlignment="Center" Margin="0,0,6,0"/>
+          <TextBox Width="80" Text="{Binding ItemIdText, UpdateSourceTrigger=PropertyChanged}"
+                   TextChanged="RewardItemId_Changed" FontFamily="Consolas" Margin="0,0,12,0"/>
+          <TextBlock Text="Cantidad" VerticalAlignment="Center" Margin="0,0,6,0"/>
+          <TextBox Width="48" Text="{Binding Cantidad, UpdateSourceTrigger=PropertyChanged}"
+                   TextChanged="RewardQty_Changed"/>
+        </StackPanel>
+      </DockPanel>
+    </DataTemplate>
   </Window.Resources>
 
   <Grid Margin="14">
@@ -30,7 +47,8 @@
     </Grid.RowDefinitions>
 
     <Border Grid.Row="0" Background="{DynamicResource DialogHeaderBackground}" CornerRadius="6"
-            BorderBrush="{DynamicResource Border}" BorderThickness="1" Padding="12,10" Margin="0,0,0,10">
+            BorderBrush="{DynamicResource Border}" BorderThickness="1" Padding="12,10" Margin="0,0,0,10"
+            TextElement.Foreground="{DynamicResource HeaderForeground}">
       <DockPanel>
         <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
           <Button Content="Recargar" Command="{Binding ReloadCommand}" Padding="10,4" Margin="0,0,8,0"/>
@@ -39,8 +57,10 @@
           <Button Content="Cerrar" IsCancel="True" Padding="10,4" Click="Close_Click"/>
         </StackPanel>
         <StackPanel>
-          <TextBlock Text="Contenido → Misiones" FontWeight="SemiBold" FontSize="15"/>
-          <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="{DynamicResource TextSecondary}" TextWrapping="Wrap"/>
+          <TextBlock Text="Contenido → Misiones" FontWeight="SemiBold" FontSize="15"
+                     Foreground="{DynamicResource HeaderForeground}"/>
+          <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="{DynamicResource HeaderOnBrownSubtle}" TextWrapping="Wrap"/>
+          <TextBlock Text="{Binding DbCatalogStatus}" FontSize="11" Foreground="{DynamicResource HeaderOnBrownSubtle}" TextWrapping="Wrap"/>
         </StackPanel>
       </DockPanel>
     </Border>
@@ -59,10 +79,12 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="140"/>
+            <RowDefinition Height="Auto"/>
           </Grid.RowDefinitions>
           <DockPanel Margin="0,0,0,8">
             <Button DockPanel.Dock="Right" Content="+ Nueva misión" Command="{Binding NewMissionCommand}" Padding="10,5"/>
-            <TextBlock Text="Borradores" FontWeight="SemiBold" VerticalAlignment="Center"/>
+            <TextBlock Text="Misiones" FontWeight="SemiBold" VerticalAlignment="Center"/>
           </DockPanel>
           <ListBox Grid.Row="1" ItemsSource="{Binding Items}" SelectedItem="{Binding Selected}" BorderThickness="0" Background="Transparent">
             <ListBox.ItemTemplate>
@@ -78,7 +100,20 @@
               </DataTemplate>
             </ListBox.ItemTemplate>
           </ListBox>
-          <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
+          <TextBlock Grid.Row="2" Text="Misiones BD · solo lectura" FontWeight="SemiBold" FontSize="11"
+                     Foreground="{DynamicResource TextSecondary}" Margin="0,8,0,4"
+                     Visibility="{Binding HasDbMissionCatalog, Converter={StaticResource BoolToVis}}"/>
+          <ListBox Grid.Row="3" ItemsSource="{Binding DbMissionCatalog}" IsEnabled="False" BorderThickness="0"
+                   Background="Transparent" Foreground="{DynamicResource TextMuted}"
+                   Visibility="{Binding HasDbMissionCatalog, Converter={StaticResource BoolToVis}}">
+            <ListBox.ItemTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding DisplayLabel}" FontSize="11"/>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+          <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,8,0,0">
+            <Button Content="Guardar borrador" Command="{Binding SaveDraftCommand}" Padding="10,4" Margin="0,0,8,0"/>
             <Button Content="Duplicar" Command="{Binding DuplicateMissionCommand}" Padding="10,4" Margin="0,0,8,0"/>
             <Button Content="Eliminar" Command="{Binding DeleteMissionCommand}" Padding="10,4"/>
           </StackPanel>
@@ -117,48 +152,97 @@
           <Border Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource Border}"
                   BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,0,10">
             <StackPanel>
-              <TextBlock Text="NPC + PREGUNTAS" Style="{StaticResource SectionHeader}" Margin="0,0,0,6"/>
-              <Grid>
+              <TextBlock Text="DIÁLOGO DE MISIÓN" Style="{StaticResource SectionHeader}" Margin="0,0,0,6"/>
+              <Button Content="Completar diálogos faltantes"
+                      Command="{Binding CompleteMissingDialogRolesCommand}"
+                      Padding="8,4" HorizontalAlignment="Left" Margin="0,0,0,8"
+                      Visibility="{Binding ShowCompleteMissingDialogRoles, Converter={StaticResource BoolToVis}}"/>
+              <Grid Margin="0,0,0,4">
                 <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="160"/><ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="12"/>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="12"/>
+                  <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
-                <Grid.RowDefinitions>
-                  <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-                  <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-                <TextBlock Grid.Row="0" Text="NPC inicial" Style="{StaticResource FieldLabel}"/>
-                <ComboBox Grid.Row="0" Grid.Column="1" ItemsSource="{Binding NpcChoices}"
-                          SelectedItem="{Binding SelectedStartNpc}" Margin="0,0,0,6">
-                  <ComboBox.ItemTemplate>
-                    <DataTemplate>
-                      <TextBlock>
-                        <Run Text="#"/><Run Text="{Binding Id, Mode=OneWay}"/>
-                        <Run Text=" — "/><Run Text="{Binding Nombre, Mode=OneWay}"/>
-                      </TextBlock>
-                    </DataTemplate>
-                  </ComboBox.ItemTemplate>
-                </ComboBox>
-                <TextBlock Grid.Row="1" Text="Pregunta dar misión" Style="{StaticResource FieldLabel}"/>
-                <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding QuestionChoices}"
-                          SelectedItem="{Binding SelectedPregDar}" Margin="0,0,0,6"
-                          DisplayMemberPath="Id"/>
-                <TextBlock Grid.Row="2" Text="Pregunta incompleta" Style="{StaticResource FieldLabel}"/>
-                <ComboBox Grid.Row="2" Grid.Column="1" ItemsSource="{Binding QuestionChoices}"
-                          SelectedItem="{Binding SelectedPregInc}" Margin="0,0,0,6"
-                          DisplayMemberPath="Id"/>
-                <TextBlock Grid.Row="3" Text="Pregunta completada" Style="{StaticResource FieldLabel}"/>
-                <ComboBox Grid.Row="3" Grid.Column="1" ItemsSource="{Binding QuestionChoices}"
-                          SelectedItem="{Binding SelectedPregComp}" Margin="0,0,0,6"
-                          DisplayMemberPath="Id"/>
-                <TextBlock Grid.Row="4" Text="Preview preg*" Style="{StaticResource FieldLabel}"/>
-                <TextBlock Grid.Row="4" Grid.Column="1" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap">
-                  <Run Text="dar="/><Run Text="{Binding PregDarPreview, Mode=OneWay}"/>
-                  <LineBreak/>
-                  <Run Text="inc="/><Run Text="{Binding PregIncPreview, Mode=OneWay}"/>
-                  <LineBreak/>
-                  <Run Text="comp="/><Run Text="{Binding PregCompPreview, Mode=OneWay}"/>
-                </TextBlock>
+                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                  <TextBlock Text="Al ofrecer misión" Style="{StaticResource FieldLabel}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                  <Border Background="{DynamicResource ElevatedSurface}" BorderBrush="{DynamicResource Border}"
+                          BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding PregDarRoleDisplay, Mode=OneWay}">
+                      <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                          <Setter Property="FontFamily" Value="Consolas"/>
+                          <Setter Property="FontSize" Value="11"/>
+                          <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding HasPregDarRole}" Value="False">
+                              <Setter Property="FontFamily" Value="Segoe UI"/>
+                              <Setter Property="FontStyle" Value="Italic"/>
+                              <Setter Property="Foreground" Value="{DynamicResource TextMuted}"/>
+                            </DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </TextBlock.Style>
+                    </TextBlock>
+                  </Border>
+                </StackPanel>
+                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                  <TextBlock Text="Misión incompleta" Style="{StaticResource FieldLabel}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                  <Border Background="{DynamicResource ElevatedSurface}" BorderBrush="{DynamicResource Border}"
+                          BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding PregIncRoleDisplay, Mode=OneWay}">
+                      <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                          <Setter Property="FontFamily" Value="Consolas"/>
+                          <Setter Property="FontSize" Value="11"/>
+                          <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding HasPregIncRole}" Value="False">
+                              <Setter Property="FontFamily" Value="Segoe UI"/>
+                              <Setter Property="FontStyle" Value="Italic"/>
+                              <Setter Property="Foreground" Value="{DynamicResource TextMuted}"/>
+                            </DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </TextBlock.Style>
+                    </TextBlock>
+                  </Border>
+                </StackPanel>
+                <StackPanel Grid.Column="4" Orientation="Horizontal">
+                  <TextBlock Text="Misión completada" Style="{StaticResource FieldLabel}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                  <Border Background="{DynamicResource ElevatedSurface}" BorderBrush="{DynamicResource Border}"
+                          BorderThickness="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding PregCompRoleDisplay, Mode=OneWay}">
+                      <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                          <Setter Property="FontFamily" Value="Consolas"/>
+                          <Setter Property="FontSize" Value="11"/>
+                          <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding HasPregCompRole}" Value="False">
+                              <Setter Property="FontFamily" Value="Segoe UI"/>
+                              <Setter Property="FontStyle" Value="Italic"/>
+                              <Setter Property="Foreground" Value="{DynamicResource TextMuted}"/>
+                            </DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </TextBlock.Style>
+                    </TextBlock>
+                  </Border>
+                </StackPanel>
               </Grid>
+              <Expander Header="Detalles técnicos" Margin="0,8,0,0" IsExpanded="False">
+                <StackPanel Margin="0,6,0,0">
+                  <TextBlock FontFamily="Consolas" FontSize="11" Foreground="{DynamicResource TextMuted}">
+                    <Run Text="{Binding PregDarPreview, Mode=OneWay}"/>
+                    <LineBreak/>
+                    <Run Text="{Binding PregIncPreview, Mode=OneWay}"/>
+                    <LineBreak/>
+                    <Run Text="{Binding PregCompPreview, Mode=OneWay}"/>
+                  </TextBlock>
+                </StackPanel>
+              </Expander>
             </StackPanel>
           </Border>
 
@@ -175,8 +259,10 @@
                   <DataTemplate DataType="{x:Type vm:MissionFlowNodeVm}">
                     <StackPanel HorizontalAlignment="Left" Margin="0,0,0,4">
                       <Border BorderBrush="{DynamicResource BrandAccent}" BorderThickness="1" CornerRadius="6"
-                              Padding="12,6" Background="{DynamicResource DialogHeaderBackground}">
-                        <TextBlock Text="{Binding Label}" FontWeight="SemiBold"/>
+                              Padding="12,6" Background="{DynamicResource DialogHeaderBackground}"
+                              TextElement.Foreground="{DynamicResource HeaderForeground}">
+                        <TextBlock Text="{Binding Label}" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource HeaderForeground}"/>
                       </Border>
                       <TextBlock Text="↓" HorizontalAlignment="Center" Foreground="{DynamicResource TextMuted}"/>
                     </StackPanel>
@@ -215,7 +301,6 @@
                   </Grid.ColumnDefinitions>
                   <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
                   </Grid.RowDefinitions>
                   <TextBlock Grid.Row="0" Text="ID provisional" Style="{StaticResource FieldLabel}"/>
                   <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding SelectedStage.Id, Mode=OneWay}" IsReadOnly="True"
@@ -225,10 +310,7 @@
                            TextChanged="Field_Changed" Margin="0,0,0,6"/>
                   <TextBlock Grid.Row="2" Text="Descripción" Style="{StaticResource FieldLabel}"/>
                   <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding SelectedStage.Descripcion, UpdateSourceTrigger=PropertyChanged}"
-                           TextChanged="Field_Changed" AcceptsReturn="True" Height="56" TextWrapping="Wrap" Margin="0,0,0,6"/>
-                  <TextBlock Grid.Row="3" Text="variosobj" Style="{StaticResource FieldLabel}"/>
-                  <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding SelectedStage.VariosObj, UpdateSourceTrigger=PropertyChanged}"
-                           TextChanged="Field_Changed" FontFamily="Consolas"/>
+                           TextChanged="Field_Changed" AcceptsReturn="True" Height="56" TextWrapping="Wrap"/>
                 </Grid>
 
                 <TextBlock Text="RECOMPENSAS" Style="{StaticResource SectionHeader}"/>
@@ -247,24 +329,17 @@
                            TextChanged="Rewards_Changed" FontFamily="Consolas"/>
                 </Grid>
                 <DockPanel Margin="0,0,0,4">
-                  <Button DockPanel.Dock="Right" Content="+ Objeto" Command="{Binding AddRewardItemCommand}" Padding="8,3"/>
                   <Button DockPanel.Dock="Right" Content="Buscar objeto" Command="{Binding PickRewardItemCommand}"
-                          Padding="8,3" Margin="0,0,6,0"/>
+                          Padding="8,3"/>
                   <TextBlock Text="Objetos (item,cantidad)" VerticalAlignment="Center"/>
                 </DockPanel>
                 <TextBlock Text="{Binding ItemsCatalogStatus}" FontSize="11" Margin="0,0,0,4"
                            Foreground="{DynamicResource TextMuted}" TextWrapping="Wrap"/>
-                <ListBox ItemsSource="{Binding RewardItems}" SelectedItem="{Binding SelectedRewardItem}" Height="70" Margin="0,0,0,4">
-                  <ListBox.ItemTemplate>
-                    <DataTemplate>
-                      <StackPanel Orientation="Horizontal">
-                        <TextBox Width="70" Text="{Binding ItemId, UpdateSourceTrigger=LostFocus}" Margin="0,0,6,0"/>
-                        <TextBox Width="50" Text="{Binding Cantidad, UpdateSourceTrigger=LostFocus}"/>
-                      </StackPanel>
-                    </DataTemplate>
-                  </ListBox.ItemTemplate>
-                </ListBox>
-                <Button Content="Quitar objeto" Command="{Binding RemoveRewardItemCommand}" Padding="8,3" HorizontalAlignment="Left" Margin="0,0,0,6"/>
+                <ItemsControl ItemsSource="{Binding RewardItemRows}" Margin="0,0,0,4"
+                              ItemTemplate="{StaticResource StageRewardItemRowTemplate}"/>
+                <Button Content="+" Command="{Binding AddManualRewardItemCommand}"
+                        Padding="10,3" MinWidth="32" HorizontalAlignment="Center"
+                        Margin="0,0,0,6" ToolTip="Nueva fila de objeto"/>
                 <Expander Header="Recompensas avanzadas" IsExpanded="{Binding AdvancedRewards}">
                   <Grid Margin="0,8,0,0">
                     <Grid.ColumnDefinitions>
@@ -305,8 +380,7 @@
                   <TextBlock Text="NPC" VerticalAlignment="Center" Margin="0,0,4,0"/>
                   <TextBox Width="60" Text="{Binding DeliverNpcId, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,8,0"/>
                   <TextBlock Text="Item" VerticalAlignment="Center" Margin="0,0,4,0"/>
-                  <TextBox Width="60" Text="{Binding DeliverItemId, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,4,0"/>
-                  <Button Content="Buscar objeto" Command="{Binding PickDeliverItemCommand}" Padding="6,2" Margin="0,0,8,0"/>
+                  <TextBox Width="60" Text="{Binding DeliverItemId, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,8,0"/>
                   <TextBlock Text="Qty" VerticalAlignment="Center" Margin="0,0,4,0"/>
                   <TextBox Width="40" Text="{Binding DeliverQty, UpdateSourceTrigger=PropertyChanged}"/>
                 </StackPanel>

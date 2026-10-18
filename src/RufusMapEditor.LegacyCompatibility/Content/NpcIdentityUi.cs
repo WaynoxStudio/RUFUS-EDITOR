@@ -26,6 +26,33 @@ public static class NpcIdentityUi
 
     public static (int ScaleX, int ScaleY) ApplyUniformTamaño(int value) => (value, value);
 
-    public static bool TryParseTamaño(string? text, out int value) =>
-        int.TryParse(text?.Trim(), out value);
+    public static bool TryParseTamaño(string? text, out int value)
+        => TryParseTamaño(text, out value, out _);
+
+    /// <summary>
+    /// Parses tamaño. Values &gt; 127 are clamped to 127 (notice set).
+    /// Values below SQL min still fail. In-range values succeed with notice null.
+    /// </summary>
+    public static bool TryParseTamaño(string? text, out int value, out string? noticeOrError)
+    {
+        noticeOrError = null;
+        value = 0;
+        if (!int.TryParse(text?.Trim(), out value))
+        {
+            noticeOrError = "Tamaño inválido.";
+            return false;
+        }
+
+        value = NpcsModeloScale.ClampMax(value, out var clamped);
+        if (value < NpcsModeloScale.SqlMin)
+        {
+            noticeOrError = NpcsModeloScale.ErrorScaleX;
+            return false;
+        }
+
+        if (clamped)
+            noticeOrError = NpcsModeloScale.AutoClampMaxNotice;
+
+        return true;
+    }
 }

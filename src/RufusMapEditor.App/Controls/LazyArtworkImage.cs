@@ -33,7 +33,7 @@ public sealed class LazyArtworkImage : Border
 
     private readonly TextBlock _placeholder = new()
     {
-        Text = "Preview no disponible\nHaz clic para importar imagen",
+        Text = "Vista previa no disponible\nHaz clic para importar imagen",
         FontSize = 9,
         TextWrapping = TextWrapping.Wrap,
         TextAlignment = TextAlignment.Center,
@@ -378,8 +378,8 @@ public sealed class LazyArtworkImage : Border
     private void ShowPlaceholder()
     {
         _placeholder.Text = UseNpcSpritePreview
-            ? "Preview no disponible"
-            : "Preview no disponible\nHaz clic para importar imagen";
+            ? "Vista previa no disponible"
+            : "Vista previa no disponible\nHaz clic para importar imagen";
         Child = _placeholder;
         _image.Source = null;
     }

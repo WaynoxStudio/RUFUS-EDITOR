@@ -29,6 +29,7 @@ public sealed class OpenAiResponsesClient : IOpenAiResponsesClient
         string inputText,
         string schemaName,
         JsonElement schema,
+        TimeSpan timeout,
         CancellationToken cancellationToken)
     {
         if (!_options.IsConfigured)
@@ -36,31 +37,34 @@ public sealed class OpenAiResponsesClient : IOpenAiResponsesClient
                 AiBackendErrorCodes.AiNotConfigured,
                 "OPENAI_API_KEY no configurada.");
 
-        var payload = new JsonObject
-        {
-            ["model"] = model,
-            ["input"] = inputText,
-            ["text"] = new JsonObject
-            {
-                ["format"] = new JsonObject
-                {
-                    ["type"] = "json_schema",
-                    ["name"] = schemaName,
-                    ["strict"] = true,
-                    ["schema"] = JsonNode.Parse(schema.GetRawText())
-                }
-            }
-        };
-
-        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeoutCts.CancelAfter(_options.Timeout);
-
-        using var request = new HttpRequestMessage(HttpMethod.Post, ResponsesEndpoint);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.ApiKey);
-        request.Content = new StringContent(payload.ToJsonString(), Encoding.UTF8, "application/json");
+        if (timeout <= TimeSpan.Zero)
+            timeout = _options.Timeout;
 
         try
         {
+            var payload = new JsonObject
+            {
+                ["model"] = model,
+                ["input"] = inputText,
+                ["text"] = new JsonObject
+                {
+                    ["format"] = new JsonObject
+                    {
+                        ["type"] = "json_schema",
+                        ["name"] = schemaName,
+                        ["strict"] = true,
+                        ["schema"] = JsonNode.Parse(schema.GetRawText())
+                    }
+                }
+            };
+
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(timeout);
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, ResponsesEndpoint);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.ApiKey);
+            request.Content = new StringContent(payload.ToJsonString(), Encoding.UTF8, "application/json");
+
             using var response = await _http
                 .SendAsync(request, HttpCompletionOption.ResponseContentRead, timeoutCts.Token)
                 .ConfigureAwait(false);
@@ -69,22 +73,28 @@ public sealed class OpenAiResponsesClient : IOpenAiResponsesClient
             if (response.StatusCode == HttpStatusCode.Unauthorized
                 || response.StatusCode == HttpStatusCode.Forbidden)
             {
+                LogHttpFailure("OPENAI_AUTH_ERROR", (int)response.StatusCode, body);
                 return OpenAiResponsesCallResult.Fail(
-                    AiBackendErrorCodes.OpenAiError,
+                    AiBackendErrorCodes.OpenAiAuthError,
                     "OpenAI rechazó la autenticación.");
             }
 
             if ((int)response.StatusCode == 429)
             {
+                LogHttpFailure("OPENAI_RATE_LIMIT", 429, body);
                 return OpenAiResponsesCallResult.Fail(
-                    AiBackendErrorCodes.OpenAiError,
+                    AiBackendErrorCodes.OpenAiRateLimit,
                     "OpenAI rate limit.");
             }
 
             if (!response.IsSuccessStatusCode)
             {
+                var code = (int)response.StatusCode is >= 400 and < 500
+                    ? AiBackendErrorCodes.OpenAiBadRequest
+                    : AiBackendErrorCodes.OpenAiError;
+                LogHttpFailure(code, (int)response.StatusCode, body);
                 return OpenAiResponsesCallResult.Fail(
-                    AiBackendErrorCodes.OpenAiError,
+                    code,
                     $"OpenAI HTTP {(int)response.StatusCode}.");
             }
 
@@ -92,19 +102,54 @@ public sealed class OpenAiResponsesClient : IOpenAiResponsesClient
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            AiBackendSafeLog.Error("OpenAI client fase=cancelado");
             return OpenAiResponsesCallResult.Fail(AiBackendErrorCodes.OpenAiTimeout, "Cancelado.");
         }
         catch (OperationCanceledException)
         {
+            AiBackendSafeLog.Error("OpenAI client fase=timeout");
             return OpenAiResponsesCallResult.Fail(AiBackendErrorCodes.OpenAiTimeout, "Timeout OpenAI.");
         }
-        catch (HttpRequestException)
+        catch (HttpRequestException ex)
         {
-            return OpenAiResponsesCallResult.Fail(AiBackendErrorCodes.OpenAiError, "Error de red OpenAI.");
+            AiBackendSafeLog.Error(
+                $"OpenAI client fase=http_request ex={ex.GetType().Name} status={ex.StatusCode?.ToString() ?? "-"} msg={SafeExMsg(ex)}");
+            return OpenAiResponsesCallResult.Fail(
+                AiBackendErrorCodes.OpenAiConnectionError,
+                "Error de red OpenAI.");
         }
-        catch (Exception)
+        catch (IOException ex)
         {
-            return OpenAiResponsesCallResult.Fail(AiBackendErrorCodes.InternalError, "Error interno OpenAI client.");
+            // .NET HttpIOException / HttpProtocolException derive from IOException, not HttpRequestException.
+            AiBackendSafeLog.Error(
+                $"OpenAI client fase=io ex={ex.GetType().Name} msg={SafeExMsg(ex)}");
+            return OpenAiResponsesCallResult.Fail(
+                AiBackendErrorCodes.OpenAiConnectionError,
+                "Error de conexión OpenAI.");
+        }
+        catch (ArgumentException ex)
+        {
+            AiBackendSafeLog.Error(
+                $"OpenAI client fase=auth_header ex={ex.GetType().Name} msg={SafeExMsg(ex)}");
+            return OpenAiResponsesCallResult.Fail(
+                AiBackendErrorCodes.OpenAiAuthError,
+                "Configuración OpenAI inválida.");
+        }
+        catch (JsonException ex)
+        {
+            AiBackendSafeLog.Error(
+                $"OpenAI client fase=schema_json ex={ex.GetType().Name} msg={SafeExMsg(ex)}");
+            return OpenAiResponsesCallResult.Fail(
+                AiBackendErrorCodes.OpenAiBadRequest,
+                "Schema OpenAI inválido.");
+        }
+        catch (Exception ex)
+        {
+            AiBackendSafeLog.Error(
+                $"OpenAI client fase=unexpected ex={ex.GetType().Name} inner={ex.InnerException?.GetType().Name ?? "-"} msg={SafeExMsg(ex)}");
+            return OpenAiResponsesCallResult.Fail(
+                AiBackendErrorCodes.OpenAiClientError,
+                "Error interno OpenAI client.");
         }
     }
 
@@ -135,28 +180,73 @@ public sealed class OpenAiResponsesClient : IOpenAiResponsesClient
 
             if (!TryExtractOutputText(root, out var text) || string.IsNullOrWhiteSpace(text))
             {
+                AiBackendSafeLog.Error(
+                    $"OpenAI client fase=parse_output outChars={body.Length} missing_structured_text");
                 return OpenAiResponsesCallResult.Fail(
-                    AiBackendErrorCodes.InvalidAiResponse,
+                    AiBackendErrorCodes.OpenAiResponseInvalid,
                     "Respuesta OpenAI incompleta o sin texto estructurado.");
             }
 
-            // Ensure it is JSON object text (structured output).
             using var probe = JsonDocument.Parse(text);
             if (probe.RootElement.ValueKind != JsonValueKind.Object)
             {
                 return OpenAiResponsesCallResult.Fail(
-                    AiBackendErrorCodes.InvalidAiResponse,
+                    AiBackendErrorCodes.OpenAiResponseInvalid,
                     "Structured Output inesperado (no es objeto JSON).");
             }
 
             return OpenAiResponsesCallResult.Ok(text, model, inTok, outTok);
         }
-        catch (JsonException)
+        catch (JsonException ex)
         {
+            AiBackendSafeLog.Error(
+                $"OpenAI client fase=parse_json ex={ex.GetType().Name} outChars={body.Length}");
             return OpenAiResponsesCallResult.Fail(
-                AiBackendErrorCodes.InvalidAiResponse,
+                AiBackendErrorCodes.OpenAiResponseInvalid,
                 "JSON OpenAI ilegible.");
         }
+    }
+
+    private static void LogHttpFailure(string code, int status, string body)
+    {
+        var openAiCode = TryExtractOpenAiErrorCode(body);
+        AiBackendSafeLog.Error(
+            $"OpenAI client fase=http_status code={code} http={status} " +
+            $"openaiCode={openAiCode ?? "-"} bodyChars={body?.Length ?? 0}");
+    }
+
+    private static string? TryExtractOpenAiErrorCode(string? body)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+            return null;
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            if (doc.RootElement.TryGetProperty("error", out var err)
+                && err.ValueKind == JsonValueKind.Object
+                && err.TryGetProperty("code", out var code)
+                && code.ValueKind == JsonValueKind.String)
+            {
+                var value = code.GetString();
+                if (string.IsNullOrWhiteSpace(value))
+                    return null;
+                return value.Length > 64 ? value[..64] : value;
+            }
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+
+        return null;
+    }
+
+    private static string SafeExMsg(Exception ex)
+    {
+        var msg = AiBackendSafeLog.Sanitize(ex.Message);
+        if (msg.Length > 160)
+            msg = msg[..160];
+        return msg;
     }
 
     private static bool TryExtractOutputText(JsonElement root, out string? text)

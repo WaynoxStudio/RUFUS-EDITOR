@@ -10,8 +10,9 @@ public static class DialogEsSeed
     {
         if (version <= 0) throw new ArgumentOutOfRangeException(nameof(version));
         var additions = seed?.ToList() ?? new List<DialogEsAssignment>();
-        foreach (var a in additions)
-            DialogEsLatin1.Validate(a.Text);
+        var prepared = additions
+            .Select(a => (Add: a, Text: DialogEsLatin1.Prepare(a.Text)))
+            .ToList();
 
         var pool = new List<string> { "VERSION", "D", "q", "a" };
         using var body = new MemoryStream();
@@ -43,7 +44,7 @@ public static class DialogEsSeed
         body.WriteByte(Avm1Opcode.InitObject);
         body.WriteByte(Avm1Opcode.SetMember);
 
-        foreach (var add in additions)
+        foreach (var (add, text) in prepared)
         {
             var member = add.Space == DialogEsSpace.Question ? 2 : 3;
             body.Write(Avm1Bytecode.EncodePush(new[] { Avm1PushItem.Constant(1) }));
@@ -53,7 +54,7 @@ public static class DialogEsSeed
             body.Write(Avm1Bytecode.EncodePush(new[]
             {
                 Avm1PushItem.Integer(add.Id),
-                Avm1PushItem.StringLiteral(add.Text),
+                Avm1PushItem.StringLiteral(text),
             }));
             body.WriteByte(Avm1Opcode.SetMember);
         }
@@ -89,7 +90,7 @@ public static class DialogEsSeed
         payload.Write(BitConverter.GetBytes((ushort)pool.Count));
         foreach (var s in pool)
         {
-            var bytes = Encoding.Latin1.GetBytes(s);
+            var bytes = Avm1Bytecode.SwfStringEncoding.GetBytes(s);
             payload.Write(bytes);
             payload.WriteByte(0);
         }

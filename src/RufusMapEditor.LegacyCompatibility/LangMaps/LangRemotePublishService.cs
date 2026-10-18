@@ -26,6 +26,8 @@ public sealed class LangRemoteBatchPublishRequest
     public required LangSftpSettings Settings { get; init; }
     public required string PlainPassword { get; init; }
     public required IReadOnlyList<LangMapsBatchEntry> Entries { get; init; }
+    /// <summary>Optional MapIds stripped in the same N→N+1 generation (missing ids ignored).</summary>
+    public IReadOnlyList<int>? RemoveMapIds { get; init; }
     public Func<LangSftpSettings, string, ILangSftpPublishClient>? ClientFactory { get; init; }
     public string? WorkDirectory { get; init; }
     public string? BackupDirectory { get; init; }
@@ -221,6 +223,7 @@ public static class LangRemotePublishService
                 SourceSwfPath = cachedSource,
                 OutputDirectory = genDir,
                 Entries = request.Entries,
+                RemoveMapIds = request.RemoveMapIds,
             });
             if (!gen.Success || string.IsNullOrWhiteSpace(gen.OutputPath) || !File.Exists(gen.OutputPath))
                 return Fail(state, log, Err, gen.Error ?? "Fallo al generar SWF N+1 del lote.", client);
@@ -229,7 +232,7 @@ public static class LangRemotePublishService
             if (gen.TargetVersion != n + 1)
                 return Fail(state, log, Err, $"VERSION generada {gen.TargetVersion} != {n + 1}.", client);
 
-            // 4. VALIDACION LOCAL (cada mapa)
+            // 4. VALIDACION LOCAL (cada mapa / variante)
             foreach (var entry in request.Entries)
             {
                 var valErr = LangMapsSwfService.ValidateGenerated(
@@ -242,6 +245,16 @@ public static class LangRemotePublishService
                     entry.Ep);
                 if (valErr is not null)
                     return Fail(state, log, Err, valErr, client);
+            }
+
+            if (request.RemoveMapIds is { Count: > 0 })
+            {
+                var after = LangMapsSwfService.Inspect(state.LocalGeneratedSwfPath!);
+                foreach (var id in request.RemoveMapIds.Where(x => x > 0).Distinct())
+                {
+                    if (after.Entries.Any(e => e.MapId == id))
+                        return Fail(state, log, Err, $"Validación: MA.m[{id}] sigue presente tras eliminar.", client);
+                }
             }
 
             var localBytes = File.ReadAllBytes(state.LocalGeneratedSwfPath!);

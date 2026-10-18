@@ -27,6 +27,7 @@ public sealed class MultiMapEditService
     private HashSet<string> _editableKeys = new(StringComparer.Ordinal);
     private bool _strokeOpen;
     private string _strokeName = "";
+    private bool _cellModeErase;
     private string _lastStrokeKey = "";
     private double? _lastStrokeWorldX;
     private double? _lastStrokeWorldY;
@@ -56,6 +57,7 @@ public sealed class MultiMapEditService
     public bool IsRectSelecting => _rectSelecting;
     public (double X0, double Y0, double X1, double Y1) RectSelectBounds => (_rectX0, _rectY0, _rectX1, _rectY1);
     public int ModifiedMapCount => _dirtyDocumentKeys.Count;
+    public IReadOnlyCollection<string> DirtyDocumentKeys => _dirtyDocumentKeys;
     public bool HasClipboard => _clipboard is { Entries.Count: > 0 };
 
     public bool Enter(WorldDocument world, IReadOnlySet<string> selectedKeys)
@@ -76,6 +78,16 @@ public sealed class MultiMapEditService
 
         NotifyState();
         return true;
+    }
+
+    /// <summary>Allows painting on newly added mosaic maps without resetting undo history.</summary>
+    public void EnsureEditable(string documentKey)
+    {
+        if (_world is null || string.IsNullOrEmpty(documentKey)) return;
+        if (!_editableKeys.Add(documentKey)) return;
+        if (_world.Documents.TryGetValue(documentKey, out var entry))
+            _hitTesters[documentKey] = WorldMapHitTest.CreateHitTester(entry.Document);
+        NotifyState();
     }
 
     public bool Exit(bool confirmDiscard = true)
@@ -145,12 +157,26 @@ public sealed class MultiMapEditService
         NotifyState();
     }
 
-    public void BeginStroke(EditorTool tool, PaintLayer layer)
+    public void BeginStroke(EditorTool tool, PaintLayer layer, bool cellModeErase = false)
     {
         EndStrokeInternal();
-        if (tool is not (EditorTool.Paint or EditorTool.Erase)) return;
-        _strokeOpen = true;
-        _strokeName = tool == EditorTool.Paint ? PaintStrokeName(layer) : EraseStrokeName(layer);
+        if (tool is EditorTool.Paint or EditorTool.Erase)
+        {
+            _cellModeErase = false;
+            _strokeOpen = true;
+            _strokeName = tool == EditorTool.Paint ? PaintStrokeName(layer) : EraseStrokeName(layer);
+        }
+        else if (tool.IsCellModeTool())
+        {
+            _cellModeErase = cellModeErase;
+            _strokeOpen = true;
+            _strokeName = cellModeErase ? CellModeEraseStrokeName(tool) : CellModeStrokeName(tool);
+        }
+        else
+        {
+            return;
+        }
+
         _strokeBefore.Clear();
         _lastStrokeKey = "";
         _lastStrokeWorldX = null;
@@ -171,10 +197,15 @@ public sealed class MultiMapEditService
         int? selectedGfxId,
         bool brushFlip,
         int brushRotation,
-        bool mosaicMode)
+        bool mosaicMode,
+        bool eraseOnlySelectedGfx = false,
+        bool paintMarksUnwalkable = false,
+        bool paintSeam = false,
+        bool cellModeErase = false)
     {
         if (!_strokeOpen || _world is null) return;
-        if (tool is not EditorTool.Paint and not EditorTool.Erase) return;
+        if (tool is not EditorTool.Paint and not EditorTool.Erase && !tool.IsCellModeTool())
+            return;
 
         if (_lastStrokeWorldX is null || _lastStrokeWorldY is null)
         {
@@ -184,7 +215,10 @@ public sealed class MultiMapEditService
                 HandleCellClick(
                     new WorldCellRef(h.DocumentKey, h.CellId),
                     tool, paintLayer, selectedGfxId, brushFlip, brushRotation,
-                    isDrag: true, ctrl: false);
+                    isDrag: true, ctrl: false, eraseOnlySelectedGfx: eraseOnlySelectedGfx,
+                    paintMarksUnwalkable: paintMarksUnwalkable,
+                    paintSeam: paintSeam,
+                    cellModeErase: tool.IsCellModeTool() ? cellModeErase : false);
         }
         else
         {
@@ -195,7 +229,10 @@ public sealed class MultiMapEditService
                 HandleCellClick(
                     new WorldCellRef(h.DocumentKey, h.CellId),
                     tool, paintLayer, selectedGfxId, brushFlip, brushRotation,
-                    isDrag: true, ctrl: false);
+                    isDrag: true, ctrl: false, eraseOnlySelectedGfx: eraseOnlySelectedGfx,
+                    paintMarksUnwalkable: paintMarksUnwalkable,
+                    paintSeam: paintSeam,
+                    cellModeErase: tool.IsCellModeTool() ? cellModeErase : false);
             }
         }
 
@@ -219,7 +256,11 @@ public sealed class MultiMapEditService
         int brushRotation,
         bool isDrag,
         bool ctrl,
-        Action<int>? onGfxPicked = null)
+        Action<int>? onGfxPicked = null,
+        bool eraseOnlySelectedGfx = false,
+        bool paintMarksUnwalkable = false,
+        bool paintSeam = false,
+        bool cellModeErase = false)
     {
         if (_world is null || !_editableKeys.Contains(cell.DocumentKey)) return;
         if (GetDocument(cell.DocumentKey) is not MapDocument doc || cell.CellId < 0 || cell.CellId >= doc.Cells.Count) return;
@@ -245,7 +286,13 @@ public sealed class MultiMapEditService
                 if (isDrag && cell.StrokeKey == _lastStrokeKey) return;
                 var layer = paintLayer.ToEditorLayer();
                 var rot = paintLayer == PaintLayer.Object2 ? (int?)null : brushRotation;
-                StrokeMutate(cell, c => MapCellEditor.SetLayerGfx(c, layer, gfxId, brushFlip, rot));
+                var markBlocked = paintMarksUnwalkable;
+                StrokeMutate(cell, c =>
+                {
+                    MapCellEditor.SetLayerGfx(c, layer, gfxId, brushFlip, rot);
+                    if (markBlocked)
+                        MapCellEditor.SetMovement(c, MovementType.Unwalkable);
+                });
                 _lastStrokeKey = cell.StrokeKey;
                 if (!isDrag)
                 {
@@ -253,10 +300,38 @@ public sealed class MultiMapEditService
                     _selection.Add(cell);
                 }
                 ThumbnailInvalidateRequested?.Invoke(cell.DocumentKey);
+
+                if (paintSeam && _library.Catalog is not null)
+                {
+                    var replicas = SeamPaintHelper.FindReplicaCells(
+                        _world, cell.DocumentKey, cell.CellId, gfxId, paintLayer,
+                        brushFlip, brushRotation, _library.Catalog, mosaicMode: true);
+                    foreach (var replica in replicas)
+                    {
+                        if (!_editableKeys.Contains(replica.DocumentKey))
+                            EnsureEditable(replica.DocumentKey);
+                        if (!_editableKeys.Contains(replica.DocumentKey))
+                            continue;
+                        StrokeMutate(replica, c =>
+                        {
+                            MapCellEditor.SetLayerGfx(c, layer, gfxId, brushFlip, rot);
+                            if (markBlocked)
+                                MapCellEditor.SetMovement(c, MovementType.Unwalkable);
+                        });
+                        ThumbnailInvalidateRequested?.Invoke(replica.DocumentKey);
+                    }
+                }
+
                 break;
 
             case EditorTool.Erase:
                 if (isDrag && cell.StrokeKey == _lastStrokeKey) return;
+                if (eraseOnlySelectedGfx)
+                {
+                    if (selectedGfxId is not int matchId) return;
+                    if (GetLayerGfx(doc.Cells[cell.CellId], paintLayer) != matchId) return;
+                }
+
                 var eraseLayer = paintLayer.ToEditorLayer();
                 StrokeMutate(cell, c => MapCellEditor.ClearLayer(c, eraseLayer));
                 _lastStrokeKey = cell.StrokeKey;
@@ -273,6 +348,57 @@ public sealed class MultiMapEditService
                 ApplyEyedropper(cell, paintLayer, onGfxPicked);
                 _selection.Clear();
                 _selection.Add(cell);
+                break;
+
+            case EditorTool.Unwalkable:
+                if (isDrag && cell.StrokeKey == _lastStrokeKey) return;
+                StrokeMutate(cell, c =>
+                {
+                    if (cellModeErase)
+                        MapCellEditor.SetMovement(c, MovementType.Walkable);
+                    else
+                        MapCellEditor.SetMovement(c, MovementType.Unwalkable);
+                });
+                _lastStrokeKey = cell.StrokeKey;
+                if (!isDrag)
+                {
+                    _selection.Clear();
+                    _selection.Add(cell);
+                }
+                break;
+
+            case EditorTool.LineOfSight:
+                if (isDrag && cell.StrokeKey == _lastStrokeKey) return;
+                StrokeMutate(cell, c => MapCellEditor.SetLineOfSight(c, cellModeErase));
+                _lastStrokeKey = cell.StrokeKey;
+                if (!isDrag)
+                {
+                    _selection.Clear();
+                    _selection.Add(cell);
+                }
+                break;
+
+            case EditorTool.FightCell1:
+            case EditorTool.FightCell2:
+                if (isDrag && cell.StrokeKey == _lastStrokeKey) return;
+                StrokeMutate(cell, c =>
+                {
+                    if (cellModeErase)
+                    {
+                        if (c.FightCell is 1 or 2)
+                            MapCellEditor.SetFightCell(c, 0);
+                    }
+                    else if (tool == EditorTool.FightCell1)
+                        MapCellEditor.SetFightCell(c, 1);
+                    else
+                        MapCellEditor.SetFightCell(c, 2);
+                });
+                _lastStrokeKey = cell.StrokeKey;
+                if (!isDrag)
+                {
+                    _selection.Clear();
+                    _selection.Add(cell);
+                }
                 break;
         }
 
@@ -313,6 +439,14 @@ public sealed class MultiMapEditService
     public void ClearSelection()
     {
         _selection.Clear();
+        NotifyState();
+    }
+
+    public void SetSelection(IEnumerable<WorldCellRef> cells)
+    {
+        _selection.Clear();
+        foreach (var cell in cells)
+            _selection.Add(cell);
         NotifyState();
     }
 
@@ -402,6 +536,78 @@ public sealed class MultiMapEditService
             if (changed > 0)
                 ThumbnailInvalidateRequested?.Invoke(key);
         }
+        FinishStroke();
+        return changed;
+    }
+
+    public int CountMatchingGfx(IReadOnlyCollection<string> documentKeys, PaintLayer layer, int gfxId)
+    {
+        if (_world is null || documentKeys.Count == 0 || gfxId <= 0) return 0;
+        var count = 0;
+        foreach (var key in documentKeys)
+        {
+            var doc = GetDocument(key);
+            if (doc is null) continue;
+            foreach (var cell in doc.Cells)
+            {
+                if (GetLayerGfx(cell, layer) == gfxId)
+                    count++;
+            }
+        }
+
+        return count;
+    }
+
+    public List<WorldCellRef> FindMatchingCells(IReadOnlyCollection<string> documentKeys, PaintLayer layer, int gfxId)
+    {
+        var result = new List<WorldCellRef>();
+        if (_world is null || documentKeys.Count == 0 || gfxId <= 0) return result;
+        foreach (var key in documentKeys)
+        {
+            var doc = GetDocument(key);
+            if (doc is null) continue;
+            for (var id = 0; id < doc.Cells.Count; id++)
+            {
+                if (GetLayerGfx(doc.Cells[id], layer) == gfxId)
+                    result.Add(new WorldCellRef(key, id));
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>Batch-mutate every cell with <paramref name="gfxId"/> on <paramref name="layer"/> across maps.</summary>
+    public int MutateMatchingGfx(
+        IReadOnlyCollection<string> documentKeys,
+        PaintLayer layer,
+        int gfxId,
+        string commandName,
+        Action<CellData> mutate)
+    {
+        if (_world is null || documentKeys.Count == 0 || gfxId <= 0) return 0;
+        BeginStroke(EditorTool.Paint, layer);
+        _strokeName = commandName;
+        var changed = 0;
+        foreach (var key in documentKeys)
+        {
+            var doc = GetDocument(key);
+            if (doc is null) continue;
+            var touched = false;
+            for (var id = 0; id < doc.Cells.Count; id++)
+            {
+                if (GetLayerGfx(doc.Cells[id], layer) != gfxId) continue;
+                StrokeMutate(new WorldCellRef(key, id), c =>
+                {
+                    mutate(c);
+                    changed++;
+                });
+                touched = true;
+            }
+
+            if (touched)
+                ThumbnailInvalidateRequested?.Invoke(key);
+        }
+
         FinishStroke();
         return changed;
     }
@@ -582,6 +788,8 @@ public sealed class MultiMapEditService
             return false;
         _strokeOpen = false;
         _lastStrokeKey = "";
+        _lastStrokeWorldX = null;
+        _lastStrokeWorldY = null;
 
         if (_strokeBefore.Count == 0 || _world is null)
         {
@@ -673,6 +881,17 @@ public sealed class MultiMapEditService
         PaintLayer.Object1 => "Borrar Layer 1",
         _ => "Borrar Layer 2",
     };
+
+    private static string CellModeStrokeName(EditorTool tool) => tool switch
+    {
+        EditorTool.Unwalkable => "No transitable",
+        EditorTool.LineOfSight => "Bloquear visión",
+        EditorTool.FightCell1 => "Combate equipo 1",
+        EditorTool.FightCell2 => "Combate equipo 2",
+        _ => "Celda",
+    };
+
+    private static string CellModeEraseStrokeName(EditorTool tool) => $"{CellModeStrokeName(tool)} (quitar)";
 
     private sealed class WorldCellClipboardEntry(CellSnapshot snapshot, double offsetWorldX, double offsetWorldY)
     {

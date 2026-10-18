@@ -13,7 +13,7 @@ namespace RufusMapEditor.App.Services;
 
 /// <summary>
 /// RUFUS library access: discover maps, load MapData + SWF metadata, render.
-/// Discovery: Maps/{id}/ with {id}.rufmap (official) and/or {id}.sql (legacy). Unique MapId.
+/// Discovery: Maps/{id}/ with {id}.rufmap, {id}.sql, or Astria .swf. Unique MapId.
 /// </summary>
 public sealed class AstriaLibraryService : IDisposable
 {
@@ -53,17 +53,28 @@ public sealed class AstriaLibraryService : IDisposable
         if (!Directory.Exists(mapsDir))
             throw new DirectoryNotFoundException($"No se encontró la carpeta Maps en: {rootPath}");
 
+        ApplyCatalog(rootPath, AstriaGfxCatalogBuilder.Build(rootPath).Catalog);
+    }
+
+    /// <summary>
+    /// Swaps the in-memory GFX catalog (e.g. after a background rebuild). Keeps the same library root.
+    /// </summary>
+    public void ApplyCatalog(string rootPath, IGfxCatalog catalog)
+    {
+        ArgumentNullException.ThrowIfNull(catalog);
+        if (string.IsNullOrWhiteSpace(rootPath) || !Directory.Exists(rootPath))
+            throw new DirectoryNotFoundException($"Biblioteca no encontrada: {rootPath}");
+
         _imageCache?.Dispose();
         _imageCache = new CachedBitmapGfxProvider();
-        var built = AstriaGfxCatalogBuilder.Build(rootPath);
-        _catalog = built.Catalog;
+        _catalog = catalog;
         _renderer = new AstriaMapRenderer(_catalog, _imageCache);
         RootPath = rootPath;
     }
 
     /// <summary>
-    /// Discovers map IDs from Maps/{id}/ folders that contain {id}.rufmap and/or {id}.sql.
-    /// Skips staging sidecars (.id.tmp- / .id.old-). Does not treat .png/.txt as map sources.
+    /// Discovers map IDs from Maps/{id}/ folders that contain {id}.rufmap, {id}.sql, or an Astria .swf.
+    /// Folder name is the map id (no SWF-embedded-id aliasing). Skips staging sidecars.
     /// </summary>
     public IReadOnlyList<int> DiscoverMapIds()
     {
@@ -86,6 +97,12 @@ public sealed class AstriaLibraryService : IDisposable
             var rufmap = Path.Combine(dir, $"{id}.rufmap");
             var sql = Path.Combine(dir, $"{id}.sql");
             if (File.Exists(rufmap) || File.Exists(sql))
+            {
+                ids.Add(id);
+                continue;
+            }
+
+            if (FlasmSwfMetadataReader.ResolvePreferredSwf(dir, id) is not null)
                 ids.Add(id);
         }
 
@@ -93,6 +110,11 @@ public sealed class AstriaLibraryService : IDisposable
         list.Sort();
         return list;
     }
+
+    /// <summary>
+    /// Folder id is always canonical. Kept for call-site compatibility.
+    /// </summary>
+    public int ResolveCanonicalMapId(int mapId) => mapId;
 
     public MapDocument LoadMapDocument(int mapId) => LoadMapDocument(mapId, out _);
 
@@ -105,6 +127,8 @@ public sealed class AstriaLibraryService : IDisposable
         var mapFolder = LibraryMapPaths.GetOfficialMapDirectory(RootPath, mapId);
         var rufmapPath = Path.Combine(mapFolder, $"{mapId}.rufmap");
         var sqlPath = Path.Combine(mapFolder, $"{mapId}.sql");
+        var swfPath = FlasmSwfMetadataReader.ResolvePreferredSwf(mapFolder, mapId);
+        var flasm = SwfMapExporter.ResolveFlasmExe(RootPath);
 
         MapDocument map;
         if (File.Exists(rufmapPath))
@@ -120,36 +144,43 @@ public sealed class AstriaLibraryService : IDisposable
             map.Cells = MapDataCodec.DecodeMap(map.MapData).ToList();
             FightPlacesCodec.ApplyToCells(map.Cells, map.FightPlaces);
         }
+        else if (swfPath is not null)
+        {
+            if (string.IsNullOrWhiteSpace(flasm) || !File.Exists(flasm))
+                throw new FileNotFoundException(
+                    $"Mapa {mapId} solo tiene SWF pero no se encontró Flasm/flasm.exe en la biblioteca.");
+
+            swfMeta = FlasmSwfMetadataReader.Read(swfPath, flasm, includeMapData: true);
+            map = FlasmSwfMetadataReader.CreateDocument(swfMeta, fallbackMapId: mapId);
+            map.Id = mapId;
+            FightPlacesCodec.ApplyToCells(map.Cells, map.FightPlaces);
+            return map;
+        }
         else
         {
             throw new FileNotFoundException(
-                $"Mapa {mapId} no encontrado (ni {mapId}.rufmap ni {mapId}.sql) en: {mapFolder}");
+                $"Mapa {mapId} no encontrado (ni {mapId}.rufmap, ni {mapId}.sql, ni .swf) en: {mapFolder}");
         }
 
-        // Prefer explicit official AME SWF; else legacy preferred SWF in folder.
-        var officialSwf = Path.Combine(mapFolder, $"{mapId}_AME.swf");
-        var swf = File.Exists(officialSwf)
-            ? officialSwf
-            : FlasmSwfMetadataReader.ResolvePreferredSwf(mapFolder, mapId);
-        if (swf is not null)
+        // Folder name wins over any id embedded in rufmap/sql/SWF.
+        map.Id = mapId;
+
+        if (swfPath is not null && !string.IsNullOrWhiteSpace(flasm) && File.Exists(flasm))
         {
-            var flasm = Path.Combine(RootPath, "Flasm", "flasm.exe");
-            if (File.Exists(flasm))
+            try
             {
-                try
-                {
-                    swfMeta = FlasmSwfMetadataReader.Read(swf, flasm);
-                    // Only fill missing Outdoor/metadata from SWF when loading legacy SQL.
-                    // Official .rufmap already carries editable state (incl. FightPlaces).
-                    if (!File.Exists(rufmapPath))
-                        FlasmSwfMetadataReader.ApplyToDocument(map, swfMeta);
-                    else if (map.Outdoor is null)
-                        FlasmSwfMetadataReader.ApplyToDocument(map, swfMeta);
-                }
-                catch
-                {
-                    // SWF metadata is optional.
-                }
+                swfMeta = FlasmSwfMetadataReader.Read(swfPath, flasm);
+                // Only fill missing Outdoor/metadata from SWF when loading legacy SQL.
+                // Official .rufmap already carries editable state (incl. FightPlaces).
+                if (!File.Exists(rufmapPath))
+                    FlasmSwfMetadataReader.ApplyToDocument(map, swfMeta);
+                else if (map.Outdoor is null)
+                    FlasmSwfMetadataReader.ApplyToDocument(map, swfMeta);
+                map.Id = mapId;
+            }
+            catch
+            {
+                // SWF metadata is optional when MapData already came from rufmap/sql.
             }
         }
 

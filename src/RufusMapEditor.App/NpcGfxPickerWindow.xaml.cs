@@ -2,7 +2,6 @@ using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Media;
 using System.Windows.Threading;
 using RufusMapEditor.App.Services;
 using RufusMapEditor.LegacyCompatibility.Content;
@@ -12,10 +11,9 @@ namespace RufusMapEditor.App;
 public partial class NpcGfxPickerWindow : Window
 {
     private readonly NpcGfxCatalogService _catalog;
-    private readonly ObservableCollection<NpcGfxPickerPairVm> _visible = new();
+    private readonly ObservableCollection<NpcGfxPickerRowVm> _visible = new();
     private readonly DispatcherTimer _debounce = new() { Interval = TimeSpan.FromMilliseconds(180) };
     private string _query = "";
-    private NpcGfxPickerRowVm? _selected;
     private int? _selectedGfxId;
 
     public int? SelectedGfxId { get; private set; }
@@ -27,8 +25,7 @@ public partial class NpcGfxPickerWindow : Window
         ResultList.ItemsSource = _visible;
         UpdateClipsBanner();
         StatusText.Text = catalog.Status;
-        PreviewNote.Text =
-            "Galería: artworks/big · Preview: sprites/staticR · Solo apariencias confirmadas en npcs_modelo.";
+        PreviewNote.Text = "Galería de apariencias NPC · Solo se muestran apariencias confirmadas.";
         _debounce.Tick += (_, _) =>
         {
             _debounce.Stop();
@@ -71,22 +68,17 @@ public partial class NpcGfxPickerWindow : Window
 
     private void RefreshList()
     {
-        _selectedGfxId = _selected?.GfxId;
+        _selectedGfxId = (ResultList.SelectedItem as NpcGfxPickerRowVm)?.GfxId ?? _selectedGfxId;
         _visible.Clear();
-        _selected = null;
         var hits = _catalog.Search(_query).Select(e => new NpcGfxPickerRowVm(e)).ToList();
-        for (var i = 0; i < hits.Count; i += 2)
-        {
-            _visible.Add(new NpcGfxPickerPairVm(
-                hits[i],
-                i + 1 < hits.Count ? hits[i + 1] : null));
-        }
+        foreach (var row in hits)
+            _visible.Add(row);
 
         if (_selectedGfxId is int gfxId)
         {
             var row = hits.FirstOrDefault(h => h.GfxId == gfxId);
             if (row is not null)
-                SelectRow(row);
+                ResultList.SelectedItem = row;
         }
 
         var total = _catalog.Entries.Count;
@@ -95,41 +87,17 @@ public partial class NpcGfxPickerWindow : Window
             : $"Mostrando {hits.Count} de {total}";
     }
 
-    private void GfxCard_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
-    {
-        if (sender is not FrameworkElement { Tag: NpcGfxPickerRowVm row })
-            return;
-        SelectRow(row);
-        e.Handled = true;
-    }
-
-    private void SelectRow(NpcGfxPickerRowVm row)
-    {
-        _selected = row;
-        _selectedGfxId = row.GfxId;
-        PreviewSpriteImage.GfxId = row.GfxId;
-        PreviewNameText.Text = row.DisplayName;
-        PreviewGfxText.Text = row.GfxIdLabel;
-        PreviewUsageText.Text = row.UsageSummary;
-        foreach (var pair in _visible)
-        {
-            if (ReferenceEquals(pair.Left, row) || ReferenceEquals(pair.Right, row))
-            {
-                ResultList.SelectedItem = pair;
-                break;
-            }
-        }
-    }
-
     private void ResultList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (ResultList.SelectedItem is NpcGfxPickerRowVm row)
+            _selectedGfxId = row.GfxId;
     }
 
     private void Ok_Click(object sender, RoutedEventArgs e)
     {
-        if (_selected is not null)
+        if (ResultList.SelectedItem is NpcGfxPickerRowVm row)
         {
-            SelectedGfxId = _selected.GfxId;
+            SelectedGfxId = row.GfxId;
             DialogResult = true;
             return;
         }
@@ -139,41 +107,12 @@ public partial class NpcGfxPickerWindow : Window
 
     private void ResultList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        if (FindAncestorTag<NpcGfxPickerRowVm>(e.OriginalSource as DependencyObject) is { } row)
-        {
-            SelectRow(row);
+        if (ResultList.SelectedItem is NpcGfxPickerRowVm)
             Ok_Click(sender, e);
-        }
-        else if (_selected is not null)
-        {
-            Ok_Click(sender, e);
-        }
-    }
-
-    private static T? FindAncestorTag<T>(DependencyObject? start) where T : class
-    {
-        for (var d = start; d is not null; d = VisualTreeHelper.GetParent(d))
-        {
-            if (d is FrameworkElement { Tag: T tagged })
-                return tagged;
-        }
-
-        return null;
     }
 }
 
-public sealed class NpcGfxPickerPairVm
-{
-    public NpcGfxPickerPairVm(NpcGfxPickerRowVm left, NpcGfxPickerRowVm? right)
-    {
-        Left = left;
-        Right = right;
-    }
-
-    public NpcGfxPickerRowVm Left { get; }
-    public NpcGfxPickerRowVm? Right { get; }
-}
-
+/// <summary>One gallery card = one confirmed GFX. UsageSummary stays on catalog (editor hints); not shown here.</summary>
 public sealed class NpcGfxPickerRowVm
 {
     public NpcGfxPickerRowVm(NpcGfxCatalogEntry entry)
@@ -182,12 +121,10 @@ public sealed class NpcGfxPickerRowVm
         GfxId = entry.GfxId;
         DisplayName = entry.DisplayName;
         GfxIdLabel = entry.GfxIdLabel;
-        UsageSummary = entry.UsageSummary;
     }
 
     public NpcGfxCatalogEntry Entry { get; }
     public int GfxId { get; }
     public string DisplayName { get; }
     public string GfxIdLabel { get; }
-    public string UsageSummary { get; }
 }

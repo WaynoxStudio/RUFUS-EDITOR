@@ -18,7 +18,7 @@ if (-not (Test-Path (Join-Path $masterLibrary "Maps"))) {
     throw "Master Library inválida (falta Maps): $masterLibrary"
 }
 
-Write-Host "=== Publish RufusMapEditor.exe (USER edition - licensing enforced) ==="
+Write-Host "=== Publish RufusMapEditor.exe (USER edition) ==="
 Stop-Process -Name RufusMapEditor -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 1
 & (Join-Path $PSScriptRoot "publish-release-test.ps1") -RufusEdition User
@@ -64,13 +64,8 @@ Abrir: RufusMapEditor.exe (doble clic)
 
 Requisitos:
   - Windows 64 bits (x64)
-  - Licencia RUFUS activa (activación online obligatoria)
   - No requiere instalar .NET
   - No requiere Astria Map Editor instalado
-
-Activación:
-  Al abrir RufusMapEditor.exe por primera vez se solicitará su código de licencia.
-  La sesión se guarda de forma segura en este equipo (%LocalAppData%\RufusMapEditor\).
 
 Contenido del paquete:
   RufusMapEditor.exe   — editor (self-contained)
@@ -94,10 +89,7 @@ Export SWF AME:
   Archivo → Exportar → SWF (requiere Flasm y blank.swf en Library\Flasm).
 
 Asistente IA:
-  Disponible en Contenido si su licencia incluye IA. Requiere conexión al servicio RUFUS.
-
-Licencia:
-  No comparta su código de licencia. Cerrar sesión: Ajustes → Licencia → Cerrar sesión.
+  Disponible en Contenido cuando el backend RUFUS está configurado (token de acceso privado).
 
 "@
 Set-Content -Path (Join-Path $distRoot "README.txt") -Value $readme -Encoding UTF8
@@ -112,7 +104,6 @@ $flasmDest = Join-Path $libraryDest "Flasm"
 $manifest = [ordered]@{
     product = "RUFUS Map Editor"
     edition = "User"
-    licenseEnforced = $true
     buildDateUtc = (Get-Date).ToUniversalTime().ToString("o")
     architecture = "win-x64"
     selfContained = $true

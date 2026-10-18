@@ -56,6 +56,87 @@ public sealed class MapPublishService
 
     public Task<MapasRow?> ReadAsync(int id, CancellationToken ct = default) => _repo.TryGetAsync(id, ct);
 
+    /// <summary>
+    /// Fast path: UPDATE existing row with mapData + bgID + X/Y + fecha(+1). No INSERT, no ancho/alto.
+    /// </summary>
+    public async Task<PublishOutcome> QuickUpdateExistingAsync(MapDocument map, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(map);
+        if (map.Id <= 0)
+        {
+            return new PublishOutcome
+            {
+                Success = false,
+                Error = "MapId inválido. Abre un mapa con id > 0.",
+            };
+        }
+
+        var row = await _repo.TryGetAsync(map.Id, ct).ConfigureAwait(false);
+        if (row is null)
+        {
+            return new PublishOutcome
+            {
+                Success = false,
+                MissingRow = true,
+                Error = $"No hay fila con id={map.Id} en {DatabaseLabel}. Solo se actualizan mapas existentes.",
+            };
+        }
+
+        if (!MapQuickUpdateLogic.TryBuildValues(map, row, out var values, out var buildError))
+        {
+            return new PublishOutcome
+            {
+                Success = false,
+                CurrentFecha = row.Fecha,
+                Error = buildError,
+            };
+        }
+
+        Directory.CreateDirectory(_backupDir);
+        var backupPath = WriteBackup(row);
+
+        try
+        {
+            var affected = await _repo.UpdateExistingAsync(values, ct).ConfigureAwait(false);
+            if (affected != 1)
+            {
+                return new PublishOutcome
+                {
+                    Success = false,
+                    CurrentFecha = row.Fecha,
+                    NewFecha = values.Fecha,
+                    BackupPath = backupPath,
+                    Error = $"UPDATE afectó {affected} filas (se esperaba 1).",
+                };
+            }
+
+            map.DateMap = values.Fecha;
+            RufusLog.Ok(
+                $"Actualización rápida · mapa {map.Id} · revisión {row.Fecha} → {values.Fecha} · {DatabaseLabel}");
+
+            return new PublishOutcome
+            {
+                Success = true,
+                CurrentFecha = row.Fecha,
+                NewFecha = values.Fecha,
+                BackupPath = backupPath,
+                Diff = MapPublishLogic.BuildDiff(row, map, values.Fecha),
+            };
+        }
+        catch (Exception ex)
+        {
+            RufusLog.Error($"Actualización rápida fallida · mapa {map.Id}: {ex.Message}");
+            return new PublishOutcome
+            {
+                Success = false,
+                CurrentFecha = row.Fecha,
+                NewFecha = values.Fecha,
+                BackupPath = backupPath,
+                Error = ex.Message,
+            };
+        }
+    }
+
     public async Task<MapInsertPlan> PrepareCreateAsync(
         MapDocument map,
         NewMapDefaultsSettings? defaults = null,

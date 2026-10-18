@@ -75,6 +75,32 @@ public sealed class VisualLibraryService
         get { lock (_gate) return _items.Count > 0; }
     }
 
+    /// <summary>Hydrates the item catalog from disk only, so opening Content never waits for SFTP.</summary>
+    public bool TryLoadCachedItems(string? cacheDirectory = null)
+    {
+        var cached = VisualLibraryCache.TryReadLatestItems(cacheDirectory);
+        if (cached is null)
+            return false;
+
+        var types = cached.TypeNames.ToDictionary(
+            kv => int.TryParse(kv.Key, NumberStyles.Integer, CultureInfo.InvariantCulture, out var k) ? k : -1,
+            kv => kv.Value);
+        types.Remove(-1);
+        var built = cached.Entries
+            .Select(e => BuildItem(e.ItemId, e.Nombre, e.Level, e.TypeId, e.Category, e.GfxId))
+            .ToList();
+
+        lock (_gate)
+        {
+            _itemsLangVersion = cached.ItemsLangVersion > 0 ? cached.ItemsLangVersion : null;
+            _itemTypeNames = types;
+            _items = RelinkItems(built, _clipsRoot);
+            _statusItems = $"Catálogo: ✓ Caché local · {_items.Count} objetos · items,es,{cached.ItemsLangVersion}";
+        }
+
+        return true;
+    }
+
     public void SetClipsRoot(string? clipsRoot)
     {
         lock (_gate)

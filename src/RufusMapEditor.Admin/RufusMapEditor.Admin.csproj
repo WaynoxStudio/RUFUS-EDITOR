@@ -14,8 +14,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\RufusMapEditor.Licensing\RufusMapEditor.Licensing.csproj" />
-    <!-- ADMIN.UI.2 — reuse real Maps UI (MapsEditorView) without duplicating GFX/DB/publish -->
+    <!-- reuse real Maps UI (MapsEditorView) without duplicating GFX/DB/publish -->
     <ProjectReference Include="..\RufusMapEditor.App\RufusMapEditor.App.csproj" />
   </ItemGroup>
 

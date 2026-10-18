@@ -10,8 +10,9 @@ public static class NpcEsSeed
     {
         if (version <= 0) throw new ArgumentOutOfRangeException(nameof(version));
         var additions = seed?.ToList() ?? new List<NpcEsAssignment>();
-        foreach (var a in additions)
-            DialogEsLatin1.Validate(a.Name);
+        var prepared = additions
+            .Select(a => (Add: a, Name: DialogEsLatin1.Prepare(a.Name)))
+            .ToList();
 
         // pool: 0 VERSION, 1 N, 2 d, 3 a, 4 n
         var pool = new List<string> { "VERSION", "N", "d", "a", "n" };
@@ -56,7 +57,7 @@ public static class NpcEsSeed
         }));
         body.WriteByte(Avm1Opcode.SetMember);
 
-        foreach (var add in additions)
+        foreach (var (add, name) in prepared)
         {
             body.Write(Avm1Bytecode.EncodePush(new[] { Avm1PushItem.Constant(1) }));
             body.WriteByte(Avm1Opcode.GetVariable);
@@ -64,7 +65,7 @@ public static class NpcEsSeed
             body.WriteByte(Avm1Opcode.GetMember);
             body.Write(Avm1Bytecode.EncodePush(new[] { Avm1PushItem.Integer(add.Id) }));
             body.Write(Avm1Bytecode.EncodePush(new[] { Avm1PushItem.Constant(4) }));
-            body.Write(Avm1Bytecode.EncodePush(new[] { Avm1PushItem.StringLiteral(add.Name) }));
+            body.Write(Avm1Bytecode.EncodePush(new[] { Avm1PushItem.StringLiteral(name) }));
             var acts = NpcEsClientActions.Normalize(add.Actions);
             var propCount = 1;
             if (acts.Count > 0)
@@ -112,7 +113,7 @@ public static class NpcEsSeed
         payload.Write(BitConverter.GetBytes((ushort)pool.Count));
         foreach (var s in pool)
         {
-            var bytes = Encoding.Latin1.GetBytes(s);
+            var bytes = Avm1Bytecode.SwfStringEncoding.GetBytes(s);
             payload.Write(bytes);
             payload.WriteByte(0);
         }

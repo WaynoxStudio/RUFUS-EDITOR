@@ -103,8 +103,7 @@ public sealed class DialogDraftBatchTests
         var deleted = batch.TryDeleteQuestion(q2.Id, unlinkAndDelete: true, out _);
         Assert.Equal(QuestionDeleteResult.Deleted, deleted);
         Assert.Null(batch.FindQuestion(q2.Id));
-        Assert.Null(a.TargetQuestionId);
-        Assert.Equal("", a.Args);
+        Assert.Empty(r.Actions);
     }
 
     [Fact]

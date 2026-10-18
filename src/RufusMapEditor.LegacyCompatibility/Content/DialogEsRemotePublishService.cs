@@ -81,8 +81,10 @@ public static class DialogEsRemotePublishService
 
             var batch = DialogEsPublishBatchBuilder.Build(
                 request.Workspace, sync.Snapshot!, request.Occupancy);
-            if (!batch.IsValid)
+            if (batch.Errors.Count > 0)
                 return PreviewFail(sync, log, string.Join("\n", batch.Errors), batch);
+            if (batch.Bindings.Count == 0)
+                return PreviewFail(sync, log, "No hay textos nuevos pendientes de publicar en dialog_es.", batch);
 
             Ok($"Lote recalculado · D.q={batch.NewQuestionCount} · D.a={batch.NewAnswerCount}");
             return new DialogEsRemotePublishResult
@@ -187,8 +189,10 @@ public static class DialogEsRemotePublishService
             var batch = DialogEsPublishBatchBuilder.Build(
                 request.Workspace, sync.Snapshot!, request.Occupancy);
             state.Batch = batch;
-            if (!batch.IsValid)
+            if (batch.Errors.Count > 0)
                 return Fail(state, log, Err, string.Join("\n", batch.Errors), client);
+            if (batch.Bindings.Count == 0)
+                return Fail(state, log, Err, "No hay textos nuevos pendientes de publicar en dialog_es.", client);
             Ok($"IDs finales · D.q={batch.NewQuestionCount} · D.a={batch.NewAnswerCount}");
 
             // 4. GENERAR N+1 LOCAL

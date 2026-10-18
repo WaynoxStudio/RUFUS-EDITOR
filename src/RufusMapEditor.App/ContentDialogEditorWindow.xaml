@@ -30,7 +30,8 @@
     </Grid.RowDefinitions>
 
     <Border Grid.Row="0" Background="{DynamicResource DialogHeaderBackground}" CornerRadius="6"
-            BorderBrush="{DynamicResource Border}" BorderThickness="1" Padding="12,10" Margin="0,0,0,10">
+            BorderBrush="{DynamicResource Border}" BorderThickness="1" Padding="12,10" Margin="0,0,0,10"
+            TextElement.Foreground="{DynamicResource HeaderForeground}">
       <DockPanel>
         <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
           <Button Content="Recargar NPC" Command="{Binding ReloadNpcsCommand}" Padding="10,4" Margin="0,0,8,0"/>
@@ -39,8 +40,9 @@
           <Button Content="Cerrar" IsCancel="True" Padding="10,4" Click="Close_Click"/>
         </StackPanel>
         <StackPanel>
-          <TextBlock Text="Contenido → Diálogos" FontWeight="SemiBold" FontSize="15"/>
-          <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="{DynamicResource TextSecondary}" TextWrapping="Wrap"/>
+          <TextBlock Text="Contenido → Diálogos" FontWeight="SemiBold" FontSize="15"
+                     Foreground="{DynamicResource HeaderForeground}"/>
+          <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="{DynamicResource HeaderOnBrownSubtle}" TextWrapping="Wrap"/>
         </StackPanel>
       </DockPanel>
     </Border>
@@ -120,8 +122,10 @@
               <DataTemplate DataType="{x:Type vm:DialogTreeNodeVm}">
                 <StackPanel Margin="0,0,0,14">
                   <Border Background="{DynamicResource DialogHeaderBackground}" BorderBrush="{DynamicResource BrandAccent}"
-                          BorderThickness="1" CornerRadius="6" Padding="10,8" HorizontalAlignment="Left" MaxWidth="420">
-                    <TextBlock Text="{Binding Label}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                          BorderThickness="1" CornerRadius="6" Padding="10,8" HorizontalAlignment="Left" MaxWidth="420"
+                          TextElement.Foreground="{DynamicResource HeaderForeground}">
+                    <TextBlock Text="{Binding Label}" FontWeight="SemiBold" TextWrapping="Wrap"
+                               Foreground="{DynamicResource HeaderForeground}"/>
                   </Border>
                   <ItemsControl ItemsSource="{Binding Children}" Margin="28,8,0,0">
                     <ItemsControl.ItemTemplate>
@@ -250,8 +254,13 @@
 
               <StackPanel Visibility="{Binding IsStartQuestAction, Converter={StaticResource BoolToVis}}" Margin="0,4,0,8">
                 <TextBlock Text="Dar / iniciar misión (accion=44)" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                <TextBlock Text="{Binding StartQuestLinkStatusText}" FontSize="11"
+                           Foreground="{DynamicResource Accent}" Margin="0,0,0,4"
+                           Visibility="{Binding ShowStartQuestLinkWarning, Converter={StaticResource BoolToVis}}"/>
                 <TextBlock Text="Misión borrador" Style="{StaticResource FieldLabel}"/>
-                <ComboBox ItemsSource="{Binding MissionChoices}" SelectedItem="{Binding LinkTargetMission}"
+                <ComboBox ItemsSource="{Binding MissionChoices}"
+                          SelectedValuePath="DraftId"
+                          SelectedValue="{Binding LinkTargetMissionDraftIdValue}"
                           Margin="0,0,0,6">
                   <ComboBox.ItemTemplate>
                     <DataTemplate>

@@ -26,5 +26,9 @@ public static class DialogActionCodes
 {
     public const int Teleport = 0;
     public const int GotoQuestion = 1;
+    /// <summary>Confirm mission objective — no friendly args editor yet.</summary>
+    public const int ConfirmObjective = 43;
     public const int StartQuest = 44;
+    /// <summary>Confirm mission — no friendly args editor yet.</summary>
+    public const int ConfirmMission = 53;
 }

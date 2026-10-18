@@ -20,10 +20,10 @@ public sealed class NpcClientActionsUiTests
     }
 
     [Fact]
-    public void Empty_selection_shows_commerce_fields_conservatively()
+    public void Empty_selection_hides_commerce_fields()
     {
         Assert.False(NpcClientActionsUi.IsTalkOnlySelection(Array.Empty<int>()));
-        Assert.True(NpcClientActionsUi.ShowCommerceFields(Array.Empty<int>()));
+        Assert.False(NpcClientActionsUi.ShowCommerceFields(Array.Empty<int>()));
     }
 
     [Theory]

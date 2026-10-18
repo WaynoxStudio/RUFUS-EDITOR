@@ -23,6 +23,8 @@ public sealed class PortableVisualStore
     public const string VisualsFolderName = "Visuals";
     public const string MobsFolderName = "Mobs";
     public const string ItemsFolderName = "Items";
+    /// <summary>CONTENT.ITEMS.PREVIEW.COLLISION.FIX.1A — SWF-keyed item previews (parallel to legacy Items/{gfxId}.png).</summary>
+    public const string ItemsBySwfFolderName = "ItemsBySwf";
     public const int MaxPreviewEdge = 256;
 
     private string? _libraryRoot;
@@ -35,8 +37,10 @@ public sealed class PortableVisualStore
         if (_libraryRoot is null) return;
         var mobs = Path.Combine(_libraryRoot, VisualsFolderName, MobsFolderName);
         var items = Path.Combine(_libraryRoot, VisualsFolderName, ItemsFolderName);
+        var itemsBySwf = Path.Combine(_libraryRoot, VisualsFolderName, ItemsBySwfFolderName);
         Directory.CreateDirectory(mobs);
         Directory.CreateDirectory(items);
+        Directory.CreateDirectory(itemsBySwf);
     }
 
     public void EnsureConfigured()
@@ -76,6 +80,37 @@ public sealed class PortableVisualStore
     public static string GetRelativePath(VisualAssetCategory category, int gfxId) =>
         Path.Combine(VisualsFolderName, CategoryFolderName(category),
             gfxId.ToString(CultureInfo.InvariantCulture) + ".png").Replace('\\', '/');
+
+    /// <summary>Portable relative path like <c>Visuals/ItemsBySwf/items_23_10.png</c>.</summary>
+    public static string GetItemSwfPreviewRelativePath(string fileStem) =>
+        Path.Combine(VisualsFolderName, ItemsBySwfFolderName, fileStem + ".png").Replace('\\', '/');
+
+    public string? GetItemSwfPreviewPngPath(string fileStem)
+    {
+        if (string.IsNullOrWhiteSpace(fileStem))
+            return null;
+        var dir = GetItemSwfPreviewDirectory();
+        return dir is null ? null : Path.Combine(dir, fileStem + ".png");
+    }
+
+    public string? GetItemSwfPreviewDirectory()
+    {
+        EnsureConfigured();
+        if (string.IsNullOrWhiteSpace(_libraryRoot))
+            return null;
+        return Path.Combine(_libraryRoot, VisualsFolderName, ItemsBySwfFolderName);
+    }
+
+    public static string? ResolveItemSwfPreviewPngPath(string? libraryRoot, string fileStem)
+    {
+        if (string.IsNullOrWhiteSpace(libraryRoot) || string.IsNullOrWhiteSpace(fileStem))
+            return null;
+        return Path.Combine(
+            Path.GetFullPath(libraryRoot.Trim()),
+            VisualsFolderName,
+            ItemsBySwfFolderName,
+            fileStem + ".png");
+    }
 
     public bool Exists(VisualAssetCategory category, int gfxId)
     {

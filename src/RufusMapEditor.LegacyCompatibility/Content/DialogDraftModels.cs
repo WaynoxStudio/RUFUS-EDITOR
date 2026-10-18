@@ -11,6 +11,9 @@ public sealed class DialogQuestionDraft
     public bool PublishedBd { get; set; }
     public List<DialogResponseDraft> Responses { get; set; } = new();
 
+    /// <summary>MISSIONS.DB.READ.1 — row from BD catalog, not a local editable draft graph node.</summary>
+    public bool IsDbCatalogSnapshot { get; set; }
+
     public DialogQuestionDraft CloneNewIdentity(int newId)
     {
         var q = new DialogQuestionDraft

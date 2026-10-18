@@ -32,6 +32,8 @@ public sealed class DialogEsSimpleUiState
                 sb.AppendLine();
                 sb.Append(CacheStatus);
             }
+            sb.AppendLine();
+            sb.Append("Comprueba SFTP (misma config que Mapas) o usa «Publicar cliente» — descarga dialog_es y asigna el D.q.");
             return sb.ToString();
         }
 
@@ -114,7 +116,11 @@ public static class DialogEsSimpleUiResolver
             {
                 if (n.DialogMode != NpcDialogMode.Simple || !n.IsPendingDialogEs)
                     continue;
-                var id = resolver.ReserveSimpleQuestion();
+                int id;
+                if (n.DialogEsIdProvisional && n.Pregunta > 0 && resolver.TryClaimQuestion(n.Pregunta))
+                    id = n.Pregunta;
+                else
+                    id = resolver.ReserveSimpleQuestion();
                 if (n.Id == npc.Id)
                     dq = id;
             }

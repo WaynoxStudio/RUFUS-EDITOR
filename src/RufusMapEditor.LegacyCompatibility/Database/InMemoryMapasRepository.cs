@@ -72,6 +72,20 @@ public sealed class InMemoryMapasRepository : IMapasRepository
         return Task.FromResult(row is null ? null : Clone(row));
     }
 
+    public Task<IReadOnlyList<MapasRow>> ListByFechaContainingAsync(string fecha, CancellationToken ct = default)
+    {
+        var key = (fecha ?? "").Trim();
+        if (key.Length == 0)
+            return Task.FromResult<IReadOnlyList<MapasRow>>(Array.Empty<MapasRow>());
+
+        var list = _rows.Values
+            .Where(r => r.Fecha.Contains(key, StringComparison.Ordinal))
+            .OrderBy(r => r.Y).ThenBy(r => r.X).ThenBy(r => r.Id)
+            .Select(Clone)
+            .ToList();
+        return Task.FromResult<IReadOnlyList<MapasRow>>(list);
+    }
+
     public Task<int> UpdateExistingAsync(MapPublishValues values, CancellationToken ct = default)
     {
         if (_failNextUpdate)

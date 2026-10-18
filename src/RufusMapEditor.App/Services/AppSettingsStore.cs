@@ -27,6 +27,17 @@ public sealed class AppSettings
 
     /// <summary>Optional path to retroclient/clips (relative or absolute). No hard-coded Desktop paths.</summary>
     public string? ClipsRootPath { get; set; }
+
+    /// <summary>Filtro persistente de la lista MAPAS / picker (desde–hasta, texto). Se limpia a mano.</summary>
+    public MapListFilterSettings MapListFilter { get; set; } = new();
+}
+
+public sealed class MapListFilterSettings
+{
+    public string SearchText { get; set; } = "";
+    public string RangeFromText { get; set; } = "";
+    public string RangeToText { get; set; } = "";
+    public bool Ascending { get; set; } = true;
 }
 
 public static class AppSettingsStore
@@ -56,6 +67,7 @@ public static class AppSettingsStore
             settings.Database ??= new DatabaseSettings();
             settings.Database.NewMapDefaults ??= new NewMapDefaultsSettings();
             settings.LangSftp ??= new LangSftpSettings();
+            settings.MapListFilter ??= new MapListFilterSettings();
             if (string.IsNullOrWhiteSpace(settings.LangSftp.LangRemotePath))
                 settings.LangSftp.LangRemotePath = LangSftpSettings.DefaultLangRemotePath;
             if (string.IsNullOrWhiteSpace(settings.LangSftp.SwfRemotePath))

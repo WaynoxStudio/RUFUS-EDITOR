@@ -119,13 +119,14 @@ public sealed class AiResponseContractTests
         var result = AiResponseValidator.ParseAndValidate(
             AiCreativeAction.GenerarConversacion, AiMockResponses.ConversationJson);
         Assert.True(result.IsValid);
-        Assert.Equal(3, result.Conversation!.Conversacion!.RespuestasJugador.Count);
+        Assert.Single(result.Conversation!.Conversacion!.RespuestasJugador);
         Assert.All(result.Conversation.Conversacion.RespuestasJugador,
             r => Assert.True(AiPlayerTone.IsAllowed(r.Tono)));
     }
 
     [Theory]
     [InlineData(2)]
+    [InlineData(3)]
     [InlineData(4)]
     public void Conversation_wrong_reply_count_invalid(int count)
     {
@@ -137,7 +138,7 @@ public sealed class AiResponseContractTests
     [Fact]
     public void Conversation_empty_reply_invalid()
     {
-        var json = BuildConversationJson(3, opening: "Hola", reply: "  ", tone: "neutral");
+        var json = BuildConversationJson(1, opening: "Hola", reply: "  ", tone: "neutral");
         var result = AiResponseValidator.ParseAndValidate(AiCreativeAction.GenerarConversacion, json);
         Assert.False(result.IsValid);
         Assert.Contains("vacía", result.ErrorDetail!, StringComparison.OrdinalIgnoreCase);
@@ -146,7 +147,7 @@ public sealed class AiResponseContractTests
     [Fact]
     public void Conversation_empty_opening_invalid()
     {
-        var json = BuildConversationJson(3, opening: "", reply: "Hola", tone: "amable");
+        var json = BuildConversationJson(1, opening: "", reply: "Hola", tone: "amable");
         var result = AiResponseValidator.ParseAndValidate(AiCreativeAction.GenerarConversacion, json);
         Assert.False(result.IsValid);
         Assert.Contains("Apertura", result.ErrorDetail!, StringComparison.OrdinalIgnoreCase);
@@ -159,7 +160,7 @@ public sealed class AiResponseContractTests
     [InlineData("desafiante")]
     public void Conversation_allowed_tones_ok(string tone)
     {
-        var json = BuildConversationJson(3, opening: "Ey", reply: "Respuesta", tone: tone);
+        var json = BuildConversationJson(1, opening: "Ey", reply: "Respuesta", tone: tone);
         var result = AiResponseValidator.ParseAndValidate(AiCreativeAction.GenerarConversacion, json);
         Assert.True(result.IsValid, result.ErrorDetail);
     }
@@ -167,7 +168,7 @@ public sealed class AiResponseContractTests
     [Fact]
     public void Conversation_unknown_tone_invalid()
     {
-        var json = BuildConversationJson(3, opening: "Ey", reply: "Respuesta", tone: "agresivo");
+        var json = BuildConversationJson(1, opening: "Ey", reply: "Respuesta", tone: "agresivo");
         var result = AiResponseValidator.ParseAndValidate(AiCreativeAction.GenerarConversacion, json);
         Assert.False(result.IsValid);
         Assert.Contains("tono", result.ErrorDetail!, StringComparison.OrdinalIgnoreCase);
@@ -295,7 +296,7 @@ public sealed class AiResponseContractTests
         Assert.Equal(500, AiResponseLimits.MaxDialogueLength);
         Assert.Equal(300, AiResponseLimits.MaxPlayerReplyLength);
         Assert.Equal(3, AiResponseLimits.ExactNameCount);
-        Assert.Equal(3, AiResponseLimits.ExactPlayerReplyCount);
+        Assert.Equal(1, AiResponseLimits.ExactPlayerReplyCount);
     }
 
     private static string BuildNamesJson(int count, string name)
@@ -319,6 +320,8 @@ public sealed class AiResponseContractTests
             {
               "conversacion": {
                 "textoNpc": "{{Escape(opening)}}",
+                "textoIncompleta": "Aún no has terminado.",
+                "textoCompletada": "Ya lo has logrado.",
                 "respuestasJugador": [ {{string.Join(",", replies)}} ]
               }
             }

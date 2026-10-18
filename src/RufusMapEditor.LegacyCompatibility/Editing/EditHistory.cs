@@ -10,8 +10,8 @@ public sealed class EditHistory
 {
     public const int DefaultCapacity = 100;
 
-    private readonly List<IEditCommand> _undo = new();
-    private readonly List<IEditCommand> _redo = new();
+    private readonly List<(IEditCommand Cmd, long Seq)> _undo = new();
+    private readonly List<(IEditCommand Cmd, long Seq)> _redo = new();
     private int _cleanDepth;
 
     public EditHistory(int capacity = DefaultCapacity)
@@ -27,14 +27,16 @@ public sealed class EditHistory
     public bool CanUndo => _undo.Count > 0;
     public bool CanRedo => _redo.Count > 0;
     public bool IsDirty => _undo.Count != _cleanDepth;
-    public string? UndoName => CanUndo ? _undo[^1].Name : null;
-    public string? RedoName => CanRedo ? _redo[^1].Name : null;
+    public string? UndoName => CanUndo ? _undo[^1].Cmd.Name : null;
+    public string? RedoName => CanRedo ? _redo[^1].Cmd.Name : null;
+    public long TopUndoSequence => CanUndo ? _undo[^1].Seq : long.MinValue;
+    public long TopRedoSequence => CanRedo ? _redo[^1].Seq : long.MinValue;
 
     /// <summary>Push a command that has already been applied to the document.</summary>
     public void PushExecuted(IEditCommand command)
     {
         ArgumentNullException.ThrowIfNull(command);
-        _undo.Add(command);
+        _undo.Add((command, CombinedHistoryClock.Next()));
         _redo.Clear();
         while (_undo.Count > Capacity)
         {
@@ -51,10 +53,10 @@ public sealed class EditHistory
         ArgumentNullException.ThrowIfNull(map);
         if (!CanUndo)
             return false;
-        var cmd = _undo[^1];
+        var (cmd, seq) = _undo[^1];
         _undo.RemoveAt(_undo.Count - 1);
         cmd.Undo(map);
-        _redo.Add(cmd);
+        _redo.Add((cmd, seq));
         return true;
     }
 
@@ -63,10 +65,10 @@ public sealed class EditHistory
         ArgumentNullException.ThrowIfNull(map);
         if (!CanRedo)
             return false;
-        var cmd = _redo[^1];
+        var (cmd, seq) = _redo[^1];
         _redo.RemoveAt(_redo.Count - 1);
         cmd.Execute(map);
-        _undo.Add(cmd);
+        _undo.Add((cmd, seq));
         return true;
     }
 

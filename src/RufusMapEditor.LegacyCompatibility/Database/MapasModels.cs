@@ -70,6 +70,11 @@ public interface IMapasRepository
     Task<IReadOnlyList<string>> ListColumnsAsync(CancellationToken ct = default);
     Task<MapTableSchema> GetTableSchemaAsync(CancellationToken ct = default);
     Task<MapasRow?> TryGetAsync(int mapId, CancellationToken ct = default);
+    /// <summary>
+    /// All rows whose <c>fecha</c> contains <paramref name="fecha"/> as a substring (case-sensitive / ordinal).
+    /// E.g. <c>VULKANIA</c> matches <c>VULKANIA</c>, <c>VULKANIA1</c>, <c>VULKANIAEXTRA</c>.
+    /// </summary>
+    Task<IReadOnlyList<MapasRow>> ListByFechaContainingAsync(string fecha, CancellationToken ct = default);
     Task<int> UpdateExistingAsync(MapPublishValues values, CancellationToken ct = default);
     /// <summary>INSERT new row inside a transaction with existence race-check + verify. Returns 1 on success.</summary>
     Task<int> InsertNewAsync(MapInsertPlan plan, CancellationToken ct = default);

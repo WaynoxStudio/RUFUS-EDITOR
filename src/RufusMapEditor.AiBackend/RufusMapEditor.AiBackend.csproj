@@ -9,12 +9,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\RufusMapEditor.LegacyCompatibility\RufusMapEditor.LegacyCompatibility.csproj" />
-    <ProjectReference Include="..\RufusMapEditor.Licensing\RufusMapEditor.Licensing.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="RufusMapEditor.AiBackend.Tests" />
-    <InternalsVisibleTo Include="RufusMapEditor.Licensing.Tests" />
   </ItemGroup>
 
 </Project>

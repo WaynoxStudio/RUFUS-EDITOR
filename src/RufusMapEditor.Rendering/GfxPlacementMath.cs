@@ -26,6 +26,9 @@ public static class GfxPlacementMath
         public PlacementRect ToHitSpace(int cropX, int cropY) =>
             new(X - cropX, Y - cropY, Width, Height);
 
+        public bool Contains(double x, double y) =>
+            x >= X && x < X + Width && y >= Y && y < Y + Height;
+
         public int DeltaX(PlacementRect other) => X - other.X;
         public int DeltaY(PlacementRect other) => Y - other.Y;
     }

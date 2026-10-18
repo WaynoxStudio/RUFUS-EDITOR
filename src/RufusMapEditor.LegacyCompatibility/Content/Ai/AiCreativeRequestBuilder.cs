@@ -15,7 +15,10 @@ public static class AiCreativeRequestBuilder
         string? narrativeContext,
         string? additionalInstruction,
         AiTextLength length = AiTextLength.Corta,
-        string? currentNpcName = null)
+        string? currentNpcName = null,
+        string? conversationPriorText = null,
+        string? parentNpcQuestionText = null,
+        bool generatePlayerReply = false)
     {
         return new AiCreativeRequest
         {
@@ -26,7 +29,10 @@ public static class AiCreativeRequestBuilder
             AdditionalInstruction = (additionalInstruction ?? "").Trim(),
             Length = length,
             Style = AiCreativeStyle.RufusDofusRetro,
-            CurrentNpcName = (currentNpcName ?? "").Trim()
+            CurrentNpcName = (currentNpcName ?? "").Trim(),
+            ConversationPriorText = (conversationPriorText ?? "").Trim(),
+            ParentNpcQuestionText = (parentNpcQuestionText ?? "").Trim(),
+            GeneratePlayerReply = generatePlayerReply
         };
     }
 

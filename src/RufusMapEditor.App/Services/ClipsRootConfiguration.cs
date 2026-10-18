@@ -21,7 +21,9 @@ public static class ClipsRootConfiguration
         var effective = ClipsRootPaths.ResolveEffective(settings.ClipsRootPath);
         ArtworkPreviewService.Shared.Configure(effective, lib);
         NpcGfxPreviewService.Shared.Configure(effective, lib);
+        ItemIconPreviewService.Shared.Configure(lib, effective);
         VisualLibraryService.Shared.SetClipsRoot(effective);
+        ItemIconPreviewService.Shared.RefreshCollisionIndex(VisualLibraryService.Shared.Items);
     }
 
     public static bool TrySaveValidatedPath(string? path, out string? normalizedPath, out string errorMessage)

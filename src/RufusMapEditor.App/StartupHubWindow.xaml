@@ -414,11 +414,6 @@
         <TextBlock Text="Elige un módulo para continuar"
                    HorizontalAlignment="Center" FontSize="12"
                    Foreground="{StaticResource HubTextMuted}"/>
-        <TextBlock x:Name="LicenseStatusLabel"
-                   HorizontalAlignment="Center" FontSize="11"
-                   Foreground="{StaticResource HubTextMuted}"
-                   Margin="0,6,0,0"
-                   Visibility="Collapsed"/>
       </StackPanel>
     </Grid>
   </Grid>

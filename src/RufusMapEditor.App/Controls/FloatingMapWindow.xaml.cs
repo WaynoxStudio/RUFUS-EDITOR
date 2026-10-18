@@ -13,6 +13,7 @@ public partial class FloatingMapWindow : UserControl
 {
     public event EventHandler? LayoutChanged;
     public event EventHandler? ActivatedByUser;
+    public event EventHandler? ChromeStateChanged;
 
     private Canvas? _host;
     private MainViewModel? _vm;
@@ -36,6 +37,8 @@ public partial class FloatingMapWindow : UserControl
 
     public MapViewport Viewport => MapViewportControl;
     public OpenMapDocument? BoundDocument => _document;
+    public bool IsMinimized => _isMinimized;
+    public string TaskbarTitle => _document?.WindowTitle ?? "Mapa";
 
     public FloatingMapWindow()
     {
@@ -90,6 +93,7 @@ public partial class FloatingMapWindow : UserControl
     {
         if (e.PropertyName is nameof(OpenMapDocument.WindowTitle) or nameof(OpenMapDocument.MapImage))
             TitleText.Text = _document?.WindowTitle ?? "Map";
+            ChromeStateChanged?.Invoke(this, EventArgs.Empty);
         if (e.PropertyName is nameof(OpenMapDocument.WindowTitle))
             RefreshQueueButton(); // dirty * changes status when queued
     }
@@ -104,13 +108,15 @@ public partial class FloatingMapWindow : UserControl
         _host = FindParent<Canvas>(this);
         if (!_layoutApplied)
             ApplyDefaultLayout();
-        FitViewport();
+        // Layout may still be settling — fit once the viewport has real size.
+        Dispatcher.BeginInvoke(() => FitViewport(), System.Windows.Threading.DispatcherPriority.Loaded);
     }
 
     private void OnFloatingSizeChanged(object sender, SizeChangedEventArgs e)
     {
         if (_suppressFit || _isMinimized || _document?.MapImage is null) return;
-        FitViewport();
+        // Do NOT FitMap() here — that resets zoom/pan on every layout tick.
+        Viewport.NotifyViewportSizeChanged();
     }
 
     private void ApplyCascadeOffset(int index)
@@ -307,16 +313,25 @@ public partial class FloatingMapWindow : UserControl
         }
 
         _isMinimized = true;
-        ApplyMinimizedState(true);
-        UpdateChromeState();
+        Visibility = Visibility.Collapsed;
+        ChromeStateChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    private void RestoreFromMinimize()
+    public void RestoreFromMinimize()
     {
+        if (!_isMinimized)
+        {
+            ActivateThis();
+            return;
+        }
+
         _isMinimized = false;
+        Visibility = Visibility.Visible;
         ApplyMinimizedState(false);
         UpdateChromeState();
         FitViewport();
+        ActivateThis();
+        ChromeStateChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private void ApplyMinimizedState(bool minimized)
@@ -350,8 +365,19 @@ public partial class FloatingMapWindow : UserControl
         _isMinimized = false;
         ApplyMaximized(_host.ActualWidth, _host.ActualHeight);
         UpdateChromeState();
+        // Force layout then zoom-to-fill the new host size (letterbox fit).
+        UpdateLayout();
+        Viewport.UpdateLayout();
         FitViewport();
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (!_isMaximized || _isMinimized) return;
+            Viewport.FitMap();
+        }, System.Windows.Threading.DispatcherPriority.Render);
     }
+
+    /// <summary>Abre el mapa a pantalla completa del área de trabajo.</summary>
+    public void MaximizeToHost() => Maximize();
 
     private void RestoreFromMaximize()
     {
@@ -470,7 +496,12 @@ public partial class FloatingMapWindow : UserControl
     private void FitViewport()
     {
         if (_isMinimized || _document?.MapImage is null) return;
-        Viewport.FitMap();
+        // After maximize/resize, ActualWidth/Height may still be stale this frame.
+        Dispatcher.BeginInvoke(() =>
+        {
+            if (_isMinimized || _document?.MapImage is null) return;
+            Viewport.FitMap();
+        }, System.Windows.Threading.DispatcherPriority.Loaded);
     }
 
     private double GetCanvasLeft()

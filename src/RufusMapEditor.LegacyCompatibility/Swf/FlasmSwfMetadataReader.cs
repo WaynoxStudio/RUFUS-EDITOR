@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using RufusMapEditor.Domain.Maps;
+using RufusMapEditor.LegacyCompatibility.MapData;
 
 namespace RufusMapEditor.LegacyCompatibility.Swf;
 
@@ -71,6 +72,38 @@ public static partial class FlasmSwfMetadataReader
         map.Outdoor = meta.Outdoor;
     }
 
+    /// <summary>
+    /// Builds an editable <see cref="MapDocument"/> from an Astria SWF (MapData + metadata),
+    /// same source Astria uses when there is no SQL/.rufmap.
+    /// </summary>
+    public static MapDocument CreateDocument(SwfMapMetadata meta, int fallbackMapId = 0)
+    {
+        ArgumentNullException.ThrowIfNull(meta);
+        var mapData = NormalizeMapData(meta.MapData);
+        if (string.IsNullOrEmpty(mapData))
+            throw new InvalidDataException(
+                $"El SWF no contiene MapData editable: {meta.SourcePath}");
+
+        var width = meta.Width > 0 ? meta.Width : 15;
+        var height = meta.Height > 0 ? meta.Height : 17;
+        var expected = MapGeometry.ExpectedMapDataLength(width, height);
+        if (mapData.Length != expected)
+            throw new InvalidDataException(
+                $"MapData del SWF inválido: longitud {mapData.Length}, esperado {expected} ({width}x{height}).");
+
+        var map = new MapDocument
+        {
+            Id = meta.Id > 0 ? meta.Id : fallbackMapId,
+            Width = width,
+            Height = height,
+            MapData = mapData,
+            DateMap = "AME",
+        };
+        ApplyToDocument(map, meta);
+        map.Cells = MapDataCodec.DecodeMap(map.MapData).ToList();
+        return map;
+    }
+
     public static string? ResolvePreferredSwf(string mapFolder, int mapId)
     {
         var ame = Path.Combine(mapFolder, $"{mapId}_AME.swf");
@@ -82,8 +115,21 @@ public static partial class FlasmSwfMetadataReader
         return Directory.Exists(mapFolder)
             ? Directory.GetFiles(mapFolder, "*.swf")
                 .OrderByDescending(f => Path.GetFileName(f).Contains("_AME", StringComparison.OrdinalIgnoreCase))
+                .ThenBy(f => f, StringComparer.OrdinalIgnoreCase)
                 .FirstOrDefault()
             : null;
+    }
+
+    private static string NormalizeMapData(string? mapData)
+    {
+        if (string.IsNullOrEmpty(mapData))
+            return "";
+
+        // Flasm may print a trailing escaped newline as the two characters '\' 'n'.
+        if (mapData.EndsWith("\\n", StringComparison.Ordinal))
+            mapData = mapData[..^2];
+
+        return mapData.TrimEnd('\r', '\n', ' ', '\t');
     }
 
     private static string ReadMapData(string text)
@@ -91,13 +137,13 @@ public static partial class FlasmSwfMetadataReader
         // Prefer constants pool: ...'mapData', 'ACTUAL'...
         var constMatch = ConstantsMapDataRegex().Match(text);
         if (constMatch.Success)
-            return constMatch.Groups["md"].Value;
+            return NormalizeMapData(constMatch.Groups["md"].Value);
 
         // push 'mapData'\n    push '...'
         foreach (Match match in MultilineMapDataRegex().Matches(text))
         {
             if (match.Groups["n"].Value == "mapData")
-                return match.Groups["v"].Value;
+                return NormalizeMapData(match.Groups["v"].Value);
         }
 
         return "";

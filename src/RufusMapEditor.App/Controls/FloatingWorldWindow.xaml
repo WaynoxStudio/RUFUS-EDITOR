@@ -1,0 +1,67 @@
+<UserControl x:Class="RufusMapEditor.App.Controls.FloatingWorldWindow"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:RufusMapEditor.App.Controls"
+             MinWidth="320" MinHeight="200"
+             SnapsToDevicePixels="True">
+  <UserControl.Resources>
+    <DropShadowEffect x:Key="WorldWindowShadow" BlurRadius="12" ShadowDepth="2" Opacity="0.45" Color="#000000"/>
+  </UserControl.Resources>
+  <Border x:Name="ChromeBorder"
+          Background="{DynamicResource PanelBackground}"
+          BorderBrush="{DynamicResource Border}" BorderThickness="1"
+          Effect="{StaticResource WorldWindowShadow}">
+    <Grid>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="*"/>
+      </Grid.RowDefinitions>
+
+      <Border x:Name="TitleBar" Grid.Row="0"
+              Background="{DynamicResource ElevatedSurface}"
+              BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
+              Cursor="SizeAll"
+              PreviewMouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+        <Grid Height="28" Margin="4,0,2,0">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+          </Grid.ColumnDefinitions>
+          <Border Grid.Column="0" Width="16" Height="16" Margin="2,0,6,0"
+                  Background="{DynamicResource Accent}" CornerRadius="3"
+                  VerticalAlignment="Center"/>
+          <TextBlock x:Name="TitleText" Grid.Column="1" Text="Mundo"
+                     VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold"
+                     Foreground="{DynamicResource TextPrimary}" TextTrimming="CharacterEllipsis"/>
+          <StackPanel Grid.Column="2" Orientation="Horizontal">
+            <Button Content="Enviar a modo mapa" Padding="8,2" Margin="0,0,8,0" FontSize="11"
+                    VerticalAlignment="Center"
+                    Command="{Binding SendWorldToCombinedCommand}"
+                    Style="{StaticResource PrimaryButton}"
+                    ToolTip="Copia este mundo al combinado de MAPA (misma disposición)"/>
+            <Button x:Name="MinimizeButton" Content="—" Style="{StaticResource WindowChromeButton}"
+                    Click="Minimize_Click" ToolTip="Minimizar"/>
+            <Button x:Name="MaximizeButton" Content="□" Style="{StaticResource WindowChromeButton}"
+                    Click="Maximize_Click" ToolTip="Maximizar"/>
+            <Button Content="✕" Style="{StaticResource WindowChromeCloseButton}"
+                    Click="Close_Click" ToolTip="Cerrar mundo"/>
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <Grid x:Name="ContentHost" Grid.Row="1" MinHeight="160" ClipToBounds="True">
+        <controls:WorldViewport x:Name="WorldViewportControl"
+                                HorizontalAlignment="Stretch"
+                                VerticalAlignment="Stretch"/>
+        <Thumb x:Name="ResizeGrip" Width="16" Height="16"
+               HorizontalAlignment="Right" VerticalAlignment="Bottom"
+               Margin="0,0,1,1" Cursor="SizeNWSE"
+               DragStarted="ResizeGrip_DragStarted"
+               DragDelta="ResizeGrip_DragDelta"
+               DragCompleted="ResizeGrip_DragCompleted"
+               Template="{StaticResource ResizeGripTemplate}"/>
+      </Grid>
+    </Grid>
+  </Border>
+</UserControl>

@@ -5,15 +5,12 @@ public enum AdminSection
     Maps,
     Content,
     Missions,
-    Licenses,
-    AiUsage,
     Settings,
 }
 
 /// <summary>
-/// ADMIN.UI.2 — Mapas: hospeda MapsEditorView (módulo real compartido con USER).
-/// ADMIN.UI.3 — Contenido: hospeda ContentWorkspaceView (NPC/diálogos/IA compartido).
-/// ADMIN.USAGE.1 — Uso IA: métricas de rufus_ai_usage_events (solo lectura).
+/// Mapas: hospeda MapsEditorView (módulo real compartido con USER).
+/// Contenido: hospeda ContentWorkspaceView (NPC/diálogos/IA compartido).
 /// </summary>
 public static class AdminNavNotes
 {

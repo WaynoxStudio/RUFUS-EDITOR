@@ -220,7 +220,9 @@ public sealed class AstriaMapRenderer
     {
         var anchorX = 0;
         var anchorY = 0;
-        // Astria: Tile.Get_Ground_Pos(Background.ID) — XML Pos, image not required.
+        // Astria: Tile.Get_Ground_Pos(Background.ID) — XML Pos de grounds (mismo número).
+        // Ojo: IDs como 337/338 tienen Pos de suelo grandes; si se aplican tal cual,
+        // el rectángulo del fondo se sale del canvas y queda una franja negra abajo.
         if (_catalog.TryGetAnchor(GfxCategory.Background, backgroundId, out var a))
         {
             anchorX = VbInt(a.X * scale);
@@ -232,8 +234,18 @@ public sealed class AstriaMapRenderer
 
         using (bmp)
         {
-            var dest = new Rectangle(sizeCell - anchorX, sizeCell / 2 - anchorY, fullW, fullH);
-            g.DrawImage(bmp, dest);
+            var dx = sizeCell - anchorX;
+            var dy = sizeCell / 2 - anchorY;
+            var dw = fullW;
+            var dh = fullH;
+
+            // Expandir el destino para que cubra TODO el canvas (sin bandas negras).
+            if (dx > 0) { dw += dx; dx = 0; }
+            if (dy > 0) { dh += dy; dy = 0; }
+            if (dx + dw < fullW) dw = fullW - dx;
+            if (dy + dh < fullH) dh = fullH - dy;
+
+            g.DrawImage(bmp, new Rectangle(dx, dy, dw, dh));
         }
     }
 

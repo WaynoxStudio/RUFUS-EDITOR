@@ -101,7 +101,6 @@ public partial class NpcOrientationPicker : UserControl
             CacheButtons();
 
         var value = Orientation;
-        SelectedLabel.Text = NpcOrientationCatalog.FormatSelectedLabel(value);
 
         var text = value.ToString();
         if (!_syncing && NumericBox.Text != text)

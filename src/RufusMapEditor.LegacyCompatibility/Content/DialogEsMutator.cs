@@ -4,7 +4,7 @@ namespace RufusMapEditor.LegacyCompatibility.Content;
 
 /// <summary>
 /// CONT.6B — append-only D.q / D.a assignments + VERSION N+1.
-/// Does not rebuild ConstantPool. New texts are Push string literals (Latin1).
+/// Does not rebuild ConstantPool. New texts are Push string literals (SWF6 UTF-8).
 /// </summary>
 internal static class DialogEsMutator
 {
@@ -14,18 +14,22 @@ internal static class DialogEsMutator
             throw new InvalidOperationException(
                 $"VERSION dialog_es debe ser N+1 ({parsed.VersionValue + 1}), recibido {newVersion}.");
 
+        var prepared = new List<(DialogEsAssignment Add, string Text)>(additions.Count);
         foreach (var add in additions)
-            DialogEsLatin1.Validate(add.Text, add.Space == DialogEsSpace.Question ? "D.q" : "D.a");
+        {
+            var label = add.Space == DialogEsSpace.Question ? "D.q" : "D.a";
+            prepared.Add((add, DialogEsLatin1.Prepare(add.Text, label)));
+        }
 
         var data = (byte[])parsed.ActionData.Clone();
         BitConverter.TryWriteBytes(data.AsSpan(parsed.VersionIntOffset, 4), newVersion);
 
-        if (additions.Count == 0)
+        if (prepared.Count == 0)
             return data;
 
         using var ms = new MemoryStream();
-        foreach (var add in additions)
-            ms.Write(BuildAssignment(parsed, add));
+        foreach (var (add, text) in prepared)
+            ms.Write(BuildAssignment(parsed, add, text));
         var block = ms.ToArray();
 
         var insertAt = parsed.FileEndPushOffset;
@@ -36,7 +40,7 @@ internal static class DialogEsMutator
         return newData;
     }
 
-    private static byte[] BuildAssignment(DialogEsParsed parsed, DialogEsAssignment add)
+    private static byte[] BuildAssignment(DialogEsParsed parsed, DialogEsAssignment add, string latin1Text)
     {
         var memberIdx = add.Space == DialogEsSpace.Question ? parsed.IdxQ : parsed.IdxA;
         using var ms = new MemoryStream();
@@ -47,7 +51,7 @@ internal static class DialogEsMutator
         ms.Write(Avm1Bytecode.EncodePush(new[]
         {
             Avm1PushItem.Integer(add.Id),
-            Avm1PushItem.StringLiteral(add.Text),
+            Avm1PushItem.StringLiteral(latin1Text),
         }));
         ms.WriteByte(Avm1Opcode.SetMember);
         return ms.ToArray();

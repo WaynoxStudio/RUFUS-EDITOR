@@ -16,6 +16,8 @@ public enum EditorTool
     FightCell2 = 8,
     /// <summary>LIB.4.1 — select a cell for fixed-mob group (does not mutate walkable/LoS/fight).</summary>
     MobCell = 9,
+    /// <summary>Pan / hand — drag to move the map view (especially when zoomed).</summary>
+    Pan = 10,
 }
 
 public static class EditorToolExtensions
@@ -38,6 +40,12 @@ public static class PaintLayerExtensions
 
     public static GfxCategory ToGfxCategory(this PaintLayer layer) =>
         layer == PaintLayer.Ground ? GfxCategory.Ground : GfxCategory.Object;
+
+    /// <summary>
+    /// Ground vs Object are separate ID namespaces. Only Object1↔Object2 share a namespace.
+    /// </summary>
+    public static bool SharesGfxCategory(this PaintLayer source, PaintLayer target) =>
+        source.ToGfxCategory() == target.ToGfxCategory();
 }
 
 public sealed class GfxFavoriteKey

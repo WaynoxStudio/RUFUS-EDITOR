@@ -23,7 +23,7 @@ public sealed class NpcIdentityUiTests
 
     [Theory]
     [InlineData(100, 100, 100)]
-    [InlineData(140, 140, 140)]
+    [InlineData(120, 120, 120)]
     public void ApplyUniformTamaño_sets_both_axes(int input, int expectedX, int expectedY)
     {
         var (sx, sy) = NpcIdentityUi.ApplyUniformTamaño(input);
@@ -49,19 +49,57 @@ public sealed class NpcIdentityUiTests
     [Fact]
     public void Unequal_scales_show_value_after_explicit_edit()
     {
-        Assert.Equal("140", NpcIdentityUi.FormatTamañoDisplay(140, 140, userEditedTamaño: true));
+        Assert.Equal("120", NpcIdentityUi.FormatTamañoDisplay(120, 120, userEditedTamaño: true));
     }
 
     [Fact]
-    public void Tamaño_140_updates_both_scales_on_draft()
+    public void Tamaño_120_updates_both_scales_on_draft()
     {
         var draft = NpcsModeloDraft.CreateWithDefaults(20062);
-        Assert.True(NpcIdentityUi.TryParseTamaño("140", out var v));
+        Assert.True(NpcIdentityUi.TryParseTamaño("120", out var v));
         var (sx, sy) = NpcIdentityUi.ApplyUniformTamaño(v);
         draft.ScaleX = sx;
         draft.ScaleY = sy;
-        Assert.Equal(140, draft.ScaleX);
-        Assert.Equal(140, draft.ScaleY);
+        Assert.Equal(120, draft.ScaleX);
+        Assert.Equal(120, draft.ScaleY);
+    }
+
+    [Fact]
+    public void TryParseTamaño_clamps_above_max_with_notice()
+    {
+        Assert.True(NpcIdentityUi.TryParseTamaño("150", out var v, out var notice));
+        Assert.Equal(127, v);
+        Assert.Equal(NpcsModeloScale.AutoClampMaxNotice, notice);
+    }
+
+    [Theory]
+    [InlineData(130, 127, true)]
+    [InlineData(150, 127, true)]
+    [InlineData(128, 127, true)]
+    [InlineData(500, 127, true)]
+    [InlineData(127, 127, false)]
+    [InlineData(100, 100, false)]
+    public void ClampMax_only_when_above_127(int input, int expected, bool expectClamped)
+    {
+        var result = NpcsModeloScale.ClampMax(input, out var clamped);
+        Assert.Equal(expected, result);
+        Assert.Equal(expectClamped, clamped);
+    }
+
+    [Theory]
+    [InlineData("130", 127, true)]
+    [InlineData("150", 127, true)]
+    [InlineData("128", 127, true)]
+    [InlineData("127", 127, false)]
+    [InlineData("100", 100, false)]
+    public void TryParseTamaño_clamp_max_cases(string text, int expected, bool expectNotice)
+    {
+        Assert.True(NpcIdentityUi.TryParseTamaño(text, out var v, out var notice));
+        Assert.Equal(expected, v);
+        if (expectNotice)
+            Assert.Equal(NpcsModeloScale.AutoClampMaxNotice, notice);
+        else
+            Assert.Null(notice);
     }
 
     [Fact]

@@ -123,6 +123,14 @@ public static class ThemeService
         window.Foreground = GetBrush("TextPrimary");
     }
 
+    /// <summary>Same cream panel surface as the docked catalog (not the black workspace).</summary>
+    public static void ApplyCatalogPanelTheme(Window window)
+    {
+        if (window is null) return;
+        window.Background = GetBrush("PanelCardBackground");
+        window.Foreground = GetBrush("TextPrimary");
+    }
+
     public static SolidColorBrush GetBrush(string key)
     {
         if (Application.Current?.TryFindResource(key) is SolidColorBrush brush)

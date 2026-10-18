@@ -13,6 +13,17 @@ public sealed class AiBackendGenerationService : IAiGenerationService
     public const string UnauthorizedUserMessage =
         "No autorizado para utilizar el servicio IA de RUFUS.";
 
+    /// <summary>DIALOG.AI.BACKEND_TIMEOUT.FIX.1 — ADMIN HTTP budget exceeded (outer).</summary>
+    public const string TimeoutUserMessage =
+        "El backend IA está tardando demasiado. Puedes volver a intentarlo.";
+
+    /// <summary>DIALOG.AI.BACKEND_TIMEOUT.DIAGNOSE.2 — backend reported OpenAI budget exceeded.</summary>
+    public const string OpenAiTimeoutUserMessage =
+        "OpenAI no respondió a tiempo en el backend. Puedes volver a intentarlo.";
+
+    public const string CancelledUserMessage =
+        "Generación cancelada.";
+
     private readonly AiBackendSettings _settings;
     private readonly IAiBackendTransport _transport;
     private readonly IAiBackendAccessTokenProvider _accessTokenProvider;
@@ -149,7 +160,7 @@ public sealed class AiBackendGenerationService : IAiGenerationService
                 return AiServiceCallResult.Fail(
                     expectedAction,
                     AiServiceCallResult.CodeCancelled,
-                    "Conexión cancelada.",
+                    CancelledUserMessage,
                     outbound);
             }
             catch (Exception ex)
@@ -177,38 +188,47 @@ public sealed class AiBackendGenerationService : IAiGenerationService
         }
 
         Status = AiGenerationServiceStatus.Generating;
-        AiGenerationActivityLog.Backend("enviando generación");
+        var actionLabel = AiCreativeRequestPreview.FormatAction(expectedAction);
+        var timeout = _settings.ResolveTimeout(expectedAction);
+        var json = AiBackendRequestBuilder.Serialize(outbound);
+        var bodyBytes = System.Text.Encoding.UTF8.GetByteCount(json);
+        AiGenerationActivityLog.Backend(
+            $"enviando generación · {actionLabel} · timeout {timeout.TotalSeconds:0}s · body {bodyBytes} bytes");
 
+        var sw = System.Diagnostics.Stopwatch.StartNew();
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var json = AiBackendRequestBuilder.Serialize(outbound);
             var retried = false;
             while (true)
             {
                 var auth = AiBackendRequestAuth.Bearer(accessToken!);
                 var transportResult = await _transport
-                    .PostJsonAsync(endpoint, json, _settings.Timeout, auth, cancellationToken)
+                    .PostJsonAsync(endpoint, json, timeout, auth, cancellationToken)
                     .ConfigureAwait(false);
 
                 if (transportResult.ErrorCode == AiServiceCallResult.CodeCancelled)
                 {
                     Status = AiGenerationServiceStatus.Available;
+                    AiGenerationActivityLog.Backend(
+                        $"{actionLabel} cancelada · {sw.ElapsedMilliseconds} ms");
                     return AiServiceCallResult.Fail(
                         expectedAction,
                         AiServiceCallResult.CodeCancelled,
-                        "Conexión cancelada.",
+                        CancelledUserMessage,
                         outbound);
                 }
 
                 if (transportResult.ErrorCode == AiServiceCallResult.CodeTimeout)
                 {
                     Status = AiGenerationServiceStatus.Error;
-                    AiGenerationActivityLog.Error(expectedAction, "timeout");
+                    AiGenerationActivityLog.Error(
+                        expectedAction,
+                        $"timeout tras {sw.ElapsedMilliseconds} ms (límite {timeout.TotalSeconds:0}s)");
                     return AiServiceCallResult.Fail(
                         expectedAction,
                         AiServiceCallResult.CodeTimeout,
-                        "Timeout del backend IA.",
+                        TimeoutUserMessage,
                         outbound);
                 }
 
@@ -328,9 +348,12 @@ public sealed class AiBackendGenerationService : IAiGenerationService
                             ? AiGenerationServiceStatus.Available
                             : AiGenerationServiceStatus.Error;
                         if (parsed.Success)
-                            AiGenerationActivityLog.Response("OK · respuesta recibida");
+                            AiGenerationActivityLog.Response(
+                                $"OK · {actionLabel} · {sw.ElapsedMilliseconds} ms");
                         else
-                            AiGenerationActivityLog.Error(expectedAction, parsed.ErrorCode ?? "error");
+                            AiGenerationActivityLog.Error(
+                                expectedAction,
+                                $"{parsed.ErrorCode ?? "error"} · {sw.ElapsedMilliseconds} ms");
                         return parsed;
                     }
                 }
@@ -361,10 +384,12 @@ public sealed class AiBackendGenerationService : IAiGenerationService
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             Status = AiGenerationServiceStatus.Available;
+            AiGenerationActivityLog.Backend(
+                $"{actionLabel} cancelada · {sw.ElapsedMilliseconds} ms");
             return AiServiceCallResult.Fail(
                 expectedAction,
                 AiServiceCallResult.CodeCancelled,
-                "Conexión cancelada.",
+                CancelledUserMessage,
                 outbound);
         }
         catch (Exception ex)

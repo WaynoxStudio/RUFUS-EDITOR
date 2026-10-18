@@ -62,11 +62,15 @@ public sealed class AiBackendHttpTransport : IAiBackendTransport, IDisposable
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            return AiBackendTransportResult.Fail(AiServiceCallResult.CodeCancelled, "Conexión cancelada.");
+            return AiBackendTransportResult.Fail(
+                AiServiceCallResult.CodeCancelled,
+                AiBackendGenerationService.CancelledUserMessage);
         }
         catch (OperationCanceledException)
         {
-            return AiBackendTransportResult.Fail(AiServiceCallResult.CodeTimeout, "Timeout del backend IA.");
+            return AiBackendTransportResult.Fail(
+                AiServiceCallResult.CodeTimeout,
+                AiBackendGenerationService.TimeoutUserMessage);
         }
         catch (HttpRequestException ex)
         {

@@ -10,57 +10,75 @@ namespace RufusMapEditor.Admin.Views;
 
 public partial class SettingsView : UserControl
 {
+    private const double ConfigStackBreakpoint = 760;
+
     private readonly AdminWorkspace _workspace;
     private readonly Window _owner;
     private bool _editingSecret;
-    private bool _syncingThemeToggle;
 
     public SettingsView(AdminWorkspace workspace, Window owner)
     {
         InitializeComponent();
         _workspace = workspace;
         _owner = owner;
+
         _workspace.Changed += Refresh;
-        ThemeService.ThemeChanged += SyncThemeToggle;
         Loaded += (_, _) =>
         {
             BaseUrlBox.Text = _workspace.BaseUrl;
             LoadClipsFields();
-            SyncThemeToggle();
             Refresh();
+            UpdateConfigLayout(ActualWidth);
         };
-        Unloaded += (_, _) =>
-        {
-            _workspace.Changed -= Refresh;
-            ThemeService.ThemeChanged -= SyncThemeToggle;
-        };
+        Unloaded += (_, _) => _workspace.Changed -= Refresh;
     }
 
-    private void SyncThemeToggle()
+    private void SettingsRoot_SizeChanged(object sender, SizeChangedEventArgs e) =>
+        UpdateConfigLayout(e.NewSize.Width);
+
+    private void UpdateConfigLayout(double width)
     {
-        if (!Dispatcher.CheckAccess())
-        {
-            Dispatcher.Invoke(SyncThemeToggle);
+        if (width <= 0)
             return;
+
+        if (width < ConfigStackBreakpoint)
+        {
+            Grid.SetColumn(BackendCard, 0);
+            Grid.SetRow(BackendCard, 0);
+            Grid.SetColumnSpan(BackendCard, 3);
+
+            Grid.SetColumn(PreviewsCard, 0);
+            Grid.SetRow(PreviewsCard, 1);
+            Grid.SetColumnSpan(PreviewsCard, 3);
+
+            Grid.SetColumn(ConnectionCard, 0);
+            Grid.SetRow(ConnectionCard, 2);
+            Grid.SetColumnSpan(ConnectionCard, 3);
+
+            ConfigSpacerColumn.Width = new GridLength(0);
+            BackendCard.Margin = new Thickness(0);
+            PreviewsCard.Margin = new Thickness(0, 12, 0, 0);
+            ConnectionCard.Margin = new Thickness(0, 12, 0, 0);
         }
+        else
+        {
+            Grid.SetColumn(BackendCard, 0);
+            Grid.SetRow(BackendCard, 0);
+            Grid.SetColumnSpan(BackendCard, 1);
 
-        _syncingThemeToggle = true;
-        ThemeToggle.IsChecked = ThemeService.IsDarkEffective;
-        _syncingThemeToggle = false;
-    }
+            Grid.SetColumn(PreviewsCard, 2);
+            Grid.SetRow(PreviewsCard, 0);
+            Grid.SetColumnSpan(PreviewsCard, 1);
 
-    private void ThemeToggle_Changed(object sender, RoutedEventArgs e)
-    {
-        if (_syncingThemeToggle) return;
+            Grid.SetColumn(ConnectionCard, 0);
+            Grid.SetRow(ConnectionCard, 1);
+            Grid.SetColumnSpan(ConnectionCard, 3);
 
-        var preference = ThemeToggle.IsChecked == true
-            ? ThemePreference.Dark
-            : ThemePreference.Light;
-
-        var settings = AppSettingsStore.Load();
-        settings.Theme = preference;
-        AppSettingsStore.Save(settings);
-        ThemeService.SetPreference(preference);
+            ConfigSpacerColumn.Width = new GridLength(12);
+            BackendCard.Margin = new Thickness(0);
+            PreviewsCard.Margin = new Thickness(0);
+            ConnectionCard.Margin = new Thickness(0, 12, 0, 0);
+        }
     }
 
     private void LoadClipsFields()
@@ -77,8 +95,8 @@ public partial class SettingsView : UserControl
         {
             var discovered = ClipsRootPaths.TryDiscoverUnambiguous();
             ClipsStatusText.Text = discovered is null
-                ? "No configurada. Los nombres GFX mostrarán fallback GFX #ID."
-                : $"Autodetectada en runtime (no guardada): {discovered}";
+                ? "Sin ruta · fallback GFX #ID"
+                : $"Autodetectada: {discovered}";
         }
         else
         {
@@ -88,11 +106,18 @@ public partial class SettingsView : UserControl
         var settings = AppSettingsStore.Load();
         ClipsRootConfiguration.ApplyToRuntime(settings);
         var cachePaths = PreviewCacheUtility.ResolvePaths(settings.LibraryPath);
-        PreviewLibraryText.Text = cachePaths.LibraryRoot is null
-            ? "Library de previews: no resuelta (cache en runtime según exe/repo)."
-            : $"Library efectiva: {cachePaths.LibraryRoot}\n" +
-              $"Sprite cache: {cachePaths.SpriteCacheRoot}\n" +
-              $"Artwork cache: {cachePaths.ArtworkCacheRoot}";
+        if (cachePaths.LibraryRoot is null)
+        {
+            PreviewLibraryText.Text = "Library: no resuelta";
+            PreviewSpriteCacheText.Text = "Sprite: —";
+            PreviewArtworkCacheText.Text = "Artwork: —";
+        }
+        else
+        {
+            PreviewLibraryText.Text = "Library: " + cachePaths.LibraryRoot;
+            PreviewSpriteCacheText.Text = "Sprite: " + cachePaths.SpriteCacheRoot;
+            PreviewArtworkCacheText.Text = "Artwork: " + cachePaths.ArtworkCacheRoot;
+        }
     }
 
     private void ClearPreviewCache_Click(object sender, RoutedEventArgs e)
@@ -101,9 +126,8 @@ public partial class SettingsView : UserControl
         var (sprites, artworks) = PreviewCacheUtility.ClearPreviewCaches(settings.LibraryPath);
         RefreshClipsStatus();
         MessageBox.Show(_owner,
-            $"Caché de previews limpiada.\n\nEliminados: {sprites} PNG sprite(s), {artworks} PNG artwork(s).\n\n" +
-            "Las miniaturas se regenerarán al abrir el picker de apariencias.",
-            "Carpeta clips",
+            $"Caché limpiada: {sprites} sprite(s), {artworks} artwork(s).",
+            "Previews",
             MessageBoxButton.OK,
             MessageBoxImage.Information);
     }
@@ -131,7 +155,7 @@ public partial class SettingsView : UserControl
                 out var normalized,
                 out var error))
         {
-            MessageBox.Show(_owner, error, "Carpeta clips", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(_owner, error, "Previews", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
@@ -143,10 +167,8 @@ public partial class SettingsView : UserControl
         ClipsRootBox.Text = settings.ClipsRootPath ?? "";
         RefreshClipsStatus();
         MessageBox.Show(_owner,
-            string.IsNullOrWhiteSpace(normalized)
-                ? "Ruta de clips borrada."
-                : "Carpeta clips guardada. Los pickers NPC usarán nombres de sprites.xml.",
-            "Carpeta clips",
+            string.IsNullOrWhiteSpace(normalized) ? "Ruta borrada." : "Carpeta clips guardada.",
+            "Previews",
             MessageBoxButton.OK,
             MessageBoxImage.Information);
     }
@@ -169,8 +191,8 @@ public partial class SettingsView : UserControl
         {
             SecretBox.Visibility = Visibility.Collapsed;
             SecretHintText.Text = _workspace.HasSecret
-                ? "Credencial guardada (DPAPI). No se muestra en texto plano."
-                : "No hay credencial guardada. Pulse Cambiar credencial.";
+                ? "Guardada (DPAPI)."
+                : "Sin credencial guardada.";
             ChangeCredentialButton.Content = "Cambiar credencial";
         }
     }
@@ -207,7 +229,7 @@ public partial class SettingsView : UserControl
         SecretBox.Visibility = Visibility.Visible;
         SecretBox.Clear();
         SecretBox.Focus();
-        SecretHintText.Text = "Introduzca el nuevo secret y pulse Reconectar.";
-        ChangeCredentialButton.Content = "Cancelar cambio";
+        SecretHintText.Text = "Nuevo secret → Reconectar.";
+        ChangeCredentialButton.Content = "Cancelar";
     }
 }

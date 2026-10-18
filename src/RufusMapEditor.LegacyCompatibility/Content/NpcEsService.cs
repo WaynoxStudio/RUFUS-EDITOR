@@ -17,7 +17,7 @@ public static class NpcEsService
         {
             foreach (var add in request.Additions)
             {
-                DialogEsLatin1.Validate(add.Name, $"N.d[{add.Id}].n");
+                DialogEsLatin1.Prepare(add.Name, $"N.d[{add.Id}].n");
                 foreach (var a in add.Actions)
                 {
                     if (!NpcEsClientActions.IsValid(a))
@@ -147,7 +147,7 @@ public static class NpcEsService
         foreach (var g in additions.GroupBy(a => a.Id))
         {
             var last = g.Last();
-            if (!output.Names.TryGetValue(last.Id, out var t) || t != last.Name)
+            if (!output.Names.TryGetValue(last.Id, out var t) || t != DialogEsLatin1.Normalize(last.Name))
                 return $"Validación: N.d[{last.Id}].n texto incorrecto.";
             if (!NpcEsClientActions.SameSet(output.ActionsOf(last.Id), last.Actions))
                 return $"Validación: N.d[{last.Id}].a incorrecto.";

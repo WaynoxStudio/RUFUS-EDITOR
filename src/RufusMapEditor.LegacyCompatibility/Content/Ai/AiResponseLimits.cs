@@ -10,5 +10,6 @@ public static class AiResponseLimits
     public const int MaxPlayerReplyLength = 300;
 
     public const int ExactNameCount = 3;
-    public const int ExactPlayerReplyCount = 3;
+    /// <summary>DIALOG.AI.AUTO_APPLY.SINGLE_REPLY.2 — full conversation yields one player reply.</summary>
+    public const int ExactPlayerReplyCount = 1;
 }

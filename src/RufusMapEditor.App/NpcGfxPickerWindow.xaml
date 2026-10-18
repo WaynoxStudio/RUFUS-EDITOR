@@ -3,8 +3,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:RufusMapEditor.App.Controls"
         Title="Elegir apariencia NPC"
-        Height="560" Width="980"
-        MinHeight="420" MinWidth="720"
+        Height="620" Width="900"
+        MinHeight="420" MinWidth="640"
         WindowStartupLocation="CenterOwner"
         Background="{DynamicResource WindowBackground}"
         Foreground="{DynamicResource TextPrimary}">
@@ -25,7 +25,7 @@
           <Button DockPanel.Dock="Right" Content="Configurar" Padding="10,4" Margin="12,0,0,0"
                   Click="ConfigureClips_Click"/>
           <TextBlock TextWrapping="Wrap" VerticalAlignment="Center"
-                     Text="Configura la carpeta del cliente para mostrar nombres y previews."/>
+                     Text="Configura la carpeta del cliente para mostrar nombres y vistas previas."/>
         </DockPanel>
       </Border>
       <TextBlock x:Name="StatusText" Margin="0,0,0,6" Foreground="{DynamicResource TextSecondary}" TextWrapping="Wrap"/>
@@ -34,107 +34,78 @@
                TextChanged="SearchBox_TextChanged"
                ToolTip="GFX ID, nombre de apariencia o nombre de NPC"/>
     </StackPanel>
-    <Border DockPanel.Dock="Right" Width="220" Margin="12,0,0,0"
-            Background="{DynamicResource ElevatedSurface}"
-            BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="6"
-            Padding="12">
-      <StackPanel>
-        <TextBlock Text="Preview GFX" FontWeight="SemiBold" Margin="0,0,0,8"/>
-        <Border Background="{DynamicResource SurfaceBackground}" CornerRadius="4"
-                HorizontalAlignment="Center" Padding="8" Margin="0,0,0,10">
-          <controls:LazyArtworkImage x:Name="PreviewSpriteImage"
-                                     UseNpcSpritePreview="True"
-                                     Width="160" Height="160"/>
-        </Border>
-        <TextBlock x:Name="PreviewNameText" FontWeight="SemiBold" TextWrapping="Wrap"
-                   TextTrimming="CharacterEllipsis"/>
-        <TextBlock x:Name="PreviewGfxText" FontFamily="Consolas" FontSize="12"
-                   Foreground="{DynamicResource TextSecondary}" Margin="0,4,0,0"/>
-        <TextBlock x:Name="PreviewUsageText" FontSize="11"
-                   Foreground="{DynamicResource TextMuted}" Margin="0,4,0,0"
-                   TextWrapping="Wrap" TextTrimming="CharacterEllipsis"/>
-        <TextBlock Text="Sprite ingame · staticR" FontSize="10"
-                   Foreground="{DynamicResource TextMuted}" Margin="0,8,0,0"/>
-      </StackPanel>
-    </Border>
+    <!-- UniformGrid Columns=3: 1 ListBoxItem = 1 GFX. Viewbox escala artwork al ancho de celda. -->
     <ListBox x:Name="ResultList"
-             VirtualizingPanel.IsVirtualizing="True"
-             VirtualizingPanel.VirtualizationMode="Recycling"
-             VirtualizingPanel.ScrollUnit="Pixel"
-             ScrollViewer.CanContentScroll="True"
              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+             ScrollViewer.CanContentScroll="False"
              Background="{DynamicResource SurfaceBackground}"
              BorderBrush="{DynamicResource Border}"
              MouseDoubleClick="ResultList_MouseDoubleClick"
              SelectionChanged="ResultList_SelectionChanged">
+      <ListBox.ItemsPanel>
+        <ItemsPanelTemplate>
+          <UniformGrid Columns="3"/>
+        </ItemsPanelTemplate>
+      </ListBox.ItemsPanel>
       <ListBox.ItemContainerStyle>
         <Style TargetType="ListBoxItem">
           <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+          <Setter Property="VerticalContentAlignment" Value="Stretch"/>
           <Setter Property="Padding" Value="0"/>
-          <Setter Property="Margin" Value="0,0,0,4"/>
-          <Setter Property="Focusable" Value="False"/>
+          <Setter Property="Margin" Value="4"/>
+          <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+          <Setter Property="Template">
+            <Setter.Value>
+              <ControlTemplate TargetType="ListBoxItem">
+                <Border x:Name="Card"
+                        Background="{DynamicResource ElevatedSurface}"
+                        BorderBrush="{DynamicResource Border}"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        Padding="6,6,6,8"
+                        SnapsToDevicePixels="True">
+                  <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Top"/>
+                </Border>
+                <ControlTemplate.Triggers>
+                  <Trigger Property="IsMouseOver" Value="True">
+                    <Setter TargetName="Card" Property="BorderBrush" Value="{DynamicResource Accent}"/>
+                    <Setter TargetName="Card" Property="Background" Value="{DynamicResource SurfaceBackground}"/>
+                  </Trigger>
+                  <Trigger Property="IsSelected" Value="True">
+                    <Setter TargetName="Card" Property="BorderBrush" Value="{DynamicResource Accent}"/>
+                    <Setter TargetName="Card" Property="BorderThickness" Value="2"/>
+                    <Setter TargetName="Card" Property="Background" Value="{DynamicResource SurfaceBackground}"/>
+                  </Trigger>
+                </ControlTemplate.Triggers>
+              </ControlTemplate>
+            </Setter.Value>
+          </Setter>
         </Style>
       </ListBox.ItemContainerStyle>
       <ListBox.ItemTemplate>
         <DataTemplate>
-          <Grid>
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="*"/>
-              <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-            <Border Grid.Column="0" Padding="8,6" Margin="0,0,3,0"
-                    Background="{DynamicResource ElevatedSurface}" CornerRadius="4"
-                    Cursor="Hand" MouseLeftButtonUp="GfxCard_MouseLeftButtonUp"
-                    Tag="{Binding Left}">
-              <Border.Style>
-                <Style TargetType="Border">
-                  <Style.Triggers>
-                    <DataTrigger Binding="{Binding Left}" Value="{x:Null}">
-                      <Setter Property="Visibility" Value="Hidden"/>
-                    </DataTrigger>
-                  </Style.Triggers>
-                </Style>
-              </Border.Style>
-              <DockPanel>
-                <controls:LazyArtworkImage DockPanel.Dock="Left" GfxId="{Binding Left.GfxId}"
-                                           UseNpcSpritePreview="False"
-                                           Width="56" Height="56" Margin="0,0,8,0"/>
-                <StackPanel>
-                  <TextBlock Text="{Binding Left.DisplayName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                  <TextBlock Text="{Binding Left.GfxIdLabel}" FontFamily="Consolas" FontSize="11"
-                             Foreground="{DynamicResource TextSecondary}"/>
-                  <TextBlock Text="{Binding Left.UsageSummary}" FontSize="11"
-                             Foreground="{DynamicResource TextMuted}" TextTrimming="CharacterEllipsis"/>
-                </StackPanel>
-              </DockPanel>
-            </Border>
-            <Border Grid.Column="1" Padding="8,6" Margin="3,0,0,0"
-                    Background="{DynamicResource ElevatedSurface}" CornerRadius="4"
-                    Cursor="Hand" MouseLeftButtonUp="GfxCard_MouseLeftButtonUp"
-                    Tag="{Binding Right}">
-              <Border.Style>
-                <Style TargetType="Border">
-                  <Style.Triggers>
-                    <DataTrigger Binding="{Binding Right}" Value="{x:Null}">
-                      <Setter Property="Visibility" Value="Hidden"/>
-                    </DataTrigger>
-                  </Style.Triggers>
-                </Style>
-              </Border.Style>
-              <DockPanel>
-                <controls:LazyArtworkImage DockPanel.Dock="Left" GfxId="{Binding Right.GfxId}"
-                                           UseNpcSpritePreview="False"
-                                           Width="56" Height="56" Margin="0,0,8,0"/>
-                <StackPanel>
-                  <TextBlock Text="{Binding Right.DisplayName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                  <TextBlock Text="{Binding Right.GfxIdLabel}" FontFamily="Consolas" FontSize="11"
-                             Foreground="{DynamicResource TextSecondary}"/>
-                  <TextBlock Text="{Binding Right.UsageSummary}" FontSize="11"
-                             Foreground="{DynamicResource TextMuted}" TextTrimming="CharacterEllipsis"/>
-                </StackPanel>
-              </DockPanel>
-            </Border>
-          </Grid>
+          <DockPanel LastChildFill="True">
+            <StackPanel DockPanel.Dock="Bottom" Margin="0,6,0,0">
+              <TextBlock Text="{Binding DisplayName}"
+                         FontWeight="SemiBold"
+                         FontSize="12"
+                         TextAlignment="Center"
+                         TextTrimming="CharacterEllipsis"
+                         TextWrapping="NoWrap"/>
+              <TextBlock Text="{Binding GfxIdLabel}"
+                         FontFamily="Consolas"
+                         FontSize="11"
+                         TextAlignment="Center"
+                         Foreground="{DynamicResource TextSecondary}"
+                         Margin="0,2,0,0"/>
+            </StackPanel>
+            <!-- Viewbox: rellena el ancho de la celda; Stretch.Uniform en Image evita deformar/recortar. -->
+            <Viewbox Stretch="Uniform" StretchDirection="Both" HorizontalAlignment="Stretch">
+              <controls:LazyArtworkImage GfxId="{Binding GfxId}"
+                                         UseNpcSpritePreview="False"
+                                         Width="256" Height="256"/>
+            </Viewbox>
+          </DockPanel>
         </DataTemplate>
       </ListBox.ItemTemplate>
     </ListBox>

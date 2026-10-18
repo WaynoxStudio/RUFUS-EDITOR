@@ -18,7 +18,6 @@
   <ItemGroup>
     <ProjectReference Include="..\RufusMapEditor.Domain\RufusMapEditor.Domain.csproj" />
     <ProjectReference Include="..\RufusMapEditor.LegacyCompatibility\RufusMapEditor.LegacyCompatibility.csproj" />
-    <ProjectReference Include="..\RufusMapEditor.Licensing\RufusMapEditor.Licensing.csproj" />
     <ProjectReference Include="..\RufusMapEditor.Rendering\RufusMapEditor.Rendering.csproj" />
   </ItemGroup>
 

@@ -31,8 +31,24 @@ public sealed class ContDialog6b1Tests
         var npc = NpcsModeloDraft.CreateWithDefaults(20062);
         npc.SimpleDialogTextLocal = "reuse";
         npc.Pregunta = 1075;
+        npc.DialogEsIdProvisional = false;
         Assert.False(npc.IsPendingDialogEs);
         Assert.True(npc.IsSimpleDialogComplete);
+    }
+
+    [Fact]
+    public void Provisional_pregunta_still_pending_until_dialog_es_published()
+    {
+        var npc = NpcsModeloDraft.CreateWithDefaults(20062);
+        npc.SimpleDialogTextLocal = "Hola";
+        npc.Pregunta = 20025;
+        npc.DialogEsIdProvisional = true;
+        Assert.True(npc.IsPendingDialogEs);
+        Assert.True(npc.IsSimpleDialogComplete);
+
+        npc.DialogEsPublished = true;
+        npc.DialogEsIdProvisional = false;
+        Assert.False(npc.IsPendingDialogEs);
     }
 
     [Fact]

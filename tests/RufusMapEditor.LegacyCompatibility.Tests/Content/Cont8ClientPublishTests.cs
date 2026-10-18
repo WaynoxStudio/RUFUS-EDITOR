@@ -15,19 +15,21 @@ public sealed class Cont8ClientPublishTests : IDisposable
         try { Directory.Delete(_work, true); } catch { /* ignore */ }
     }
 
-    private static string Versions(int dialog = 1294, int npc = 1289, int maps = 1283) =>
+    private static string Versions(int dialog = 1294, int npc = 1289, int maps = 1283, int quests = 1275) =>
         string.Create(System.Globalization.CultureInfo.InvariantCulture,
-            $"11&f=maps,es,{maps}|dialog,es,{dialog}|quests,es,1|npc,es,{npc}");
+            $"11&f=maps,es,{maps}|dialog,es,{dialog}|quests,es,{quests}|npc,es,{npc}");
 
     private static byte[] DialogSeed(int v, params DialogEsAssignment[] a) => DialogEsSeed.Create(v, a);
     private static byte[] NpcSeed(int v, params NpcEsAssignment[] a) => NpcEsSeed.Create(v, a);
+    private static byte[] QuestsSeed(int v) => QuestsEsSeed.Create(v);
 
-    private static FakeLangSftpPublishClient SeedRemote(int dialogV, byte[] dialogSwf, int npcV, byte[] npcSwf)
+    private static FakeLangSftpPublishClient SeedRemote(int dialogV, byte[] dialogSwf, int npcV, byte[] npcSwf, int questsV = 1275)
     {
         var fake = new FakeLangSftpPublishClient();
-        fake.SeedFile("/var/www/html/data/lang/versions_es.txt", Versions(dialogV, npcV));
+        fake.SeedFile("/var/www/html/data/lang/versions_es.txt", Versions(dialogV, npcV, quests: questsV));
         fake.SeedFile($"/var/www/html/data/lang/swf/dialog_es_{dialogV}.swf", dialogSwf);
         fake.SeedFile($"/var/www/html/data/lang/swf/npc_es_{npcV}.swf", npcSwf);
+        fake.SeedFile($"/var/www/html/data/lang/swf/quests_es_{questsV}.swf", QuestsSeed(questsV));
         return fake;
     }
 
@@ -68,7 +70,7 @@ public sealed class Cont8ClientPublishTests : IDisposable
         Assert.Contains("dialog,es,1295", bumped, StringComparison.Ordinal);
         Assert.Contains("npc,es,1290", bumped, StringComparison.Ordinal);
         Assert.Contains("maps,es,1283", bumped, StringComparison.Ordinal);
-        Assert.Contains("quests,es,1", bumped, StringComparison.Ordinal);
+        Assert.Contains("quests,es,1275", bumped, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -208,6 +210,244 @@ public sealed class Cont8ClientPublishTests : IDisposable
         Assert.Contains("Escrituras BD: 0", text, StringComparison.Ordinal);
         Assert.Equal(0, fake.UploadNewCount);
         Assert.Equal(0, fake.AtomicReplaceCount);
+    }
+
+    [Fact]
+    public void Preview_quests_es_before_bd_uses_ContentPublishPlan()
+    {
+        var occupied = new QuestsEsMissionAssignment
+        {
+            Quest = new QuestsEsQuestAssignment { QuestId = 1, Name = "q", StageIds = new[] { 2 } },
+            Stages =
+            [
+                new QuestsEsStageAssignment
+                {
+                    StageId = 2,
+                    Name = "s",
+                    Description = "d",
+                    Rewards = new MissionRewardsDraft(),
+                },
+            ],
+            Objectives =
+            [
+                new QuestsEsObjectiveAssignment
+                {
+                    ObjectiveId = 4660,
+                    Type = MissionObjectiveTypes.Manual,
+                    Args = "",
+                    Detalle = "",
+                },
+            ],
+        };
+        var fake = SeedRemote(
+            1294,
+            DialogSeed(1294),
+            1289,
+            NpcSeed(1289),
+            questsV: 1275);
+        fake.SeedFile(
+            "/var/www/html/data/lang/swf/quests_es_1275.swf",
+            QuestsEsSeed.Create(1275, new[] { occupied }));
+
+        var ws = new ContentDraftWorkspace();
+        ws.Npcs.SetDbMaxId(100);
+        var npc = ws.Npcs.CreateNew();
+        npc.Id = 101;
+        npc.Nombre = "NPC";
+        npc.DialogMode = NpcDialogMode.Simple;
+        npc.SimpleDialogTextLocal = "Hola";
+
+        ws.Missions.SetDbMaxQuestId(100003);
+        ws.Missions.SetDbMaxStageId(5500);
+        ws.Missions.SetDbMaxObjectiveId(4214);
+        var mission = ws.Missions.CreateMission();
+        mission.Nombre = "PRUEBA";
+        mission.StartNpcId = npc.Id;
+        var stage = ws.Missions.AddStage(mission);
+        stage.Nombre = "Prueba";
+        stage.Descripcion = "Descripción de PRUEBA";
+        var obj = ws.Missions.AddObjective(stage);
+        obj.Tipo = MissionObjectiveTypes.Manual;
+
+        var maxes = new ContentPublishMaxSnapshot
+        {
+            NpcsModelo = 100,
+            Misiones = 100003,
+            MisionEtapas = 5500,
+            MisionObjetivos = 4214,
+        };
+        var questsSnap = QuestsEsParser.Parse(QuestsEsSeed.Create(1275, new[] { occupied }));
+        var bdPlan = ContentPublishPlanBuilder.Build(ws, maxes, questsEs: questsSnap);
+        var req = new ContentClientPublishRequest
+        {
+            Settings = new LangSftpSettings
+            {
+                Host = "t",
+                User = "u",
+                LangRemotePath = LangSftpSettings.DefaultLangRemotePath,
+                SwfRemotePath = LangSftpSettings.DefaultSwfRemotePath,
+            },
+            PlainPassword = "x",
+            Workspace = ws,
+            WorkDirectory = _work,
+            ClientFactory = (_, _) => fake,
+            BdPublishPlan = bdPlan,
+            BdMaxSnapshot = maxes,
+        };
+
+        var preview = ContentClientRemotePublishService.PreparePreview(req);
+        Assert.True(preview.Success, preview.Error);
+        Assert.True(preview.QuestsPreviewPendingBd);
+        var text = preview.FormatPreview();
+        Assert.Contains("QUESTS_ES", text, StringComparison.Ordinal);
+        Assert.Contains("PREVISIÓN", text, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("100004", text, StringComparison.Ordinal);
+        Assert.Contains("5501", text, StringComparison.Ordinal);
+        Assert.Contains("4661", text, StringComparison.Ordinal);
+        Assert.Contains("Q.q[100004]", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("conflicto", text, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, fake.UploadNewCount);
+
+        var publish = ContentClientRemotePublishService.Publish(req);
+        Assert.False(publish.Success);
+        Assert.Contains("Publica primero", publish.Error ?? "", StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, fake.UploadNewCount);
+        Assert.Equal(0, fake.AtomicReplaceCount);
+    }
+
+    [Fact]
+    public void Post_bd_preview_keeps_dialog_npc_quests_pending()
+    {
+        var occupied = new QuestsEsMissionAssignment
+        {
+            Quest = new QuestsEsQuestAssignment { QuestId = 1, Name = "q", StageIds = new[] { 2 } },
+            Stages =
+            [
+                new QuestsEsStageAssignment
+                {
+                    StageId = 2,
+                    Name = "s",
+                    Description = "d",
+                    Rewards = new MissionRewardsDraft(),
+                },
+            ],
+            Objectives = [],
+        };
+        var fake = SeedRemote(1295, DialogSeed(1295), 1289, NpcSeed(1289), questsV: 1275);
+        fake.SeedFile(
+            "/var/www/html/data/lang/swf/quests_es_1275.swf",
+            QuestsEsSeed.Create(1275, new[] { occupied }));
+
+        var ws = new ContentDraftWorkspace();
+        ws.Npcs.SetDbMaxId(20064);
+        var npc = ws.Npcs.CreateNew();
+        npc.Id = 20065;
+        npc.Nombre = "RUFUS";
+        npc.DialogMode = NpcDialogMode.Interactive;
+        npc.PublishedBd = true;
+        npc.DialogEsPublished = false;
+        npc.NpcEsPublished = false;
+        npc.Pregunta = 20024;
+
+        var q1 = ws.Dialogs.CreateQuestion(npc.Id);
+        q1.Id = 20024;
+        q1.TextLocal = "Oferta";
+        q1.PublishedBd = true;
+        var r = ws.Dialogs.AddResponse(q1);
+        r.TextLocal = "Acepto";
+        r.PublishedResponseId = 90002;
+        var q2 = ws.Dialogs.CreateQuestion(npc.Id);
+        q2.Id = 20025;
+        q2.TextLocal = "Incompleta";
+        q2.PublishedBd = true;
+        var q3 = ws.Dialogs.CreateQuestion(npc.Id);
+        q3.Id = 20026;
+        q3.TextLocal = "Completada";
+        q3.PublishedBd = true;
+
+        var mission = ws.Missions.CreateMission();
+        mission.Nombre = "PRUEBA";
+        mission.PublishedBd = true;
+        mission.PublishedQuestId = 100004;
+        mission.QuestsEsPublished = false;
+        mission.StartNpcId = npc.Id;
+        var stage = ws.Missions.AddStage(mission);
+        stage.Id = 5501;
+        stage.Nombre = "Prueba";
+        stage.Descripcion = "Descripción de PRUEBA";
+        var obj = ws.Missions.AddObjective(stage);
+        obj.Id = 4661;
+        obj.Tipo = MissionObjectiveTypes.Manual;
+
+        // Orphan must not flip preview back to pending-BD.
+        var orphan = ws.Missions.CreateMission();
+        orphan.Nombre = "hola";
+        orphan.PublishedBd = false;
+        ws.Missions.AddStage(orphan);
+
+        Assert.True(ContentClientRemotePublishService.HasPendingDialogEs(ws));
+        Assert.True(ContentClientRemotePublishService.HasPendingNpcEs(ws));
+        Assert.True(ContentClientRemotePublishService.HasPendingQuestsEs(ws));
+        Assert.False(QuestsEsPublishBatchBuilder.HasUnpublishedBdMissions(ws));
+
+        // Seed dialog_es with OLD texts on the same BD IDs (real production collision case).
+        var dialogSwf = DialogSeed(
+            1295,
+            new DialogEsAssignment { Space = DialogEsSpace.Question, Id = 20024, Text = "texto viejo oficios" },
+            new DialogEsAssignment { Space = DialogEsSpace.Question, Id = 20025, Text = "Hola buenas" },
+            new DialogEsAssignment { Space = DialogEsSpace.Question, Id = 20026, Text = "Hola jugador" });
+        fake.SeedFile("/var/www/html/data/lang/swf/dialog_es_1295.swf", dialogSwf);
+
+        var maxes = new ContentPublishMaxSnapshot
+        {
+            NpcsModelo = 20065,
+            NpcPreguntas = 20026,
+            NpcRespuestas = 90002,
+            Misiones = 100004,
+            MisionEtapas = 5501,
+            MisionObjetivos = 4661,
+        };
+        var req = new ContentClientPublishRequest
+        {
+            Settings = new LangSftpSettings
+            {
+                Host = "t",
+                User = "u",
+                LangRemotePath = LangSftpSettings.DefaultLangRemotePath,
+                SwfRemotePath = LangSftpSettings.DefaultSwfRemotePath,
+            },
+            PlainPassword = "x",
+            Workspace = ws,
+            WorkDirectory = _work,
+            ClientFactory = (_, _) => fake,
+            Occupancy = new DialogEsIdOccupancy
+            {
+                BdQuestionMax = 20026,
+                BdResponseMax = 90002,
+            },
+            BdMaxSnapshot = maxes,
+        };
+
+        var preview = ContentClientRemotePublishService.PreparePreview(req);
+        Assert.True(preview.Success, preview.Error);
+        Assert.False(preview.QuestsPreviewPendingBd);
+        Assert.True(preview.DialogChanged);
+        Assert.True(preview.NpcChanged);
+        Assert.True(preview.QuestsChanged);
+
+        var text = preview.FormatPreview();
+        Assert.Contains("D.q[20024]", text, StringComparison.Ordinal);
+        Assert.Contains("D.a[90002]", text, StringComparison.Ordinal);
+        Assert.Contains("D.q[20025]", text, StringComparison.Ordinal);
+        Assert.Contains("D.q[20026]", text, StringComparison.Ordinal);
+        Assert.Contains("reemplazo", text, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("D.q[20028]", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("ya existe en dialog_es remoto", text, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("LISTO PARA PUBLICAR", text, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Q.q[100004]", text, StringComparison.Ordinal);
+        Assert.Contains("Q.s[5501]", text, StringComparison.Ordinal);
+        Assert.Contains("Q.o[4661]", text, StringComparison.Ordinal);
+        Assert.Equal(0, fake.UploadNewCount);
     }
 
     [Fact]

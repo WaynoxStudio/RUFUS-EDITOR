@@ -18,13 +18,14 @@ public sealed class MapClipboard
     public static MapClipboard? Capture(
         IReadOnlyList<int> cellIds,
         Func<int, CellSnapshot> capture,
-        Func<int, (double X, double Y)> centerOf)
+        Func<int, (double X, double Y)> centerOf,
+        int? anchorCellId = null)
     {
         var ordered = cellIds.Where(id => id >= 0).Distinct().OrderBy(id => id).ToList();
         if (ordered.Count == 0)
             return null;
 
-        var anchorId = ordered[0];
+        var anchorId = anchorCellId is int a && ordered.Contains(a) ? a : ordered[0];
         var (ax, ay) = centerOf(anchorId);
         var entries = new List<ClipboardEntry>();
         foreach (var id in ordered)

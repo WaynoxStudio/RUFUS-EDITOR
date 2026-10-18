@@ -31,4 +31,20 @@ public sealed class AiCreativeRequest
     /// Never an NPC ID.
     /// </summary>
     public string CurrentNpcName { get; init; } = "";
+
+    /// <summary>
+    /// Prior spoken lines in the conversation thread (NPC:/Jugador:). No IDs or actions.
+    /// </summary>
+    public string ConversationPriorText { get; init; } = "";
+
+    /// <summary>
+    /// Exact parent NPC question text when generating a player reply. Spoken text only.
+    /// </summary>
+    public string ParentNpcQuestionText { get; init; } = "";
+
+    /// <summary>
+    /// When true, <see cref="AiCreativeAction.GenerarDialogo"/> asks for a player reply, not NPC speech.
+    /// Still uses the existing generate_dialogue backend action (single <c>texto</c>).
+    /// </summary>
+    public bool GeneratePlayerReply { get; init; }
 }

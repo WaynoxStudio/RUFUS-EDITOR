@@ -65,6 +65,11 @@ public sealed class MapPreviewCache
                 }
             });
         }
+        catch (Exception)
+        {
+            // Corrupt/legacy maps must not crash hover preview or the UI dispatcher.
+            return null;
+        }
         finally
         {
             _inflight.TryRemove(mapId, out _);

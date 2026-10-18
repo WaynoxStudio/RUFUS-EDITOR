@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using RufusMapEditor.LegacyCompatibility.Content.Ai;
 
 namespace RufusMapEditor.LegacyCompatibility.Content;
 
@@ -59,11 +60,30 @@ public sealed class NpcsModeloDraft
     /// <summary>Local NPC phrase for Simple mode (future dialog_es). Not published yet.</summary>
     public string SimpleDialogTextLocal { get; set; } = "";
 
+    /// <summary>Editor-only AI attitude preset. Not a RUFUS BD column.</summary>
+    public string AiAttitudePreset { get; set; } = "";
+
+    /// <summary>Editor-only custom AI attitude. Not a RUFUS BD column.</summary>
+    public string AiCustomAttitude { get; set; } = "";
+
+    /// <summary>Editor-only narrative context for AI. Not a RUFUS BD column.</summary>
+    public string AiNarrativeContext { get; set; } = "";
+
+    /// <summary>Editor-only AI length. Not a RUFUS BD column.</summary>
+    public AiTextLength AiLength { get; set; } = AiTextLength.Corta;
+
     /// <summary>CONT.6C — true after dialog_es SFTP publish for this NPC's new texts.</summary>
     public bool DialogEsPublished { get; set; }
 
     /// <summary>CONT.6C — active dialog_es version after successful publish (N+1).</summary>
     public int? DialogEsPublishedVersion { get; set; }
+
+    /// <summary>
+    /// True when <see cref="Pregunta"/> was auto-filled from the provisional D.q
+    /// (conversation UI) and dialog_es has not been published yet.
+    /// Manual «ID de diálogo» clears this (reuse existing D.q).
+    /// </summary>
+    public bool DialogEsIdProvisional { get; set; }
 
     /// <summary>CONT.7B — true after npc_es SFTP publish matching name+actions.</summary>
     public bool NpcEsPublished { get; set; }
@@ -83,15 +103,23 @@ public sealed class NpcsModeloDraft
     /// <summary>True after successful CONT.5 BD publish — blocks accidental re-INSERT.</summary>
     public bool PublishedBd { get; set; }
 
-    /// <summary>Simple mode with an existing dialog text ID ready for npcs_modelo.pregunta.</summary>
+    /// <summary>MISSIONS.DB.READ.1 — row from BD catalog, not a local editable draft.</summary>
+    public bool IsDbCatalogSnapshot { get; set; }
+
+    /// <summary>Simple mode with a dialog ID assigned (provisional or reused).</summary>
     public bool IsSimpleDialogComplete =>
         DialogMode == NpcDialogMode.Simple && Pregunta > 0;
 
-    /// <summary>Simple mode has local text but no dialog_es ID yet — block BD publish.</summary>
+    /// <summary>
+    /// Simple mode still needs «Publicar cliente» (dialog_es): local text and either
+    /// no ID yet, or a provisional ID that is not in the remote SWF.
+    /// Reusing an existing D.q (manual ID, not provisional) clears this.
+    /// </summary>
     public bool IsPendingDialogEs =>
         DialogMode == NpcDialogMode.Simple
-        && Pregunta <= 0
-        && !string.IsNullOrWhiteSpace(SimpleDialogTextLocal);
+        && !DialogEsPublished
+        && !string.IsNullOrWhiteSpace(SimpleDialogTextLocal)
+        && (Pregunta <= 0 || DialogEsIdProvisional);
 
     /// <summary>
     /// CONT.7B.1 — needs npc_es publish/repair when name set and remote/local published state
@@ -133,8 +161,23 @@ public sealed class NpcsModeloDraft
     public bool IsSimpleDialogBlocked =>
         DialogMode == NpcDialogMode.Simple && Pregunta <= 0;
 
-    /// <summary>Local npcs_ubicacion drafts for this NPC (0..N). Contained here so they never cross NPCs.</summary>
+    /// <summary>Local npcs_ubicacion drafts for this NPC. UI keeps exactly one slot.</summary>
     public ObservableCollection<NpcLocationDraft> Locations { get; set; } = new();
+
+    /// <summary>Ensures a single ubicación (create or trim extras). Map/Cell remain 0 until filled.</summary>
+    public NpcLocationDraft EnsurePrimaryLocation()
+    {
+        while (Locations.Count > 1)
+            Locations.RemoveAt(Locations.Count - 1);
+        if (Locations.Count == 0)
+        {
+            var loc = new NpcLocationDraft();
+            Locations.Add(loc);
+            return loc;
+        }
+
+        return Locations[0];
+    }
 
     public string Status => PublishedBd ? "Publicado BD" : StatusBorrador;
 
@@ -150,25 +193,31 @@ public sealed class NpcsModeloDraft
         return Id;
     }
 
-    public static NpcsModeloDraft CreateWithDefaults(int provisionalId) => new()
+    public static NpcsModeloDraft CreateWithDefaults(int provisionalId)
     {
-        Id = provisionalId,
-        GfxId = DefaultGfxId,
-        ScaleX = DefaultScaleX,
-        ScaleY = DefaultScaleY,
-        Sexo = 0,
-        Color1 = DefaultColor1,
-        Color2 = DefaultColor2,
-        Color3 = DefaultColor3,
-        Accesorios = DefaultAccesorios,
-        Foto = DefaultFoto,
-        Pregunta = DefaultPregunta,
-        Ventas = "",
-        Nombre = "",
-        ObjetoCompra = DefaultObjetoCompra,
-        DialogMode = NpcDialogMode.Simple,
-        SimpleDialogTextLocal = "",
-    };
+        var draft = new NpcsModeloDraft
+        {
+            Id = provisionalId,
+            GfxId = DefaultGfxId,
+            ScaleX = DefaultScaleX,
+            ScaleY = DefaultScaleY,
+            Sexo = 0,
+            Color1 = DefaultColor1,
+            Color2 = DefaultColor2,
+            Color3 = DefaultColor3,
+            Accesorios = DefaultAccesorios,
+            Foto = DefaultFoto,
+            Pregunta = DefaultPregunta,
+            Ventas = "",
+            Nombre = "",
+            ObjetoCompra = DefaultObjetoCompra,
+            DialogMode = NpcDialogMode.Simple,
+            SimpleDialogTextLocal = "",
+            NpcEsActionIds = new List<int> { NpcEsClientActions.Talk },
+        };
+        draft.EnsurePrimaryLocation();
+        return draft;
+    }
 
     public NpcsModeloDraft CloneData()
     {
@@ -190,8 +239,13 @@ public sealed class NpcsModeloDraft
             ObjetoCompra = ObjetoCompra,
             DialogMode = DialogMode,
             SimpleDialogTextLocal = SimpleDialogTextLocal,
+            AiAttitudePreset = AiAttitudePreset,
+            AiCustomAttitude = AiCustomAttitude,
+            AiNarrativeContext = AiNarrativeContext,
+            AiLength = AiLength,
             DialogEsPublished = DialogEsPublished,
             DialogEsPublishedVersion = DialogEsPublishedVersion,
+            DialogEsIdProvisional = DialogEsIdProvisional,
             NpcEsPublished = NpcEsPublished,
             NpcEsPublishedVersion = NpcEsPublishedVersion,
             NpcEsPublishedName = NpcEsPublishedName,
@@ -229,7 +283,10 @@ public sealed class NpcLocationDraft
     /// </summary>
     public string Name { get; set; } = "";
 
-    /// <summary>condicion — may be empty.</summary>
+    /// <summary>
+    /// npcs_ubicacion.condicion — may be empty. Not shown in Identidad UI (ADMIN.UI.4B.2A.3G.8);
+    /// preserved on load/edit/publish when already set.
+    /// </summary>
     public string Condition { get; set; } = "";
 
     public NpcLocationDraft Clone() => new()

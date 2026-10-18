@@ -117,6 +117,38 @@ public static class AiDraftApplier
         return AiDraftApplyResult.Applied("✓ Diálogo aplicado al borrador");
     }
 
+    /// <summary>Writes spoken text to one NPC question bubble. Does not touch params/alternos/IDs.</summary>
+    public static AiDraftApplyResult ApplyQuestionText(DialogQuestionDraft? question, string texto)
+    {
+        if (question is null)
+            return AiDraftApplyResult.NoSelection();
+
+        var text = (texto ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(text))
+            return AiDraftApplyResult.Invalid("Texto de diálogo vacío.");
+        if (text.Length > AiResponseLimits.MaxDialogueLength)
+            return AiDraftApplyResult.Invalid($"Diálogo supera {AiResponseLimits.MaxDialogueLength} caracteres.");
+
+        question.TextLocal = text;
+        return AiDraftApplyResult.Applied("✓ Texto aplicado al borrador");
+    }
+
+    /// <summary>Writes spoken text to one player reply. Does not touch actions/args/condiciones.</summary>
+    public static AiDraftApplyResult ApplyResponseText(DialogResponseDraft? response, string texto)
+    {
+        if (response is null)
+            return AiDraftApplyResult.NoSelection();
+
+        var text = (texto ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(text))
+            return AiDraftApplyResult.Invalid("Texto de diálogo vacío.");
+        if (text.Length > AiResponseLimits.MaxPlayerReplyLength)
+            return AiDraftApplyResult.Invalid($"Respuesta supera {AiResponseLimits.MaxPlayerReplyLength} caracteres.");
+
+        response.TextLocal = text;
+        return AiDraftApplyResult.Applied("✓ Texto aplicado al borrador");
+    }
+
     public static AiDraftApplyResult ApplyConversation(
         ContentDraftWorkspace workspace,
         NpcsModeloDraft? npc,
@@ -135,9 +167,16 @@ public static class AiDraftApplier
         var opening = (conversation.TextoNpc ?? "").Trim();
         if (string.IsNullOrWhiteSpace(opening))
             return AiDraftApplyResult.Invalid("Apertura NPC vacía.");
+        var incomplete = (conversation.TextoIncompleta ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(incomplete))
+            return AiDraftApplyResult.Invalid("Texto de misión incompleta vacío.");
+        var completed = (conversation.TextoCompletada ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(completed))
+            return AiDraftApplyResult.Invalid("Texto de misión completada vacío.");
         if (conversation.RespuestasJugador is null
             || conversation.RespuestasJugador.Count != AiResponseLimits.ExactPlayerReplyCount)
-            return AiDraftApplyResult.Invalid("Se requieren exactamente 3 respuestas del jugador.");
+            return AiDraftApplyResult.Invalid(
+                $"Se requiere exactamente {AiResponseLimits.ExactPlayerReplyCount} respuesta del jugador.");
 
         if (npc.DialogMode == NpcDialogMode.Simple && !interactiveSwitchConfirmed)
         {
@@ -164,8 +203,12 @@ public static class AiDraftApplier
             npc.SimpleDialogTextLocal = "";
         }
 
-        var question = EnsureInitialQuestion(workspace, npc);
-        question.TextLocal = opening;
+        var mission = AiMissionRoleContextBuilder.ResolveMission(workspace, npc);
+
+        // OFRECER → PregDar if configured, else initial question (do not invent role links).
+        var offerQuestion = ResolveRoleQuestion(workspace, mission?.PregDarPreguntaId)
+                            ?? EnsureInitialQuestion(workspace, npc);
+        offerQuestion.TextLocal = opening;
 
         for (var i = 0; i < AiResponseLimits.ExactPlayerReplyCount; i++)
         {
@@ -175,16 +218,36 @@ public static class AiDraftApplier
                 return AiDraftApplyResult.Invalid($"Respuesta jugador {i + 1} vacía.");
 
             DialogResponseDraft response;
-            if (i < question.Responses.Count)
-                response = question.Responses[i];
+            if (i < offerQuestion.Responses.Count)
+                response = offerQuestion.Responses[i];
             else
-                response = workspace.Dialogs.AddResponse(question);
+                response = workspace.Dialogs.AddResponse(offerQuestion);
 
             // Creative text only — preserve existing actions/args/conditions.
             response.TextLocal = reply;
         }
 
-        return AiDraftApplyResult.Applied("✓ Conversación aplicada al borrador (solo textos)");
+        // DIALOG.AI.AUTO_APPLY.SINGLE_REPLY.2 — keep a single player reply on the offer block.
+        while (offerQuestion.Responses.Count > AiResponseLimits.ExactPlayerReplyCount)
+        {
+            var extra = offerQuestion.Responses[^1];
+            workspace.Dialogs.RemoveResponse(offerQuestion, extra);
+        }
+
+        if (ResolveRoleQuestion(workspace, mission?.PregIncompletaPreguntaId) is { } incompleteQ)
+            incompleteQ.TextLocal = incomplete;
+
+        if (ResolveRoleQuestion(workspace, mission?.PregCompletadaPreguntaId) is { } completedQ)
+            completedQ.TextLocal = completed;
+
+        return AiDraftApplyResult.Applied("✓ Conversación aplicada al borrador (ofrecer / respuesta / incompleta / completada)");
+    }
+
+    private static DialogQuestionDraft? ResolveRoleQuestion(ContentDraftWorkspace workspace, int? questionId)
+    {
+        if (questionId is not int id || id <= 0)
+            return null;
+        return workspace.Dialogs.FindQuestion(id);
     }
 
     public static bool HasCreativeInteractiveContent(ContentDraftWorkspace workspace, NpcsModeloDraft npc)
@@ -192,10 +255,23 @@ public static class AiDraftApplier
         if (npc.DialogMode == NpcDialogMode.Simple)
             return !string.IsNullOrWhiteSpace(npc.SimpleDialogTextLocal);
 
-        var q = workspace.Dialogs.FindQuestion(npc.Pregunta);
-        if (q is null) return false;
-        if (!string.IsNullOrWhiteSpace(q.TextLocal)) return true;
-        return q.Responses.Any(r => !string.IsNullOrWhiteSpace(r.TextLocal));
+        var mission = AiMissionRoleContextBuilder.ResolveMission(workspace, npc);
+        foreach (var id in new int?[]
+                 {
+                     npc.Pregunta > 0 ? npc.Pregunta : null,
+                     mission?.PregDarPreguntaId,
+                     mission?.PregIncompletaPreguntaId,
+                     mission?.PregCompletadaPreguntaId
+                 })
+        {
+            if (id is not int qid) continue;
+            var q = workspace.Dialogs.FindQuestion(qid);
+            if (q is null) continue;
+            if (!string.IsNullOrWhiteSpace(q.TextLocal)) return true;
+            if (q.Responses.Any(r => !string.IsNullOrWhiteSpace(r.TextLocal))) return true;
+        }
+
+        return false;
     }
 
     private static DialogQuestionDraft EnsureInitialQuestion(ContentDraftWorkspace workspace, NpcsModeloDraft npc)

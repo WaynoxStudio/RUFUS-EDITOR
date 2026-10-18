@@ -4,18 +4,9 @@
   <Border BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="6"
           Background="{DynamicResource PanelBackground}" Padding="8">
     <StackPanel>
-      <DockPanel Margin="0,0,0,6">
-        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-          <TextBlock Text="Valor" VerticalAlignment="Center" Margin="0,0,6,0"
-                     Foreground="{DynamicResource TextSecondary}" FontSize="11"/>
-          <TextBox x:Name="NumericBox" Width="44" FontFamily="Consolas"
-                   TextAlignment="Center" VerticalContentAlignment="Center"
-                   TextChanged="NumericBox_TextChanged"
-                   ToolTip="orientacion (0 = sin definir; 1–8 = direcciones visuales)"/>
-        </StackPanel>
-        <TextBlock Text="Clic en una dirección" FontSize="11" VerticalAlignment="Center"
-                   Foreground="{DynamicResource TextMuted}"/>
-      </DockPanel>
+      <!-- NumericBox oculto: la selección se hace clicando en los números de dirección. -->
+      <TextBox x:Name="NumericBox" Width="44" Visibility="Collapsed" Height="0"
+               TextChanged="NumericBox_TextChanged"/>
 
       <!--
         Layout (screen) matching posiciones.png:
@@ -25,7 +16,7 @@
           3       1
               2
       -->
-      <Grid x:Name="DirGrid" Width="156" Height="156" HorizontalAlignment="Left" Margin="0,2,0,4">
+      <Grid x:Name="DirGrid" Width="156" Height="156" HorizontalAlignment="Left">
         <Grid.RowDefinitions>
           <RowDefinition Height="*"/><RowDefinition Height="*"/><RowDefinition Height="*"/>
         </Grid.RowDefinitions>
@@ -56,13 +47,9 @@
                 Background="{DynamicResource DialogHeaderBackground}">
           <TextBlock Text="NPC" FontSize="10" FontWeight="SemiBold"
                      HorizontalAlignment="Center" VerticalAlignment="Center"
-                     Foreground="{DynamicResource TextSecondary}"/>
+                     Foreground="{DynamicResource HeaderForeground}"/>
         </Border>
       </Grid>
-
-      <TextBlock x:Name="SelectedLabel" FontSize="11" TextWrapping="Wrap"
-                 Foreground="{DynamicResource TextSecondary}"
-                 Text="Orientación seleccionada: — (sin definir)"/>
     </StackPanel>
   </Border>
 </UserControl>

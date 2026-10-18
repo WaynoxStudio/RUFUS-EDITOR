@@ -118,8 +118,8 @@ public sealed class AiBackendAccessTokenEditorTests
     public void Token_provider_abstraction_supports_future_license_swap()
     {
         IAiBackendAccessTokenProvider env = new EnvironmentAiBackendAccessTokenProvider();
-        IAiBackendAccessTokenProvider futureLicense = new StaticAiBackendAccessTokenProvider("license-scoped-token");
-        Assert.Equal("license-scoped-token", futureLicense.TryGetAccessToken());
+        IAiBackendAccessTokenProvider staticToken = new StaticAiBackendAccessTokenProvider("shared-access-token");
+        Assert.Equal("shared-access-token", staticToken.TryGetAccessToken());
         Assert.Equal(AiBackendAccessTokenEnv.VariableName, "RUFUS_AI_ACCESS_TOKEN");
         _ = env;
     }

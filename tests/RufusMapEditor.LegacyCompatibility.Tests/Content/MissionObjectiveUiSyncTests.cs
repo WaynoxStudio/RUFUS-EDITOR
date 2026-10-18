@@ -148,7 +148,7 @@ public sealed class MissionObjectiveUiSyncTests
             ItemId = "1",
             Qty = "1",
         });
-        Assert.Equal("Selecciona el NPC de destino.", err);
+        Assert.Equal(MissionShowDeliverNpcBinding.MissingStartNpcMessage, err);
 
         err = MissionObjectiveUiSync.TryApply(d, new MissionObjectiveUiFields
         {
@@ -157,7 +157,7 @@ public sealed class MissionObjectiveUiSyncTests
             ItemId = "",
             Qty = "1",
         });
-        Assert.Equal("Selecciona un objeto.", err);
+        Assert.Equal("Indica un Item ID.", err);
 
         err = MissionObjectiveUiSync.TryApply(d, new MissionObjectiveUiFields
         {

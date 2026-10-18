@@ -71,7 +71,7 @@ public sealed class AiBackendConnectionTests
 
         Assert.True(result.Success, result.ErrorMessage);
         Assert.Equal(AiBackendWireActions.GenerateConversation, result.OutboundRequest!.Action);
-        Assert.Contains("3 respuestas", result.OutboundRequest.Prompt.Task, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("1 respuesta", result.OutboundRequest.Prompt.Task, StringComparison.OrdinalIgnoreCase);
     }
 
     [Theory]
@@ -139,7 +139,9 @@ public sealed class AiBackendConnectionTests
     {
         var transport = new FakeTransport
         {
-            NextResult = AiBackendTransportResult.Fail(AiServiceCallResult.CodeTimeout, "Timeout del backend IA.")
+            NextResult = AiBackendTransportResult.Fail(
+                AiServiceCallResult.CodeTimeout,
+                AiBackendGenerationService.TimeoutUserMessage)
         };
         var svc = ConfiguredService(transport);
         var (req, package) = Sample(AiCreativeAction.GenerarDialogo);
@@ -148,6 +150,115 @@ public sealed class AiBackendConnectionTests
 
         Assert.False(result.Success);
         Assert.Equal(AiServiceCallResult.CodeTimeout, result.ErrorCode);
+        Assert.Equal(AiBackendGenerationService.TimeoutUserMessage, result.ErrorMessage);
+        Assert.DoesNotContain("cancel", result.ErrorMessage!, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Conversation_uses_longer_timeout_budget()
+    {
+        TimeSpan? seenTimeout = null;
+        var transport = new CapturingTimeoutTransport(t => seenTimeout = t)
+        {
+            NextBody = SuccessEnvelope(
+                AiBackendWireActions.GenerateConversation,
+                AiMockResponses.ConversationJson)
+        };
+        var settings = new AiBackendSettings
+        {
+            BackendUrl = "https://example.test/v1/agents/generate",
+            TimeoutSeconds = 60,
+            ConversationTimeoutSeconds = 210
+        };
+        var svc = new AiBackendGenerationService(settings, transport);
+        var (req, package) = Sample(AiCreativeAction.GenerarConversacion);
+
+        var result = await svc.GenerateConversationAsync(req, package);
+
+        Assert.True(result.Success, result.ErrorMessage);
+        Assert.Equal(TimeSpan.FromSeconds(210), seenTimeout);
+    }
+
+    [Fact]
+    public async Task Dialogue_uses_standard_timeout_budget()
+    {
+        TimeSpan? seenTimeout = null;
+        var transport = new CapturingTimeoutTransport(t => seenTimeout = t)
+        {
+            NextBody = SuccessEnvelope(
+                AiBackendWireActions.GenerateDialogue,
+                AiMockResponses.DialogueJson)
+        };
+        var settings = new AiBackendSettings
+        {
+            BackendUrl = "https://example.test/v1/agents/generate",
+            TimeoutSeconds = 60,
+            ConversationTimeoutSeconds = 210
+        };
+        var svc = new AiBackendGenerationService(settings, transport);
+        var (req, package) = Sample(AiCreativeAction.GenerarDialogo);
+
+        var result = await svc.GenerateDialogueAsync(req, package);
+
+        Assert.True(result.Success, result.ErrorMessage);
+        Assert.Equal(TimeSpan.FromSeconds(60), seenTimeout);
+    }
+
+    [Fact]
+    public async Task HttpTransport_completes_within_timeout()
+    {
+        using var handler = new DelayedOkHandler(TimeSpan.FromMilliseconds(40));
+        using var http = new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan };
+        using var transport = new AiBackendHttpTransport(http, ownsClient: true);
+
+        var result = await transport.PostJsonAsync(
+            new Uri("https://example.test/v1/agents/generate"),
+            "{}",
+            TimeSpan.FromSeconds(5),
+            AiBackendRequestAuth.None,
+            CancellationToken.None);
+
+        Assert.True(result.Ok);
+        Assert.Equal(200, result.StatusCode);
+    }
+
+    [Fact]
+    public async Task HttpTransport_timeout_is_not_cancellation()
+    {
+        using var handler = new DelayedOkHandler(TimeSpan.FromMilliseconds(400));
+        using var http = new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan };
+        using var transport = new AiBackendHttpTransport(http, ownsClient: true);
+
+        var result = await transport.PostJsonAsync(
+            new Uri("https://example.test/v1/agents/generate"),
+            "{}",
+            TimeSpan.FromMilliseconds(50),
+            AiBackendRequestAuth.None,
+            CancellationToken.None);
+
+        Assert.False(result.Ok);
+        Assert.Equal(AiServiceCallResult.CodeTimeout, result.ErrorCode);
+        Assert.Equal(AiBackendGenerationService.TimeoutUserMessage, result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task HttpTransport_user_cancel_is_not_timeout()
+    {
+        using var handler = new DelayedOkHandler(TimeSpan.FromSeconds(2));
+        using var http = new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan };
+        using var transport = new AiBackendHttpTransport(http, ownsClient: true);
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(30));
+
+        var result = await transport.PostJsonAsync(
+            new Uri("https://example.test/v1/agents/generate"),
+            "{}",
+            TimeSpan.FromSeconds(30),
+            AiBackendRequestAuth.None,
+            cts.Token);
+
+        Assert.False(result.Ok);
+        Assert.Equal(AiServiceCallResult.CodeCancelled, result.ErrorCode);
+        Assert.Equal(AiBackendGenerationService.CancelledUserMessage, result.ErrorMessage);
     }
 
     [Fact]
@@ -155,17 +266,19 @@ public sealed class AiBackendConnectionTests
     {
         var transport = new FakeTransport
         {
-            NextResult = AiBackendTransportResult.Fail(AiServiceCallResult.CodeCancelled, "Conexión cancelada.")
+            NextResult = AiBackendTransportResult.Fail(
+                AiServiceCallResult.CodeCancelled,
+                AiBackendGenerationService.CancelledUserMessage)
         };
         var svc = ConfiguredService(transport);
         var (req, package) = Sample(AiCreativeAction.GenerarNombre);
 
         using var cts = new CancellationTokenSource();
-        // Transport returns cancelled; also verify token path via delay transport
         var result = await svc.GenerateNameAsync(req, package, cts.Token);
 
         Assert.False(result.Success);
         Assert.Equal(AiServiceCallResult.CodeCancelled, result.ErrorCode);
+        Assert.Equal(AiBackendGenerationService.CancelledUserMessage, result.ErrorMessage);
     }
 
     [Fact]
@@ -179,9 +292,8 @@ public sealed class AiBackendConnectionTests
         var result = await svc.GenerateNameAsync(req, package, cts.Token);
 
         Assert.False(result.Success);
-        Assert.True(
-            result.ErrorCode is AiServiceCallResult.CodeCancelled or AiServiceCallResult.CodeTimeout,
-            result.ErrorCode);
+        Assert.Equal(AiServiceCallResult.CodeCancelled, result.ErrorCode);
+        Assert.Equal(AiBackendGenerationService.CancelledUserMessage, result.ErrorMessage);
     }
 
     [Fact]
@@ -328,12 +440,40 @@ public sealed class AiBackendConnectionTests
     }
 
     [Fact]
+    public async Task Backend_OPENAI_TIMEOUT_is_not_admin_transport_timeout()
+    {
+        const string body = """
+            {
+              "success": false,
+              "action": "generate_conversation",
+              "error": { "code": "OPENAI_TIMEOUT", "message": "Timeout OpenAI." }
+            }
+            """;
+        var transport = new FakeTransport
+        {
+            NextResult = AiBackendTransportResult.Success(504, body)
+        };
+        var svc = ConfiguredService(transport);
+        var (req, package) = Sample(AiCreativeAction.GenerarConversacion);
+
+        var result = await svc.GenerateConversationAsync(req, package);
+
+        Assert.False(result.Success);
+        Assert.Equal("OPENAI_TIMEOUT", result.ErrorCode);
+        Assert.NotEqual(AiServiceCallResult.CodeTimeout, result.ErrorCode);
+    }
+
+    [Fact]
     public void Settings_default_has_no_invented_url()
     {
         var settings = new AiBackendSettings();
         Assert.Null(settings.BackendUrl);
         Assert.False(settings.IsConfigured);
         Assert.Equal(AiBackendSettings.DefaultTimeoutSeconds, settings.TimeoutSeconds);
+        Assert.Equal(AiBackendSettings.DefaultConversationTimeoutSeconds, settings.ConversationTimeoutSeconds);
+        Assert.Equal(TimeSpan.FromSeconds(60), settings.ResolveTimeout(AiCreativeAction.GenerarDialogo));
+        Assert.Equal(TimeSpan.FromSeconds(60), settings.ResolveTimeout(AiCreativeAction.GenerarNombre));
+        Assert.Equal(TimeSpan.FromSeconds(210), settings.ResolveTimeout(AiCreativeAction.GenerarConversacion));
     }
 
     [Fact]
@@ -425,6 +565,25 @@ public sealed class AiBackendConnectionTests
         }
     }
 
+    private sealed class CapturingTimeoutTransport(Action<TimeSpan> onTimeout) : IAiBackendTransport
+    {
+        public string? NextBody { get; set; }
+        public AiBackendTransportResult? NextResult { get; set; }
+
+        public Task<AiBackendTransportResult> PostJsonAsync(
+            Uri endpoint,
+            string jsonBody,
+            TimeSpan timeout,
+            AiBackendRequestAuth auth,
+            CancellationToken cancellationToken)
+        {
+            onTimeout(timeout);
+            if (NextResult is not null)
+                return Task.FromResult(NextResult);
+            return Task.FromResult(AiBackendTransportResult.Success(200, NextBody ?? "{}"));
+        }
+    }
+
     private sealed class DelayingFakeTransport(TimeSpan delay) : IAiBackendTransport
     {
         public async Task<AiBackendTransportResult> PostJsonAsync(
@@ -436,6 +595,20 @@ public sealed class AiBackendConnectionTests
         {
             await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
             return AiBackendTransportResult.Success(200, "{}");
+        }
+    }
+
+    private sealed class DelayedOkHandler(TimeSpan delay) : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
+            return new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            {
+                Content = new StringContent("{\"ok\":true}")
+            };
         }
     }
 }
