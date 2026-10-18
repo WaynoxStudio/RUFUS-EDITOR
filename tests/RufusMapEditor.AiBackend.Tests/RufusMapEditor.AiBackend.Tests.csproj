@@ -21,7 +21,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\RufusMapEditor.AiBackend\RufusMapEditor.AiBackend.csproj" />
-    <ProjectReference Include="..\..\src\RufusMapEditor.Licensing\RufusMapEditor.Licensing.csproj" />
   </ItemGroup>
 
 </Project>
