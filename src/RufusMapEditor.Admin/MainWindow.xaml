@@ -6,6 +6,7 @@
         MinHeight="720" MinWidth="1100"
         Background="{DynamicResource Bg}"
         WindowStartupLocation="CenterScreen"
+        WindowState="Maximized"
         Icon="pack://application:,,,/RufusMapEditor;component/Assets/RME.ico"
         Loaded="MainWindow_Loaded">
   <Grid Background="{DynamicResource Panel}">

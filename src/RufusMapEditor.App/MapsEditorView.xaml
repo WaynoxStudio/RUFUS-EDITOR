@@ -512,29 +512,35 @@
 
         <Grid Grid.Column="0" x:Name="MapsHost">
           <Border x:Name="MapsPanelExpanded" Style="{StaticResource PanelCard}"
-                  Margin="4,6,2,6" Background="{DynamicResource PanelCardBackground}">
+                  Margin="4,6,0,6" Background="{DynamicResource PanelCardBackground}">
           <DockPanel>
-            <DockPanel DockPanel.Dock="Top" Margin="8,8,6,6">
-              <Button x:Name="CollapseMapsButton" DockPanel.Dock="Right" Content="◂" Width="28"
-                      Click="CollapseMaps_Click" Margin="4,0,0,0" ToolTip="Ocultar mapas"
+            <DockPanel DockPanel.Dock="Top" Margin="8,8,4,6">
+              <Button x:Name="CollapseMapsButton" DockPanel.Dock="Right" Content="◂" Width="26"
+                      Click="CollapseMaps_Click" Margin="2,0,0,0" ToolTip="Ocultar mapas"
                       Style="{StaticResource IconButtonCompact}"/>
-              <Button DockPanel.Dock="Right" Content="Biblioteca..." Margin="0,0,4,0" Padding="8,3"
-                      VerticalAlignment="Center"
+              <Button x:Name="LibraryFolderButton" DockPanel.Dock="Right" Content="Biblioteca"
+                      Margin="0,0,2,0" Padding="4,2" MinWidth="0"
+                      VerticalAlignment="Center" FontSize="11"
                       Command="{Binding SelectLibraryCommand}"
                       ToolTip="Seleccionar carpeta de biblioteca"/>
-              <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+              <StackPanel x:Name="MapsHeaderTitle" Orientation="Horizontal" VerticalAlignment="Center">
                 <Border Width="3" Height="14" CornerRadius="1.5" Background="{DynamicResource BrandAccent}" Margin="0,0,8,0"/>
-                <TextBlock Text="MAPAS" Style="{StaticResource SectionHeader}" VerticalAlignment="Center" Margin="0"/>
+                <TextBlock Text="MAPAS" Style="{StaticResource SectionHeader}" VerticalAlignment="Center" Margin="0"
+                           FontSize="11"/>
               </StackPanel>
             </DockPanel>
             <!-- Search floats over the list so no full-width brown footer strip remains. -->
             <Grid Margin="0,0,0,2">
             <ListBox x:Name="MapList" ItemsSource="{Binding MapListItems}"
                    SelectedValuePath="MapId" SelectedValue="{Binding SelectedMapId}"
-                   Background="Transparent" BorderThickness="0" Margin="2,0,2,32"
+                   Background="Transparent" BorderThickness="0" Margin="1,0,0,32"
                    Padding="0"
                    Foreground="{DynamicResource TextPrimary}"
                    ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                   ScrollViewer.VerticalScrollBarVisibility="Visible"
+                   ScrollViewer.CanContentScroll="False"
+                   VirtualizingPanel.IsVirtualizing="False"
+                   SizeChanged="MapList_SizeChanged"
                    PreviewMouseLeftButtonDown="MapList_PreviewMouseLeftButtonDown"
                    PreviewMouseMove="MapList_PreviewMouseMove"
                    PreviewMouseLeftButtonUp="MapList_PreviewMouseLeftButtonUp"
@@ -546,9 +552,62 @@
                           Foreground="#FFFF5252" FontWeight="SemiBold"/>
               </ContextMenu>
             </ListBox.ContextMenu>
+            <ListBox.Resources>
+              <Style TargetType="ScrollBar">
+                <Setter Property="Width" Value="16"/>
+                <Setter Property="MinWidth" Value="16"/>
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="Template">
+                  <Setter.Value>
+                    <ControlTemplate TargetType="ScrollBar">
+                      <Border x:Name="Rail" Background="{DynamicResource SurfaceBackground}"
+                              BorderBrush="{DynamicResource Border}" BorderThickness="1"
+                              CornerRadius="6" Margin="0,2,1,2" SnapsToDevicePixels="True">
+                        <Track x:Name="PART_Track" IsDirectionReversed="True" Focusable="False">
+                          <Track.DecreaseRepeatButton>
+                            <RepeatButton Command="ScrollBar.PageUpCommand" Opacity="0"/>
+                          </Track.DecreaseRepeatButton>
+                          <Track.Thumb>
+                            <Thumb Cursor="SizeNS">
+                              <Thumb.Template>
+                                <ControlTemplate TargetType="Thumb">
+                                  <Border x:Name="ThumbBd" Background="{DynamicResource HoverBackground}"
+                                          BorderBrush="{DynamicResource BrandAccent}" BorderThickness="1"
+                                          CornerRadius="5" Margin="1" ClipToBounds="True">
+                                    <Viewbox Width="8" Height="12" Stretch="Uniform"
+                                             HorizontalAlignment="Center" VerticalAlignment="Center">
+                                      <StackPanel>
+                                        <Border Width="8" Height="2" CornerRadius="1" Background="{DynamicResource BrandAccent}" Margin="0,1"/>
+                                        <Border Width="8" Height="2" CornerRadius="1" Background="{DynamicResource BrandAccent}" Margin="0,1"/>
+                                        <Border Width="8" Height="2" CornerRadius="1" Background="{DynamicResource BrandAccent}" Margin="0,1"/>
+                                      </StackPanel>
+                                    </Viewbox>
+                                  </Border>
+                                  <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                      <Setter TargetName="ThumbBd" Property="Background" Value="{DynamicResource SelectionBackground}"/>
+                                    </Trigger>
+                                    <Trigger Property="IsDragging" Value="True">
+                                      <Setter TargetName="ThumbBd" Property="Background" Value="{DynamicResource AccentPressed}"/>
+                                    </Trigger>
+                                  </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                              </Thumb.Template>
+                            </Thumb>
+                          </Track.Thumb>
+                          <Track.IncreaseRepeatButton>
+                            <RepeatButton Command="ScrollBar.PageDownCommand" Opacity="0"/>
+                          </Track.IncreaseRepeatButton>
+                        </Track>
+                      </Border>
+                    </ControlTemplate>
+                  </Setter.Value>
+                </Setter>
+              </Style>
+            </ListBox.Resources>
             <ListBox.ItemsPanel>
               <ItemsPanelTemplate>
-                <WrapPanel ItemWidth="112" ItemHeight="104"/>
+                <WrapPanel ItemWidth="148" ItemHeight="102"/>
               </ItemsPanelTemplate>
             </ListBox.ItemsPanel>
             <ListBox.ItemContainerStyle>
@@ -557,10 +616,10 @@
                 <Setter Property="BorderBrush" Value="Transparent"/>
                 <Setter Property="BorderThickness" Value="0"/>
                 <Setter Property="Padding" Value="0"/>
-                <Setter Property="Margin" Value="1"/>
-                <Setter Property="Width" Value="110"/>
+                <Setter Property="Margin" Value="0"/>
                 <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
                 <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                <Setter Property="VerticalContentAlignment" Value="Stretch"/>
                 <Setter Property="Template">
                   <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
@@ -584,14 +643,19 @@
             </ListBox.ItemContainerStyle>
             <ListBox.ItemTemplate>
               <DataTemplate>
-                <Border Padding="3" Background="{DynamicResource ThumbBackground}"
+                <Border Margin="1" Padding="3" Background="{DynamicResource ThumbBackground}"
                         BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="4"
                         MouseEnter="MapListItem_MouseEnter" MouseLeave="MapListItem_MouseLeave"
                         Loaded="MapThumb_Loaded" SnapsToDevicePixels="True">
-                  <StackPanel>
-                    <Border Height="72" Background="{DynamicResource CheckerA}" CornerRadius="3" ClipToBounds="True">
+                  <Grid>
+                    <Grid.RowDefinitions>
+                      <RowDefinition Height="*"/>
+                      <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Border Grid.Row="0" Background="{DynamicResource CheckerA}" CornerRadius="3" ClipToBounds="True">
                       <Grid>
-                        <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" Margin="1"
+                        <Image Source="{Binding Thumbnail}" Stretch="Uniform" Margin="1"
+                               HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                                RenderOptions.BitmapScalingMode="HighQuality"/>
                         <TextBlock Text="…" HorizontalAlignment="Center" VerticalAlignment="Center"
                                    Foreground="{DynamicResource TextMuted}" FontSize="14">
@@ -608,16 +672,16 @@
                         </TextBlock>
                       </Grid>
                     </Border>
-                    <TextBlock Text="{Binding MapId}" FontFamily="{StaticResource AppFontFamilyMono}" FontSize="10"
+                    <TextBlock Grid.Row="1" Text="{Binding MapId}" FontFamily="{StaticResource AppFontFamilyMono}" FontSize="10"
                                HorizontalAlignment="Center" Margin="0,2,0,0"
                                Foreground="{DynamicResource TextSecondary}"/>
-                  </StackPanel>
+                  </Grid>
                 </Border>
               </DataTemplate>
             </ListBox.ItemTemplate>
             </ListBox>
-              <Border HorizontalAlignment="Center" VerticalAlignment="Bottom"
-                      Width="120" Margin="0,0,0,4" Padding="0"
+              <Border HorizontalAlignment="Stretch" VerticalAlignment="Bottom"
+                      Margin="8,0,8,4" Padding="0" MaxWidth="220"
                       Background="{DynamicResource InputBackground}"
                       BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="4">
                 <DockPanel LastChildFill="True">

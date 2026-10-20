@@ -6,6 +6,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using RufusMapEditor.App.Controls;
 using RufusMapEditor.App.Services;
 using RufusMapEditor.App.ViewModels;
@@ -60,7 +61,11 @@ public partial class MapsEditorView : UserControl
         {
             var hostWindow = Window.GetWindow(this);
             if (hostWindow is not null)
+            {
                 ThemeService.ApplyToWindow(hostWindow);
+                hostWindow.StateChanged -= HostWindow_StateChanged;
+                hostWindow.StateChanged += HostWindow_StateChanged;
+            }
             ThemeService.ThemeChanged += OnThemeChanged;
             if (deferLibraryLoad)
             {
@@ -85,7 +90,13 @@ public partial class MapsEditorView : UserControl
             VisualLibraryBootstrap.ConfigurePreviewFromSettings();
             RufusLog.Info("Aplicación iniciada");
         };
-        Unloaded += (_, _) => ThemeService.ThemeChanged -= OnThemeChanged;
+        Unloaded += (_, _) =>
+        {
+            ThemeService.ThemeChanged -= OnThemeChanged;
+            var host = Window.GetWindow(this);
+            if (host is not null)
+                host.StateChanged -= HostWindow_StateChanged;
+        };
     }
 
     private async void MonstersExpander_Expanded(object sender, RoutedEventArgs e)
@@ -294,6 +305,110 @@ public partial class MapsEditorView : UserControl
     private void GfxCatalogList_SizeChanged(object sender, SizeChangedEventArgs e) =>
         UpdateCatalogColumns();
 
+    private void MapList_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (e.WidthChanged && e.PreviousSize.Width > 8 && e.NewSize.Width + 0.5 < e.PreviousSize.Width)
+            UpdateMapListTiles();
+        else
+            ScheduleMapListTiles();
+        UpdateMapsLibraryButton();
+    }
+
+    private void HostWindow_StateChanged(object? sender, EventArgs e) => ScheduleMapListTiles();
+
+    private const double MapTileMinWidth = 148;
+    private const double MapTileLabelBand = 20;
+    private const double MapThumbAspect = 416.0 / 728.0;
+    private const double MapListScrollBarWidth = 16;
+    // Rubén: DefaultLeftWidth 160 + ItemWidth 112 → 1 column on open.
+    private const double MapsStartColumnWidth = 196;
+    private int _mapListCols = 1;
+    private bool _mapTilesScheduled;
+    private bool _updatingMapTiles;
+    private bool _mapsStartLayoutDone;
+
+    private void ScheduleMapListTiles()
+    {
+        if (_mapTilesScheduled || _updatingMapTiles) return;
+        _mapTilesScheduled = true;
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            _mapTilesScheduled = false;
+            UpdateMapListTiles();
+        }), DispatcherPriority.Render);
+    }
+
+    private void UpdateMapListTiles()
+    {
+        if (_updatingMapTiles || MapList is null || MapList.ActualWidth < 8) return;
+        var wrap = FindDescendant<WrapPanel>(MapList);
+        if (wrap is null) return;
+
+        // Reserve the real bar so two tiles always fit (12px bar + system slot was overflowing → empty column).
+        var bar = Math.Max(MapListScrollBarWidth, SystemParameters.VerticalScrollBarWidth);
+        var avail = Math.Max(8, Math.Floor(MapList.ActualWidth - bar) - 1);
+        var cols = Math.Max(1, (int)Math.Floor(avail / MapTileMinWidth));
+        var tileW = Math.Floor(avail / cols);
+        var tileH = Math.Round(tileW * MapThumbAspect) + MapTileLabelBand;
+        if (Math.Abs(wrap.ItemWidth - tileW) < 0.5 && Math.Abs(wrap.ItemHeight - tileH) < 0.5)
+        {
+            _mapListCols = cols;
+            return;
+        }
+
+        var scroll = FindDescendant<ScrollViewer>(MapList);
+        var keepTop = cols > _mapListCols && scroll is not null && wrap.ItemHeight > 1;
+        var firstIndex = 0;
+        if (keepTop && scroll is not null)
+        {
+            var firstRow = (int)Math.Floor(scroll.VerticalOffset / wrap.ItemHeight + 1e-6);
+            firstIndex = Math.Max(0, firstRow * Math.Max(1, _mapListCols));
+        }
+
+        _updatingMapTiles = true;
+        try
+        {
+            _mapListCols = cols;
+            wrap.ItemWidth = tileW;
+            wrap.ItemHeight = tileH;
+            if (keepTop && scroll is not null)
+            {
+                wrap.UpdateLayout();
+                scroll.ScrollToVerticalOffset((firstIndex / cols) * tileH);
+            }
+        }
+        finally
+        {
+            _updatingMapTiles = false;
+        }
+    }
+
+    private void UpdateMapsLibraryButton()
+    {
+        if (LibraryFolderButton is null || MapsPanelExpanded is null) return;
+        LibraryFolderButton.Content = "Biblioteca";
+        LibraryFolderButton.FontSize = 11;
+        LibraryFolderButton.Padding = new Thickness(4, 2, 4, 2);
+        if (MapsHeaderTitle is not null)
+            MapsHeaderTitle.Visibility = MapsPanelExpanded.ActualWidth >= 176
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+    }
+
+    private static T? FindDescendant<T>(DependencyObject? root) where T : DependencyObject
+    {
+        if (root is null) return null;
+        if (root is T match) return match;
+        var count = VisualTreeHelper.GetChildrenCount(root);
+        for (var i = 0; i < count; i++)
+        {
+            var found = FindDescendant<T>(VisualTreeHelper.GetChild(root, i));
+            if (found is not null) return found;
+        }
+
+        return null;
+    }
+
     private void UpdateCatalogColumns()
     {
         if (GfxCatalogList is null) return;
@@ -329,6 +444,15 @@ public partial class MapsEditorView : UserControl
         }
         else
         {
+            if (!_mapsStartLayoutDone)
+            {
+                leftWidth = Math.Min(leftWidth, MapsStartColumnWidth);
+                layout.LeftPanelWidth = leftWidth;
+                if (workspaceWidth > 8)
+                    layout.LeftPanelRatio = leftWidth / workspaceWidth;
+                _mapsStartLayoutDone = true;
+            }
+
             LeftCol.MinWidth = 120;
             LeftCol.MaxWidth = 480;
             LeftCol.Width = new GridLength(leftWidth);
@@ -367,6 +491,8 @@ public partial class MapsEditorView : UserControl
         UpdateCollapseCatalogButton();
         UpdateCollapseMapsButton();
         ApplyLogsLayout();
+        ScheduleMapListTiles();
+        UpdateMapsLibraryButton();
         if (_vm.HasMap)
             ForEachMapWindow(w => w.OnHostSizeChanged());
     }
