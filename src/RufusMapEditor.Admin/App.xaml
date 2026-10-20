@@ -77,8 +77,8 @@
       <Setter Property="BorderBrush" Value="{DynamicResource SidebarConnectionBorder}"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="CornerRadius" Value="6"/>
-      <Setter Property="Padding" Value="10,8"/>
-      <Setter Property="Margin" Value="10,0,10,8"/>
+      <Setter Property="Padding" Value="8,7"/>
+      <Setter Property="Margin" Value="8,0,8,8"/>
     </Style>
 
     <Style x:Key="SidebarConnectionTitle" TargetType="TextBlock">
@@ -184,9 +184,9 @@
       <Setter Property="Foreground" Value="{DynamicResource ShellText}"/>
       <Setter Property="Background" Value="Transparent"/>
       <Setter Property="BorderThickness" Value="0"/>
-      <Setter Property="Padding" Value="12,11"/>
-      <Setter Property="FontSize" Value="14"/>
-      <Setter Property="Margin" Value="8,3"/>
+      <Setter Property="Padding" Value="10,8"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="Margin" Value="8,2"/>
       <Setter Property="Cursor" Value="Hand"/>
       <Setter Property="HorizontalContentAlignment" Value="Left"/>
       <Setter Property="GroupName" Value="AdminNav"/>
@@ -341,14 +341,14 @@
       <Setter Property="BorderBrush" Value="{DynamicResource SidebarConnectionBorder}"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="CornerRadius" Value="10"/>
-      <Setter Property="Padding" Value="12,10"/>
-      <Setter Property="Margin" Value="10,10,10,14"/>
+      <Setter Property="Padding" Value="8,8"/>
+      <Setter Property="Margin" Value="8,8,8,8"/>
     </Style>
 
     <Style x:Key="SidebarBrandMark" TargetType="Border">
-      <Setter Property="Width" Value="38"/>
-      <Setter Property="Height" Value="38"/>
-      <Setter Property="CornerRadius" Value="10"/>
+      <Setter Property="Width" Value="32"/>
+      <Setter Property="Height" Value="32"/>
+      <Setter Property="CornerRadius" Value="8"/>
       <Setter Property="Background" Value="{DynamicResource Accent}"/>
       <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
@@ -364,7 +364,7 @@
 
     <Style x:Key="SidebarBrandTitle" TargetType="TextBlock">
       <Setter Property="Text" Value="RUFUS"/>
-      <Setter Property="FontSize" Value="17"/>
+      <Setter Property="FontSize" Value="15"/>
       <Setter Property="FontWeight" Value="Bold"/>
       <Setter Property="Foreground" Value="{DynamicResource ShellText}"/>
       <Setter Property="VerticalAlignment" Value="Center"/>
@@ -419,7 +419,7 @@
     <Style x:Key="NavGroupLabel" TargetType="TextBlock" BasedOn="{StaticResource ShellMutedText}">
       <Setter Property="FontSize" Value="10"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="Margin" Value="16,8,12,4"/>
+      <Setter Property="Margin" Value="12,6,10,2"/>
       <Setter Property="Foreground" Value="{DynamicResource ShellText}"/>
       <Setter Property="Opacity" Value="0.55"/>
     </Style>

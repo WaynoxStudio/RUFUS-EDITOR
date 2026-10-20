@@ -16,8 +16,8 @@ namespace RufusMapEditor.Admin;
 
 public partial class MainWindow : Window
 {
-    private const double SidebarExpandedWidth = 220;
-    private const double SidebarCollapsedWidth = 44;
+    private const double SidebarExpandedWidth = 192;
+    private const double SidebarCollapsedWidth = 28;
     private static readonly TimeSpan SidebarAnimDuration = TimeSpan.FromMilliseconds(220);
 
     private readonly AdminWorkspace _workspace = new();
