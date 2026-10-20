@@ -570,8 +570,8 @@
     <Setter Property="Foreground" Value="{DynamicResource InputForeground}"/>
     <Setter Property="BorderBrush" Value="{DynamicResource InputBorder}"/>
     <Setter Property="BorderThickness" Value="1.5"/>
-    <Setter Property="Padding" Value="10,7"/>
-    <Setter Property="MinHeight" Value="34"/>
+    <Setter Property="Padding" Value="8,5"/>
+    <Setter Property="MinHeight" Value="30"/>
     <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}"/>
     <Setter Property="FontSize" Value="{DynamicResource FontSizeNormal}"/>
     <Setter Property="CaretBrush" Value="{DynamicResource TextPrimary}"/>
@@ -614,8 +614,8 @@
     <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
     <Setter Property="BorderBrush" Value="{DynamicResource InputBorder}"/>
     <Setter Property="BorderThickness" Value="1.5"/>
-    <Setter Property="Padding" Value="10,6"/>
-    <Setter Property="MinHeight" Value="34"/>
+    <Setter Property="Padding" Value="8,5,6,5"/>
+    <Setter Property="MinHeight" Value="30"/>
     <Setter Property="FontSize" Value="{DynamicResource FontSizeNormal}"/>
     <Setter Property="Cursor" Value="Hand"/>
     <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto"/>
@@ -628,7 +628,7 @@
           <Grid x:Name="TemplateRoot">
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="*"/>
-              <ColumnDefinition Width="Auto"/>
+              <ColumnDefinition Width="22"/>
             </Grid.ColumnDefinitions>
             <Popup x:Name="PART_Popup" AllowsTransparency="True" Grid.ColumnSpan="2"
                    IsOpen="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}}"
@@ -671,14 +671,16 @@
                           IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
               <ToggleButton.Template>
                 <ControlTemplate TargetType="ToggleButton">
-                  <Border Background="Transparent">
-                    <Border Width="24" Height="24" HorizontalAlignment="Right" Margin="0,0,6,0"
-                            Background="Transparent">
-                      <Path x:Name="Arrow" Data="M 0,0 L 4,4 L 8,0" Stroke="{DynamicResource TextSecondary}"
-                            StrokeThickness="1.6" HorizontalAlignment="Center" VerticalAlignment="Center"
-                            StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
-                    </Border>
-                  </Border>
+                  <Grid Background="Transparent">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="22"/>
+                    </Grid.ColumnDefinitions>
+                    <Path Grid.Column="1" x:Name="Arrow" Data="M 0,0 L 4,4 L 8,0"
+                          Stroke="{DynamicResource TextSecondary}"
+                          StrokeThickness="1.6" HorizontalAlignment="Center" VerticalAlignment="Center"
+                          StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                  </Grid>
                 </ControlTemplate>
               </ToggleButton.Template>
             </ToggleButton>

@@ -322,10 +322,12 @@ public partial class MapsEditorView : UserControl
     private const double MapListScrollBarWidth = 16;
     // Rubén: DefaultLeftWidth 160 + ItemWidth 112 → 1 column on open.
     private const double MapsStartColumnWidth = 196;
+    private const double InspectorStartWidth = 240;
     private int _mapListCols = 1;
     private bool _mapTilesScheduled;
     private bool _updatingMapTiles;
     private bool _mapsStartLayoutDone;
+    private bool _inspectorStartLayoutDone;
 
     private void ScheduleMapListTiles()
     {
@@ -458,6 +460,15 @@ public partial class MapsEditorView : UserControl
             LeftCol.Width = new GridLength(leftWidth);
             MapsSplitterCol.Width = new GridLength(4);
             MapsSplitter.Visibility = Visibility.Visible;
+        }
+
+        if (!_inspectorStartLayoutDone && _vm.ShowInspectorPanel)
+        {
+            rightWidth = Math.Min(rightWidth, InspectorStartWidth);
+            layout.RightPanelWidth = rightWidth;
+            if (workspaceWidth > 8)
+                layout.RightPanelRatio = rightWidth / workspaceWidth;
+            _inspectorStartLayoutDone = true;
         }
 
         RightCol.Width = _vm.ShowInspectorPanel ? new GridLength(rightWidth) : new GridLength(0);

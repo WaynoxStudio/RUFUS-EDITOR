@@ -1547,10 +1547,10 @@
                     <ColumnDefinition Width="Auto" MinWidth="96"/><ColumnDefinition Width="*" MinWidth="0"/>
                   </Grid.ColumnDefinitions>
                   <Grid.RowDefinitions>
-                    <RowDefinition Height="28"/><RowDefinition Height="28"/><RowDefinition Height="28"/>
-                    <RowDefinition Height="28"/><RowDefinition Height="28"/><RowDefinition Height="28"/>
-                    <RowDefinition Height="28"/><RowDefinition Height="28"/><RowDefinition Height="28"/>
-                    <RowDefinition Height="28"/><RowDefinition Height="28"/><RowDefinition Height="28"/>
+                    <RowDefinition Height="36"/><RowDefinition Height="36"/><RowDefinition Height="36"/>
+                    <RowDefinition Height="36"/><RowDefinition Height="36"/><RowDefinition Height="36"/>
+                    <RowDefinition Height="36"/><RowDefinition Height="36"/><RowDefinition Height="36"/>
+                    <RowDefinition Height="36"/><RowDefinition Height="36"/><RowDefinition Height="36"/>
                   </Grid.RowDefinitions>
                   <TextBlock Grid.Row="0" Text="Movement" Style="{StaticResource InspectorFieldLabel}"/>
                   <ComboBox Grid.Row="0" Grid.Column="1" ItemsSource="{Binding MovementDisplayOptions}"
