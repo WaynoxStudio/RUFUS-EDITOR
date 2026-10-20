@@ -422,6 +422,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         ToggleBrushPanelCommand = new RelayCommand(() => ShowBrushPanel = !ShowBrushPanel);
         ToggleToolBarCommand = new RelayCommand(() => ShowToolBar = !ShowToolBar);
         ToggleStatusBarCommand = new RelayCommand(() => ShowStatusBar = !ShowStatusBar);
+        ToggleMapDbOverlayCommand = new RelayCommand(() => MapDbOverlayCollapsed = !MapDbOverlayCollapsed);
 
         SaveCommand = new RelayCommand(async () =>
         {
@@ -846,6 +847,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     public RelayCommand ToggleBrushPanelCommand { get; }
     public RelayCommand ToggleToolBarCommand { get; }
     public RelayCommand ToggleStatusBarCommand { get; }
+    public RelayCommand ToggleMapDbOverlayCommand { get; }
 
     public string? EffectiveLibraryPath => _effectiveLibraryPath;
     public LibrarySource LibrarySource => _librarySource;
@@ -938,6 +940,12 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     {
         get => _settings.UiLayout.ShowStatusBar;
         set => SetLayoutFlag(v => _settings.UiLayout.ShowStatusBar = v, value, nameof(ShowStatusBar));
+    }
+
+    public bool MapDbOverlayCollapsed
+    {
+        get => _settings.UiLayout.MapDbOverlayCollapsed;
+        set => SetLayoutFlag(v => _settings.UiLayout.MapDbOverlayCollapsed = v, value, nameof(MapDbOverlayCollapsed));
     }
 
     public UiLayoutSettings UiLayout => _settings.UiLayout;
@@ -10820,6 +10828,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(ShowBrushPanel));
         OnPropertyChanged(nameof(ShowToolBar));
         OnPropertyChanged(nameof(ShowStatusBar));
+        OnPropertyChanged(nameof(MapDbOverlayCollapsed));
         RequestResetPanels?.Invoke();
         RequestApplyLayout?.Invoke();
     }
@@ -10840,6 +10849,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             nameof(ShowCategoriesPanel) => _settings.UiLayout.ShowCategoriesPanel,
             nameof(ShowBrushPanel) => _settings.UiLayout.ShowBrushPanel,
             nameof(ShowToolBar) => _settings.UiLayout.ShowToolBar,
+            nameof(ShowStatusBar) => _settings.UiLayout.ShowStatusBar,
+            nameof(MapDbOverlayCollapsed) => _settings.UiLayout.MapDbOverlayCollapsed,
             _ => _settings.UiLayout.ShowStatusBar,
         };
         if (current == value) return;

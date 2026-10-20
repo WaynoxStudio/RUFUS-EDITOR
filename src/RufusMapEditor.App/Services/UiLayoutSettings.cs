@@ -50,6 +50,9 @@ public sealed class UiLayoutSettings
     /// <summary>RUFUS ADMIN — main navigation sidebar collapsed.</summary>
     public bool AdminSidebarCollapsed { get; set; }
 
+    /// <summary>MAPA overlay (Cargar BD / Actualizar Map ID) collapsed to a corner chip.</summary>
+    public bool MapDbOverlayCollapsed { get; set; }
+
     public UiLayoutSettings Clone() => new()
     {
         LeftPanelWidth = LeftPanelWidth,
@@ -78,6 +81,7 @@ public sealed class UiLayoutSettings
         LogsExpanded = LogsExpanded,
         LogsPanelHeight = LogsPanelHeight,
         AdminSidebarCollapsed = AdminSidebarCollapsed,
+        MapDbOverlayCollapsed = MapDbOverlayCollapsed,
     };
 
     public void EnsureRatios()

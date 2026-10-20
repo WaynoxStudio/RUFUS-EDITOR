@@ -1248,6 +1248,11 @@
           <ControlTemplate.Triggers>
             <Trigger Property="IsChecked" Value="False">
               <Setter TargetName="Bd" Property="Opacity" Value="0.3"/>
+              <Setter TargetName="Bd" Property="BorderBrush" Value="Transparent"/>
+            </Trigger>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="Bd" Property="Opacity" Value="1"/>
+              <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource BrandAccent}"/>
             </Trigger>
             <Trigger Property="IsMouseOver" Value="True">
               <Setter TargetName="Bd" Property="Opacity" Value="1"/>
@@ -1318,7 +1323,8 @@
             <Trigger Property="IsChecked" Value="True">
               <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Accent}"/>
               <Setter Property="Foreground" Value="White"/>
-              <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}"/>
+              <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource BrandAccent}"/>
+              <Setter TargetName="Bd" Property="BorderThickness" Value="2"/>
             </Trigger>
             <Trigger Property="IsMouseOver" Value="True">
               <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentHover}"/>
@@ -1584,28 +1590,31 @@
     </Setter>
   </Style>
 
-  <Style x:Key="ToolSidebarCompactLayer1" TargetType="RadioButton" BasedOn="{StaticResource ToolSidebarCompact}">
+  <!-- Capa GFX 1/2: mismo marco amarillo que Celda/Combate; grosor fijo para no bajar el contenido. -->
+  <Style x:Key="ToolSidebarCompactLayer" TargetType="RadioButton" BasedOn="{StaticResource ToolSidebarCompact}">
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="RadioButton">
-          <Border x:Name="Bd" Background="{DynamicResource ElevatedSurface}" BorderBrush="{DynamicResource AccentLayer1}"
+          <Border x:Name="Bd" Background="Transparent" BorderBrush="{DynamicResource Border}"
                   BorderThickness="2" CornerRadius="6" Padding="2" SnapsToDevicePixels="True">
             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
           </Border>
           <ControlTemplate.Triggers>
             <Trigger Property="IsChecked" Value="True">
-              <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentLayer1}"/>
-              <Setter Property="Foreground" Value="White"/>
+              <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ToolSidebarActive}"/>
+              <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource BrandAccent}"/>
             </Trigger>
             <Trigger Property="IsMouseOver" Value="True">
               <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBackground}"/>
+              <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource BrandAccentHover}"/>
             </Trigger>
             <MultiTrigger>
               <MultiTrigger.Conditions>
                 <Condition Property="IsChecked" Value="True"/>
                 <Condition Property="IsMouseOver" Value="True"/>
               </MultiTrigger.Conditions>
-              <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentLayer1}"/>
+              <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ToolSidebarActive}"/>
+              <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource BrandAccent}"/>
             </MultiTrigger>
             <Trigger Property="IsEnabled" Value="False">
               <Setter Property="Opacity" Value="0.42"/>
@@ -1616,47 +1625,8 @@
     </Setter>
   </Style>
 
-  <Style x:Key="ToolSidebarCompactLayer2" TargetType="RadioButton" BasedOn="{StaticResource ToolSidebarCompact}">
-    <Setter Property="Template">
-      <Setter.Value>
-        <ControlTemplate TargetType="RadioButton">
-          <Border x:Name="Halo" Background="Transparent" BorderBrush="Transparent" BorderThickness="0"
-                  CornerRadius="8" Padding="0" SnapsToDevicePixels="True">
-            <Border x:Name="Bd" Background="{DynamicResource ElevatedSurface}" BorderBrush="{DynamicResource Border}"
-                    BorderThickness="1" CornerRadius="6" Padding="2" SnapsToDevicePixels="True">
-              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-            </Border>
-          </Border>
-          <ControlTemplate.Triggers>
-            <Trigger Property="IsChecked" Value="True">
-              <Setter TargetName="Halo" Property="BorderBrush" Value="#FFFF8A80"/>
-              <Setter TargetName="Halo" Property="BorderThickness" Value="2"/>
-              <Setter TargetName="Halo" Property="Background" Value="#55FF1744"/>
-              <Setter TargetName="Bd" Property="Background" Value="#FFE53935"/>
-              <Setter TargetName="Bd" Property="BorderBrush" Value="#FFFF1744"/>
-              <Setter TargetName="Bd" Property="BorderThickness" Value="3"/>
-              <Setter Property="Foreground" Value="White"/>
-            </Trigger>
-            <Trigger Property="IsMouseOver" Value="True">
-              <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HoverBackground}"/>
-            </Trigger>
-            <MultiTrigger>
-              <MultiTrigger.Conditions>
-                <Condition Property="IsChecked" Value="True"/>
-                <Condition Property="IsMouseOver" Value="True"/>
-              </MultiTrigger.Conditions>
-              <Setter TargetName="Bd" Property="Background" Value="#FFFF1744"/>
-              <Setter TargetName="Bd" Property="BorderBrush" Value="#FFFF8A80"/>
-              <Setter TargetName="Halo" Property="BorderBrush" Value="#FFFF5252"/>
-            </MultiTrigger>
-            <Trigger Property="IsEnabled" Value="False">
-              <Setter Property="Opacity" Value="0.42"/>
-            </Trigger>
-          </ControlTemplate.Triggers>
-        </ControlTemplate>
-      </Setter.Value>
-    </Setter>
-  </Style>
+  <Style x:Key="ToolSidebarCompactLayer1" TargetType="RadioButton" BasedOn="{StaticResource ToolSidebarCompactLayer}"/>
+  <Style x:Key="ToolSidebarCompactLayer2" TargetType="RadioButton" BasedOn="{StaticResource ToolSidebarCompactLayer}"/>
 
   <!-- Vertical tool sidebar (icon-only) -->
   <Style x:Key="ToolSidebarRadio" TargetType="RadioButton">

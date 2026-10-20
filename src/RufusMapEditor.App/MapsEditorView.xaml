@@ -833,12 +833,21 @@
                                               DataContext="{Binding CombinedMaps}"
                                               IsCombinedMapsSurface="True"/>
                     </DockPanel>
-                    <Border Style="{StaticResource PanelCard}"
-                            HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                    <Border HorizontalAlignment="Right" VerticalAlignment="Bottom"
                             Margin="0,0,16,16" Padding="8,6" Panel.ZIndex="100"
                             Background="{DynamicResource PanelCardBackground}"
                             BorderBrush="{DynamicResource Border}" BorderThickness="1"
                             CornerRadius="8">
+                      <Border.Style>
+                        <Style TargetType="Border" BasedOn="{StaticResource PanelCard}">
+                          <Setter Property="Visibility" Value="Visible"/>
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding MapDbOverlayCollapsed}" Value="True">
+                              <Setter Property="Visibility" Value="Collapsed"/>
+                            </DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </Border.Style>
                       <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <TextBox Text="{Binding LoadMapFromDatabaseIdText, UpdateSourceTrigger=PropertyChanged}"
                                  Width="88" Padding="6,5" Margin="0,0,6,0" VerticalAlignment="Center"
@@ -872,8 +881,20 @@
                                        Visibility="{Binding MapPublishQueue.HasWarnings, Converter={StaticResource BoolToVis}}"/>
                           </StackPanel>
                         </Button>
+                        <Button Content="—" Width="28" Height="28" Padding="0" Margin="8,0,0,0"
+                                VerticalAlignment="Center"
+                                Command="{Binding ToggleMapDbOverlayCommand}"
+                                Style="{StaticResource WindowChromeButton}"
+                                ToolTip="Minimizar barra · se guarda al reabrir"/>
                       </StackPanel>
                     </Border>
+                    <Button HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                            Margin="0,0,12,12" Padding="6,2" MinWidth="28" MinHeight="22"
+                            FontSize="11" FontWeight="SemiBold" Panel.ZIndex="100"
+                            Command="{Binding ToggleMapDbOverlayCommand}"
+                            ToolTip="Mostrar Cargar BD / Actualizar Map ID"
+                            Visibility="{Binding MapDbOverlayCollapsed, Converter={StaticResource BoolToVis}}"
+                            Content="BD"/>
                     <Border Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}">
                       <Border Background="{DynamicResource OverlayCellIdShadow}">
                         <TextBlock Text="Cargando mapa..." Foreground="{DynamicResource TextPrimary}" FontSize="16"

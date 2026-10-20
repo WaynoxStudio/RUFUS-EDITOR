@@ -23,6 +23,7 @@ public partial class MapsEditorView : UserControl
     private bool _mapsCollapsed;
     private bool _catalogFloating;
     private FloatingCatalogWindow? _floatingCatalog;
+    private CatalogHoverPopup? _gfxHoverPopup;
     private const double MapsCollapsedWidth = 22;
     private Point _mapListDragStart;
     private MapPickerItemVm? _mapListDragItem;
@@ -957,6 +958,10 @@ public partial class MapsEditorView : UserControl
         if (sender is not Border border || border.DataContext is not GfxItemVm item)
             return;
 
+        _gfxHoverPopup ??= new CatalogHoverPopup(GfxHoverPopup);
+        if (!_gfxHoverPopup.ShouldBind(item))
+            return;
+
         _vm.EnsureThumbnail(item);
         HoverPreviewImage.Source = _vm.GetCatalogHoverPreview(item);
         HoverPreviewId.Text = $"GfxID {item.Id}";
@@ -964,12 +969,12 @@ public partial class MapsEditorView : UserControl
         HoverPreviewDims.Text = dims;
         HoverPreviewDims.Visibility = string.IsNullOrEmpty(dims) ? Visibility.Collapsed : Visibility.Visible;
         GfxHoverPopup.PlacementTarget = border;
-        GfxHoverPopup.IsOpen = true;
+        _gfxHoverPopup.Show();
     }
 
     private void GfxItem_MouseLeave(object sender, MouseEventArgs e)
     {
-        GfxHoverPopup.IsOpen = false;
+        _gfxHoverPopup?.ScheduleClose();
     }
 
     private void ReplaceGfx_Click(object sender, RoutedEventArgs e) =>

@@ -327,13 +327,9 @@ public sealed class MultiMapEditService
                     _selection.Clear();
                     _selection.Add(cell);
                 }
-<<<<<<< HEAD
-                ThumbnailInvalidateRequested?.Invoke(cell.DocumentKey);
-=======
                 // Defer thumbnail rebuild until stroke end while dragging (keeps paint fluid).
                 if (!isDrag)
                     ThumbnailInvalidateRequested?.Invoke(cell.DocumentKey);
->>>>>>> origin/main
 
                 if (paintSeam && _library.Catalog is not null)
                 {
@@ -352,12 +348,8 @@ public sealed class MultiMapEditService
                             if (markBlocked)
                                 MapCellEditor.SetMovement(c, MovementType.Unwalkable);
                         });
-<<<<<<< HEAD
-                        ThumbnailInvalidateRequested?.Invoke(replica.DocumentKey);
-=======
                         if (!isDrag)
                             ThumbnailInvalidateRequested?.Invoke(replica.DocumentKey);
->>>>>>> origin/main
                     }
                 }
 

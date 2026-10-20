@@ -218,34 +218,20 @@ public sealed class AstriaMapRenderer
 
     private void DrawBackground(Graphics g, GfxResource background, int backgroundId, int sizeCell, double scale, int fullW, int fullH)
     {
-        var anchorX = 0;
-        var anchorY = 0;
-        // Astria: Tile.Get_Ground_Pos(Background.ID) — XML Pos de grounds (mismo número).
-        // Ojo: IDs como 337/338 tienen Pos de suelo grandes; si se aplican tal cual,
-        // el rectángulo del fondo se sale del canvas y queda una franja negra abajo.
-        if (_catalog.TryGetAnchor(GfxCategory.Background, backgroundId, out var a))
-        {
-            anchorX = VbInt(a.X * scale);
-            anchorY = VbInt(a.Y * scale);
-        }
-
+        // Visible map / game crop (Astria Save_Img): 15×17 @ 26 → 728×416 at (26,13).
+        // Paint into that rect so the PNG matches the grid the player sees, not the full canvas.
+        _ = backgroundId;
+        _ = scale;
         if (!_images.TryCloneWorkingCopy(background, out var bmp))
             return;
 
         using (bmp)
         {
-            var dx = sizeCell - anchorX;
-            var dy = sizeCell / 2 - anchorY;
-            var dw = fullW;
-            var dh = fullH;
-
-            // Expandir el destino para que cubra TODO el canvas (sin bandas negras).
-            if (dx > 0) { dw += dx; dx = 0; }
-            if (dy > 0) { dh += dy; dy = 0; }
-            if (dx + dw < fullW) dw = fullW - dx;
-            if (dy + dh < fullH) dh = fullH - dy;
-
-            g.DrawImage(bmp, new Rectangle(dx, dy, dw, dh));
+            g.DrawImage(bmp, new Rectangle(
+                sizeCell,
+                sizeCell / 2,
+                fullW - sizeCell * 2,
+                fullH - sizeCell));
         }
     }
 

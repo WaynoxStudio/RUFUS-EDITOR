@@ -1,14 +1,9 @@
 {
   "formatVersion": 1,
-  "documentId": "48db24ae-6c07-41fc-be5c-930fdb8b3989",
-  "createdUtc": "2026-10-18T10:19:05.4566272+00:00",
-  "modifiedUtc": "2026-10-18T10:19:05.4567162+00:00",
-  "projectName": "map_30109",
-  "source": {
-    "kind": "NewMap",
-    "originalMapId": 30109,
-    "libraryPathHint": "C:\\Users\\alex_\\Desktop\\RUFUS-EDITOR\\Library"
-  },
+  "documentId": "5767f259-2bf0-4a1c-ab77-cec421fb21b7",
+  "createdUtc": "2026-10-20T20:12:09.7753965+00:00",
+  "modifiedUtc": "2026-10-20T20:12:09.7762359+00:00",
+  "projectName": "30109",
   "map": {
     "id": 30109,
     "width": 15,

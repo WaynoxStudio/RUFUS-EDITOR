@@ -12,6 +12,7 @@ namespace RufusMapEditor.App;
 public partial class FloatingCatalogWindow : Window, INotifyPropertyChanged
 {
     private readonly MainViewModel _vm;
+    private CatalogHoverPopup? _hoverPopup;
     private bool _dockRequested;
     private bool _suppressZoomEvent;
     private double _zoomPercent = DefaultZoomPercent;
@@ -173,6 +174,10 @@ public partial class FloatingCatalogWindow : Window, INotifyPropertyChanged
         if (sender is not Border border || border.DataContext is not GfxItemVm item)
             return;
 
+        _hoverPopup ??= new CatalogHoverPopup(GfxHoverPopup);
+        if (!_hoverPopup.ShouldBind(item))
+            return;
+
         _vm.EnsureThumbnail(item, ThumbPixelSize);
         HoverPreviewImage.Source = _vm.GetCatalogHoverPreview(item);
         HoverPreviewId.Text = $"GfxID {item.Id}";
@@ -180,11 +185,11 @@ public partial class FloatingCatalogWindow : Window, INotifyPropertyChanged
         HoverPreviewDims.Text = dims;
         HoverPreviewDims.Visibility = string.IsNullOrEmpty(dims) ? Visibility.Collapsed : Visibility.Visible;
         GfxHoverPopup.PlacementTarget = border;
-        GfxHoverPopup.IsOpen = true;
+        _hoverPopup.Show();
     }
 
     private void GfxItem_MouseLeave(object sender, MouseEventArgs e) =>
-        GfxHoverPopup.IsOpen = false;
+        _hoverPopup?.ScheduleClose();
 
     private static bool IsFavoriteStarSource(DependencyObject? source)
     {
