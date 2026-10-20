@@ -88,12 +88,27 @@ public static class AiPromptComposer
             sb.AppendLine(request.CurrentNpcName.Trim());
         }
 
+        if (!string.IsNullOrWhiteSpace(request.ConversationPriorText))
+        {
+            sb.AppendLine();
+            sb.AppendLine("Conversación anterior relevante (solo textos hablados; no IDs ni acciones):");
+            sb.AppendLine(request.ConversationPriorText.Trim());
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.ParentNpcQuestionText))
+        {
+            sb.AppendLine();
+            sb.AppendLine("Pregunta NPC a la que responde el jugador (texto exacto):");
+            sb.AppendLine(request.ParentNpcQuestionText.Trim());
+        }
+
         return sb.ToString().TrimEnd();
     }
 
     private static string BuildTask(AiCreativeRequest request) => request.Action switch
     {
         AiCreativeAction.GenerarNombre => BuildNameTask(),
+        AiCreativeAction.GenerarDialogo when request.GeneratePlayerReply => BuildPlayerReplyTask(request),
         AiCreativeAction.GenerarDialogo => BuildDialogTask(request),
         AiCreativeAction.GenerarConversacion => BuildConversationTask(request),
         _ => "Tarea desconocida. Genera solo contenido creativo."
@@ -125,24 +140,56 @@ public static class AiPromptComposer
         if (!string.IsNullOrWhiteSpace(request.CurrentNpcName))
             sb.AppendLine("El NPC se llama: " + request.CurrentNpcName.Trim() + ".");
         sb.AppendLine("Respeta rol, personalidad, contexto narrativo, longitud e instrucción adicional.");
-        sb.AppendLine("NO generar: IDs, acciones, D.q, D.a, columnas BD ni datos técnicos.");
+        sb.AppendLine("Si la instrucción indica un rol de misión (OFRECER / INCOMPLETA / COMPLETADA), el texto debe encajar en ese momento de la misión.");
+        sb.AppendLine(AiMissionSnapshotBuilder.AntiInventionRule);
+        sb.AppendLine(AiMissionSnapshotBuilder.NarrativeVsMissionRule);
+        sb.AppendLine(AiMissionSnapshotBuilder.NewlineGuidance);
+        sb.AppendLine("NO generar: IDs, acciones, args, condiciones, mapas, celdas, misiones, objetos, D.q, D.a, columnas BD ni comandos técnicos.");
         sb.AppendLine("Si el flujo es diálogo simple: solo el contenido hablado por el NPC.");
+        sb.AppendLine("Si es un bocadillo concreto: devuelve únicamente el texto de ESE bocadillo.");
+        return sb.ToString().TrimEnd();
+    }
+
+    private static string BuildPlayerReplyTask(AiCreativeRequest request)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("=== TAREA: GENERAR RESPUESTA DEL JUGADOR ===");
+        sb.AppendLine();
+        sb.AppendLine("Genera ÚNICAMENTE el texto de una respuesta del jugador.");
+        sb.AppendLine("No es una frase del NPC.");
+        if (!string.IsNullOrWhiteSpace(request.ParentNpcQuestionText))
+        {
+            sb.AppendLine("El jugador responde a esta pregunta del NPC:");
+            sb.AppendLine(request.ParentNpcQuestionText.Trim());
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.CurrentNpcName))
+            sb.AppendLine("El NPC se llama: " + request.CurrentNpcName.Trim() + ".");
+        sb.AppendLine("Hila semánticamente con la pregunta padre y la conversación anterior.");
+        sb.AppendLine("Respeta personalidad/contexto del NPC cuando ayuden al tono de la respuesta.");
+        sb.AppendLine("Respeta longitud e instrucción local del usuario.");
+        sb.AppendLine("NO generar: IDs, acciones, args, condiciones, mapas, celdas, misiones, objetos ni comandos técnicos.");
+        sb.AppendLine("NO asignar acciones técnicas ni enlazar preguntas/misiones.");
+        sb.AppendLine("Devuelve solo el texto hablado por el jugador.");
         return sb.ToString().TrimEnd();
     }
 
     private static string BuildConversationTask(AiCreativeRequest request)
     {
         var sb = new StringBuilder();
-        sb.AppendLine("=== TAREA: GENERAR CONVERSACIÓN ===");
+        sb.AppendLine("=== TAREA: GENERAR CONVERSACIÓN COMPLETA DE MISIÓN ===");
         sb.AppendLine();
-        sb.AppendLine("Genera contenido creativo de conversación con:");
-        sb.AppendLine("1) Un texto inicial del NPC (apertura).");
-        sb.AppendLine("2) Exactamente 3 respuestas posibles del jugador:");
-        sb.AppendLine("   - una neutra");
-        sb.AppendLine("   - una amable / interesada");
-        sb.AppendLine("   - una humorística o desafiante cuando encaje");
-        sb.AppendLine("Las respuestas del jugador pueden tener humor y personalidad.");
-        sb.AppendLine("Deja margen para una continuación coherente si se solicita después.");
+        sb.AppendLine("Genera UNA conversación coherente con CUATRO bloques creativos independientes:");
+        sb.AppendLine("1) textoNpc = OFRECER: el NPC presenta la situación y propone la tarea REAL.");
+        sb.AppendLine("2) respuestasJugador = exactamente 1 respuesta del jugador (natural, coherente con la oferta).");
+        sb.AppendLine("3) textoIncompleta = INCOMPLETA: el jugador AÚN NO ha terminado; no felicitar ni dar por hecha la misión.");
+        sb.AppendLine("4) textoCompletada = COMPLETADA: el jugador YA cumplió el objetivo; reaccionar al resultado y cerrar.");
+        sb.AppendLine();
+        sb.AppendLine(AiMissionSnapshotBuilder.AntiInventionRule);
+        sb.AppendLine(AiMissionSnapshotBuilder.NarrativeVsMissionRule);
+        sb.AppendLine("La única respuesta del jugador debe reaccionar a la oferta y a la misión REAL; no proponer acciones inexistentes.");
+        sb.AppendLine("Los cuatro bloques comparten personalidad, tema, hechos, tono y vocabulario.");
+        sb.AppendLine(AiMissionSnapshotBuilder.NewlineGuidance);
         if (!string.IsNullOrWhiteSpace(request.CurrentNpcName))
             sb.AppendLine("El NPC se llama: " + request.CurrentNpcName.Trim() + ".");
         sb.AppendLine("NO asignar acciones técnicas, args, IDs ni datos BD a las respuestas.");

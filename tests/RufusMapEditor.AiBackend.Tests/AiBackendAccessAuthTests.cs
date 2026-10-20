@@ -10,7 +10,6 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using RufusMapEditor.AiBackend;
 using RufusMapEditor.AiBackend.OpenAi;
 using RufusMapEditor.LegacyCompatibility.Content.Ai;
-using RufusMapEditor.Licensing.Options;
 
 namespace RufusMapEditor.AiBackend.Tests;
 
@@ -168,9 +167,6 @@ public sealed class AiBackendAccessAuthTests : IClassFixture<WebApplicationFacto
                 services.RemoveAll<RufusAiAccessOptions>();
                 services.AddSingleton(new RufusAiAccessOptions { AccessToken = accessToken });
 
-                services.RemoveAll<AiLegacyTokenOptions>();
-                services.AddSingleton(new AiLegacyTokenOptions { Enabled = true });
-
                 services.RemoveAll<IOpenAiResponsesClient>();
                 services.AddSingleton<IOpenAiResponsesClient>(fake);
 
@@ -222,6 +218,7 @@ public sealed class AiBackendAccessAuthTests : IClassFixture<WebApplicationFacto
             string inputText,
             string schemaName,
             JsonElement schema,
+            TimeSpan timeout,
             CancellationToken cancellationToken)
         {
             CallCount++;

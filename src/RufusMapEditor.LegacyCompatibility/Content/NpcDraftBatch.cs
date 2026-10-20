@@ -41,29 +41,33 @@ public sealed class NpcDraftBatch
 
         var copy = source.CloneData();
         copy.Id = ComputeNextId();
+        // Fresh draft identity — never inherit publish/client flags or the source dialog ID
+        // (otherwise a duplicate looks «ya publicado» y no entra en Publicar cliente / BD).
         copy.PublishedBd = false;
+        copy.IsDbCatalogSnapshot = false;
+        copy.DialogEsPublished = false;
+        copy.DialogEsPublishedVersion = null;
+        copy.DialogEsIdProvisional = false;
+        copy.NpcEsPublished = false;
+        copy.NpcEsPublishedVersion = null;
+        copy.NpcEsPublishedName = "";
+        copy.NpcEsPublishedActionIds = new List<int>();
+        copy.Pregunta = 0;
         EnsureUnique(copy.Id);
+        copy.EnsurePrimaryLocation();
         // Locations were deep-copied; npc column always resolves from copy.Id (never original).
         _drafts.Add(copy);
         return copy;
     }
 
-    /// <summary>Adds a local ubicacion; Map/Cell stay unset (0) until the user fills them.</summary>
+    /// <summary>Ensures the single ubicación slot; Map/Cell stay unset (0) until the user fills them.</summary>
     public NpcLocationDraft AddLocation(NpcsModeloDraft npc)
     {
         ArgumentNullException.ThrowIfNull(npc);
         if (!_drafts.Contains(npc) && _drafts.All(d => d.Id != npc.Id))
             throw new InvalidOperationException("El NPC no pertenece al lote.");
 
-        var loc = new NpcLocationDraft
-        {
-            MapId = 0,
-            CellId = 0,
-            Orientation = 0,
-            Condition = "",
-        };
-        npc.Locations.Add(loc);
-        return loc;
+        return npc.EnsurePrimaryLocation();
     }
 
     public bool RemoveLocation(NpcsModeloDraft npc, NpcLocationDraft location)

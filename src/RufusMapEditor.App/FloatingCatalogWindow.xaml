@@ -40,9 +40,6 @@
             <TextBlock x:Name="ZoomLabel" Width="48" VerticalAlignment="Center" Margin="0,0,12,0"
                        Foreground="{DynamicResource TextPrimary}" FontSize="12" FontWeight="SemiBold"
                        Text="0%"/>
-            <Button Content="Buscar por imagen" Command="{Binding OpenGfxVisualSearchCommand}"
-                    Padding="10,5" Margin="0,0,8,0"
-                    ToolTip="Buscar GFX por imagen"/>
             <Button Content="Anclar al editor" Click="Dock_Click" Padding="10,5"
                     ToolTip="Cierra esta ventana y vuelve a mostrar el catálogo abajo"/>
           </StackPanel>
@@ -56,30 +53,69 @@
           <ColumnDefinition Width="*" MinWidth="200"/>
         </Grid.ColumnDefinitions>
 
-        <TreeView x:Name="FolderTreeView" Grid.Column="0"
-                  ItemsSource="{Binding FolderTree}"
-                  Background="{DynamicResource PanelCardBackground}" BorderThickness="0"
-                  Foreground="{DynamicResource TextPrimary}"
-                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                  ScrollViewer.VerticalScrollBarVisibility="Auto"
-                  SelectedItemChanged="FolderTree_OnSelectedItemChanged">
-          <TreeView.ItemContainerStyle>
-            <Style TargetType="TreeViewItem">
-              <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
-              <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}"/>
-              <Setter Property="Padding" Value="2,1"/>
-              <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
-              <Setter Property="Background" Value="Transparent"/>
-            </Style>
-          </TreeView.ItemContainerStyle>
-          <TreeView.ItemTemplate>
-            <HierarchicalDataTemplate ItemsSource="{Binding Children}">
-              <TextBlock Text="{Binding Name}" Margin="2,3"
-                         TextTrimming="CharacterEllipsis"
-                         Foreground="{DynamicResource TextPrimary}"/>
-            </HierarchicalDataTemplate>
-          </TreeView.ItemTemplate>
-        </TreeView>
+        <DockPanel Grid.Column="0" LastChildFill="True">
+          <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+            <Border Background="{DynamicResource InputBackground}"
+                    BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="4"
+                    Margin="0,0,0,6" Padding="0">
+              <Grid>
+                <TextBox x:Name="CatalogGfxIdSearchBox"
+                         Text="{Binding CatalogGfxIdSearchText, UpdateSourceTrigger=PropertyChanged}"
+                         Background="Transparent" BorderThickness="0"
+                         Padding="8,6" FontFamily="{StaticResource AppFontFamilyMono}" FontSize="12"
+                         Foreground="{DynamicResource TextPrimary}"
+                         CaretBrush="{DynamicResource Accent}"
+                         VerticalContentAlignment="Center"
+                         ToolTip="Buscar GFX por ID"/>
+                <TextBlock Text="Buscar por ID" Margin="8,0,0,0"
+                           VerticalAlignment="Center" IsHitTestVisible="False"
+                           Foreground="{DynamicResource TextMuted}" FontSize="12">
+                  <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                      <Setter Property="Visibility" Value="Collapsed"/>
+                      <Style.Triggers>
+                        <MultiDataTrigger>
+                          <MultiDataTrigger.Conditions>
+                            <Condition Binding="{Binding Text, ElementName=CatalogGfxIdSearchBox}" Value=""/>
+                            <Condition Binding="{Binding IsKeyboardFocused, ElementName=CatalogGfxIdSearchBox}" Value="False"/>
+                          </MultiDataTrigger.Conditions>
+                          <Setter Property="Visibility" Value="Visible"/>
+                        </MultiDataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </TextBlock.Style>
+                </TextBlock>
+              </Grid>
+            </Border>
+            <Button Content="Buscar por imagen" Command="{Binding OpenGfxVisualSearchCommand}"
+                    Padding="10,5" HorizontalAlignment="Stretch"
+                    ToolTip="Buscar GFX por imagen"/>
+          </StackPanel>
+          <TreeView x:Name="FolderTreeView"
+                    ItemsSource="{Binding FolderTree}"
+                    Background="{DynamicResource PanelCardBackground}" BorderThickness="0"
+                    Foreground="{DynamicResource TextPrimary}"
+                    ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                    ScrollViewer.VerticalScrollBarVisibility="Auto"
+                    SelectedItemChanged="FolderTree_OnSelectedItemChanged">
+            <TreeView.ItemContainerStyle>
+              <Style TargetType="TreeViewItem">
+                <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+                <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}"/>
+                <Setter Property="Padding" Value="2,1"/>
+                <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+                <Setter Property="Background" Value="Transparent"/>
+              </Style>
+            </TreeView.ItemContainerStyle>
+            <TreeView.ItemTemplate>
+              <HierarchicalDataTemplate ItemsSource="{Binding Children}">
+                <TextBlock Text="{Binding Name}" Margin="2,3"
+                           TextTrimming="CharacterEllipsis"
+                           Foreground="{DynamicResource TextPrimary}"/>
+              </HierarchicalDataTemplate>
+            </TreeView.ItemTemplate>
+          </TreeView>
+        </DockPanel>
 
         <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch"
                       Background="{DynamicResource SplitterBrush}"/>

@@ -30,12 +30,12 @@ public static class AiMockResponses
         """
         {
           "conversacion": {
-            "textoNpc": "¿Otra vez por aquí? La salida sigue igual de cerrada, por si no lo habías notado.",
+            "textoNpc": "Hay algo raro cerca de Astrub. Quiero que vayas al lugar que te indico y me digas qué ves.",
             "respuestasJugador": [
-              { "texto": "Solo paso a ver cómo estás.", "tono": "neutral" },
-              { "texto": "Puedo echarte una mano con eso.", "tono": "amable" },
-              { "texto": "¿Cerrada? Qué conveniente…", "tono": "humoristico" }
-            ]
+              { "texto": "De acuerdo, iré a mirar.", "tono": "neutral" }
+            ],
+            "textoIncompleta": "Todavía no has llegado al sitio. Vuelve cuando lo hayas visto con tus propios ojos.",
+            "textoCompletada": "Bien. Ya has estado allí. Cuéntame qué has visto… sin inventarte dragones, por favor."
           }
         }
         """;

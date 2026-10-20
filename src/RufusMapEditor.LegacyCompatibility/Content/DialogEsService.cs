@@ -18,11 +18,13 @@ public static class DialogEsService
         try
         {
             foreach (var add in request.Additions)
-                DialogEsLatin1.Validate(add.Text, add.Space == DialogEsSpace.Question ? "D.q" : "D.a");
+                DialogEsLatin1.Prepare(add.Text, add.Space == DialogEsSpace.Question ? "D.q" : "D.a");
 
             var parsed = DialogEsParser.ParseInternal(request.SourceSwfBytes);
             foreach (var add in request.Additions)
             {
+                if (add.ReplaceExisting)
+                    continue;
                 if (add.Space == DialogEsSpace.Question && parsed.Questions.ContainsKey(add.Id))
                     return Fail($"No se puede modificar D.q[{add.Id}] existente.");
                 if (add.Space == DialogEsSpace.Answer && parsed.Answers.ContainsKey(add.Id))
@@ -120,46 +122,73 @@ public static class DialogEsService
 
         foreach (var (id, text) in source.Questions)
         {
-            if (!output.Questions.TryGetValue(id, out var now) || now != text)
+            var replace = additions.LastOrDefault(a =>
+                a.Space == DialogEsSpace.Question && a.Id == id && a.ReplaceExisting);
+            if (replace is not null)
+            {
+                var expected = DialogEsLatin1.Normalize(replace.Text);
+                if (!output.Questions.TryGetValue(id, out var now) || now != expected)
+                    return $"Validación: D.q[{id}] reemplazo incorrecto.";
+                continue;
+            }
+
+            if (!output.Questions.TryGetValue(id, out var kept) || kept != text)
                 return $"Validación: D.q[{id}] alterado.";
         }
 
         foreach (var (id, text) in source.Answers)
         {
-            if (!output.Answers.TryGetValue(id, out var now) || now != text)
+            var replace = additions.LastOrDefault(a =>
+                a.Space == DialogEsSpace.Answer && a.Id == id && a.ReplaceExisting);
+            if (replace is not null)
+            {
+                var expected = DialogEsLatin1.Normalize(replace.Text);
+                if (!output.Answers.TryGetValue(id, out var now) || now != expected)
+                    return $"Validación: D.a[{id}] reemplazo incorrecto.";
+                continue;
+            }
+
+            if (!output.Answers.TryGetValue(id, out var kept) || kept != text)
                 return $"Validación: D.a[{id}] alterado.";
         }
 
         var extraQ = output.Questions.Keys.Except(source.Questions.Keys).OrderBy(x => x).ToList();
         var extraA = output.Answers.Keys.Except(source.Answers.Keys).OrderBy(x => x).ToList();
-        var expectedQ = additions.Where(a => a.Space == DialogEsSpace.Question).Select(a => a.Id).Distinct().OrderBy(x => x).ToList();
-        var expectedA = additions.Where(a => a.Space == DialogEsSpace.Answer).Select(a => a.Id).Distinct().OrderBy(x => x).ToList();
+        var expectedQ = additions
+            .Where(a => a.Space == DialogEsSpace.Question && !source.Questions.ContainsKey(a.Id))
+            .Select(a => a.Id).Distinct().OrderBy(x => x).ToList();
+        var expectedA = additions
+            .Where(a => a.Space == DialogEsSpace.Answer && !source.Answers.ContainsKey(a.Id))
+            .Select(a => a.Id).Distinct().OrderBy(x => x).ToList();
         if (!extraQ.SequenceEqual(expectedQ))
             return "Validación: conjunto D.q nuevos no coincide.";
         if (!extraA.SequenceEqual(expectedA))
             return "Validación: conjunto D.a nuevos no coincide.";
 
-        var qAdds = additions.Where(a => a.Space == DialogEsSpace.Question).GroupBy(a => a.Id).ToList();
+        var sourceParsed = DialogEsParser.ParseInternal(sourceBytes);
         var outputParsed = DialogEsParser.ParseInternal(outputBytes);
+        var qAdds = additions.Where(a => a.Space == DialogEsSpace.Question).GroupBy(a => a.Id).ToList();
         foreach (var g in qAdds)
         {
-            var last = g.Last().Text;
+            var last = DialogEsLatin1.Normalize(g.Last().Text);
             if (!output.Questions.TryGetValue(g.Key, out var t) || t != last)
                 return $"Validación: D.q[{g.Key}] texto incorrecto.";
+            var before = sourceParsed.QuestionHits.GetValueOrDefault(g.Key);
             var count = outputParsed.QuestionHits.GetValueOrDefault(g.Key);
-            if (count != g.Count())
-                return $"Validación: D.q[{g.Key}] aparece {count} veces, esperado {g.Count()}.";
+            if (count != before + g.Count())
+                return $"Validación: D.q[{g.Key}] aparece {count} veces, esperado {before + g.Count()}.";
         }
 
         var aAdds = additions.Where(a => a.Space == DialogEsSpace.Answer).GroupBy(a => a.Id).ToList();
         foreach (var g in aAdds)
         {
-            var last = g.Last().Text;
+            var last = DialogEsLatin1.Normalize(g.Last().Text);
             if (!output.Answers.TryGetValue(g.Key, out var t) || t != last)
                 return $"Validación: D.a[{g.Key}] texto incorrecto.";
+            var before = sourceParsed.AnswerHits.GetValueOrDefault(g.Key);
             var count = outputParsed.AnswerHits.GetValueOrDefault(g.Key);
-            if (count != g.Count())
-                return $"Validación: D.a[{g.Key}] aparece {count} veces, esperado {g.Count()}.";
+            if (count != before + g.Count())
+                return $"Validación: D.a[{g.Key}] aparece {count} veces, esperado {before + g.Count()}.";
         }
 
         return null;

@@ -14,8 +14,26 @@ public sealed class MissionDraft
     /// <summary>Assigned on CONT.5 publish (misiones.id).</summary>
     public int? PublishedQuestId { get; set; }
     public bool PublishedBd { get; set; }
+    /// <summary>Quest ID from last client preview that used ContentPublishPlan (pre-BD).</summary>
+    public int? PreviewPlannedQuestId { get; set; }
+    public bool QuestsEsPublished { get; set; }
+    public int? QuestsEsPublishedVersion { get; set; }
     public string Nombre { get; set; } = "";
     public bool PuedeRepetirse { get; set; }
+
+    /// <summary>Published mission edited locally; next BD publish should UPDATE same IDs.</summary>
+    public bool HasPendingBdChanges { get; set; }
+
+    /// <summary>Stage IDs that already exist in BD for this published mission.</summary>
+    public List<int> PublishedStageIds { get; set; } = new();
+
+    /// <summary>Objective IDs that already exist in BD for this published mission.</summary>
+    public List<int> PublishedObjectiveIds { get; set; } = new();
+
+    /// <summary>
+    /// Published objective IDs removed from the local draft; DELETE on next BD publish.
+    /// </summary>
+    public List<int> PendingDeletedObjectiveIds { get; set; } = new();
 
     /// <summary>NPC used to build preg* strings (npcId;preguntaId).</summary>
     public int? StartNpcId { get; set; }
@@ -25,7 +43,43 @@ public sealed class MissionDraft
 
     public ObservableCollection<MissionStageDraft> Stages { get; set; } = new();
 
-    public string Status => PublishedBd ? "Publicado BD" : StatusBorrador;
+    public string Status => DisplayStatus;
+
+    public string DisplayStatus =>
+        !PublishedBd ? StatusBorrador
+        : HasPendingBdChanges ? StatusCambiosPendientes
+        : StatusPublicada;
+
+    public const string StatusPublicada = "Publicada";
+    public const string StatusCambiosPendientes = "Cambios pendientes";
+
+    public void MarkPublishedSnapshot()
+    {
+        PublishedStageIds = Stages.Select(s => s.Id).Distinct().ToList();
+        PublishedObjectiveIds = Stages.SelectMany(s => s.Objectives.Select(o => o.Id)).Distinct().ToList();
+        PendingDeletedObjectiveIds.Clear();
+        HasPendingBdChanges = false;
+    }
+
+    public void QueueDeletedPublishedObjective(int objectiveId)
+    {
+        if (objectiveId <= 0) return;
+        if (!PendingDeletedObjectiveIds.Contains(objectiveId))
+            PendingDeletedObjectiveIds.Add(objectiveId);
+        MarkPendingBdEdit();
+    }
+
+    public void MarkPendingBdEdit()
+    {
+        if (PublishedBd)
+            HasPendingBdChanges = true;
+    }
+
+    public bool IsPublishedStage(int stageId) =>
+        PublishedBd && PublishedStageIds.Contains(stageId);
+
+    public bool IsPublishedObjective(int objectiveId) =>
+        PublishedBd && PublishedObjectiveIds.Contains(objectiveId);
 
     public string BuildPregDar() => BuildPregPair(StartNpcId, PregDarPreguntaId);
     public string BuildPregIncompleta() => BuildPregPair(StartNpcId, PregIncompletaPreguntaId);
@@ -36,6 +90,16 @@ public sealed class MissionDraft
         if (npcId is null || preguntaId is null || npcId <= 0 || preguntaId <= 0)
             return "";
         return string.Create(CultureInfo.InvariantCulture, $"{npcId.Value};{preguntaId.Value}");
+    }
+
+    /// <summary>MISSIONS.DIALOG.ROLES.2 — keep StartNpcId aligned with the edited NPC owner.</summary>
+    public static bool SyncStartNpcFromOwner(MissionDraft mission, int ownerNpcId)
+    {
+        ArgumentNullException.ThrowIfNull(mission);
+        if (ownerNpcId <= 0) return false;
+        if (mission.StartNpcId == ownerNpcId) return false;
+        mission.StartNpcId = ownerNpcId;
+        return true;
     }
 
     public string BuildEtapasCsv() =>
@@ -50,12 +114,19 @@ public sealed class MissionDraft
             DraftId = Guid.NewGuid(),
             PublishedQuestId = null,
             PublishedBd = false,
+            PreviewPlannedQuestId = null,
+            QuestsEsPublished = false,
+            QuestsEsPublishedVersion = null,
+            HasPendingBdChanges = false,
+            PublishedStageIds = new List<int>(),
+            PublishedObjectiveIds = new List<int>(),
+            PendingDeletedObjectiveIds = new List<int>(),
             Nombre = Nombre,
             PuedeRepetirse = PuedeRepetirse,
             StartNpcId = StartNpcId,
-            PregDarPreguntaId = PregDarPreguntaId,
-            PregIncompletaPreguntaId = PregIncompletaPreguntaId,
-            PregCompletadaPreguntaId = PregCompletadaPreguntaId,
+            PregDarPreguntaId = null,
+            PregIncompletaPreguntaId = null,
+            PregCompletadaPreguntaId = null,
         };
         foreach (var s in Stages)
             copy.Stages.Add(s.CloneNewIdentity(nextStageId(), nextObjectiveId));
@@ -69,7 +140,8 @@ public sealed class MissionStageDraft
     public string Nombre { get; set; } = "";
     public string Descripcion { get; set; } = "";
     public MissionRewardsDraft Rewards { get; set; } = new();
-    public string VariosObj { get; set; } = "0";
+    /// <summary>MISSIONS.STAGES.VARIOSOBJ.EMPTY.1 — empty by default (matches live mision_etapas).</summary>
+    public string VariosObj { get; set; } = "";
     public ObservableCollection<MissionObjectiveDraft> Objectives { get; set; } = new();
 
     public string BuildObjetivosField()
@@ -109,6 +181,12 @@ public sealed class MissionObjectiveDraft
     public int EsOculto { get; set; }
     public string Condicion { get; set; } = "";
 
+    /// <summary>
+    /// Editor-only: auto-generated return-to-start-NPC (tipo 9).
+    /// Not a BD column; not written to quests_es props beyond normal Q.o.
+    /// </summary>
+    public bool IsAutoReturnToStartNpc { get; set; }
+
     public MissionObjectiveDraft CloneNewIdentity(int newId) => new()
     {
         Id = newId,
@@ -118,6 +196,7 @@ public sealed class MissionObjectiveDraft
         EsAlHablar = EsAlHablar,
         EsOculto = EsOculto,
         Condicion = Condicion,
+        IsAutoReturnToStartNpc = IsAutoReturnToStartNpc,
     };
 
     public static MissionObjectiveDraft CreateDeliverItems(int id, int npcId, int itemId, int qty)
@@ -207,4 +286,20 @@ public sealed class MissionRewardItem
 {
     public int ItemId { get; set; }
     public int Cantidad { get; set; } = 1;
+}
+
+/// <summary>
+/// MISSIONS.DRAFTS.UNSAVED_GUARD — when to prompt before leaving the current mission draft.
+/// Same DraftId rebind (Reload/list rebuild) is NOT abandonment.
+/// </summary>
+public static class MissionDraftNavigationGuard
+{
+    public static bool RequiresUnsavedPrompt(Guid? currentDraftId, bool hasUnsavedLocalEdits, Guid? nextDraftId)
+    {
+        if (!hasUnsavedLocalEdits || currentDraftId is null)
+            return false;
+        if (nextDraftId is Guid next && next == currentDraftId.Value)
+            return false;
+        return true;
+    }
 }

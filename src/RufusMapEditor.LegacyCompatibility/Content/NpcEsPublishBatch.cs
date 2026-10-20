@@ -89,7 +89,10 @@ public sealed class NpcEsPublishBatch
 /// <summary>CONT.7B.1 — batch with action sets, updates, Hablar[3] auto.</summary>
 public static class NpcEsPublishBatchBuilder
 {
-    public static NpcEsPublishBatch Build(ContentDraftWorkspace workspace, NpcEsSnapshot snapshot)
+    public static NpcEsPublishBatch Build(
+        ContentDraftWorkspace workspace,
+        NpcEsSnapshot snapshot,
+        IReadOnlySet<int>? npcIdFilter = null)
     {
         ArgumentNullException.ThrowIfNull(workspace);
         ArgumentNullException.ThrowIfNull(snapshot);
@@ -97,7 +100,9 @@ public static class NpcEsPublishBatchBuilder
         var errors = new List<string>();
         var bindings = new List<NpcEsPublishBinding>();
 
-        foreach (var npc in workspace.Npcs.Drafts.Where(n => n.IsPendingNpcEsFor(workspace)))
+        foreach (var npc in workspace.Npcs.Drafts.Where(n =>
+                     ContentPublishNpcSelection.Includes(n.Id, npcIdFilter)
+                     && n.IsPendingNpcEsFor(workspace)))
         {
             var name = npc.Nombre.Trim();
             if (string.IsNullOrWhiteSpace(name))
@@ -114,13 +119,16 @@ public static class NpcEsPublishBatchBuilder
 
             try
             {
-                DialogEsLatin1.Validate(name, $"NPC {npc.Id}");
+                name = DialogEsLatin1.Prepare(name, $"NPC {npc.Id}");
             }
             catch (DialogEsEncodingException ex)
             {
                 errors.Add(ex.Message);
                 continue;
             }
+
+            if (!string.Equals(npc.Nombre.Trim(), name, StringComparison.Ordinal))
+                npc.Nombre = name;
 
             var expected = NpcEsActionResolver.ResolveExpected(workspace, npc);
             // Persist auto Hablar into draft selection so UI stays consistent.

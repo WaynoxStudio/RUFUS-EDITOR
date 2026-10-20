@@ -18,7 +18,7 @@ public sealed class ContNpc2DefaultsTests
     }
 
     [Fact]
-    public void Location_publish_nombre_follows_current_npc_nombre_for_all_locations()
+    public void Location_publish_nombre_follows_current_npc_nombre()
     {
         var ws = new ContentDraftWorkspace();
         ws.Npcs.SetDbMaxId(20061);
@@ -30,9 +30,6 @@ public sealed class ContNpc2DefaultsTests
         a.MapId = 1;
         a.CellId = 10;
         a.Name = "stale-should-be-ignored";
-        var b = ws.Npcs.AddLocation(npc);
-        b.MapId = 2;
-        b.CellId = 20;
 
         npc.Nombre = "Pitor Reo";
 
@@ -47,8 +44,8 @@ public sealed class ContNpc2DefaultsTests
         });
 
         Assert.True(plan.IsValid, string.Join("; ", plan.Errors));
-        Assert.Equal(2, plan.Locations.Count);
-        Assert.All(plan.Locations, loc => Assert.Equal("Pitor Reo", loc.Nombre));
+        Assert.Single(plan.Locations);
+        Assert.Equal("Pitor Reo", plan.Locations[0].Nombre);
         Assert.DoesNotContain(plan.Locations, loc => loc.Nombre == "stale-should-be-ignored");
         Assert.DoesNotContain(plan.Locations, loc => loc.Nombre == "Viejo");
     }

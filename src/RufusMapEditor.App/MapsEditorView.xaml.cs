@@ -27,6 +27,8 @@ public partial class MapsEditorView : UserControl
     private Point _mapListDragStart;
     private MapPickerItemVm? _mapListDragItem;
     private bool _mapListDragStarted;
+    private bool _suppressMapListOpen;
+    private int? _contextMenuMapId;
 
     public MapsEditorView() : this(deferLibraryLoad: false)
     {
@@ -62,10 +64,18 @@ public partial class MapsEditorView : UserControl
             if (deferLibraryLoad)
             {
                 Dispatcher.BeginInvoke(
-                    () => _vm.EnsureLibraryLoaded(),
+                    () =>
+                    {
+                        _vm.EnsureLibraryLoaded();
+                        // After Library is ready: flush leftover crash-autosaves into Maps/ (no popup).
+                        _vm.CheckRecoverableAutosavesOnStartup();
+                    },
                     System.Windows.Threading.DispatcherPriority.Background);
             }
-            _vm.CheckRecoverableAutosavesOnStartup();
+            else
+            {
+                _vm.CheckRecoverableAutosavesOnStartup();
+            }
             _catalogCollapsed = _vm.UiLayout.CatalogCollapsed;
             _mapsCollapsed = _vm.UiLayout.MapsCollapsed;
             ApplyLayoutFromSettings();
@@ -712,17 +722,60 @@ public partial class MapsEditorView : UserControl
 
     private async void MapList_OnMouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
-        if (_vm.SelectedMapId is int id)
-            await _vm.LoadMapAsync(id);
+        if (_vm.SelectedMapId is not int id) return;
+        // Apertura explícita: ir a MAPA (no al editar en MUNDO).
+        if (_vm.IsWorldTab)
+            _vm.WorkspaceTabIndex = 0;
+        await _vm.LoadMapAsync(id);
     }
 
     private async void MapList_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (_suppressMapListOpen)
+        {
+            _suppressMapListOpen = false;
+            return;
+        }
         if (_vm.IsLoading || _mapListDragStarted) return;
         // En combinado visible: clic selecciona para arrastrar; doble clic abre ventana.
         if (_vm.IsMapCombinedMode && !_vm.IsMapCombinedMinimized) return;
+        // En MUNDO: editar en el mosaico no debe abrir ventanas MAPA (solo «Enviar a modo mapa» / doble clic).
+        if (_vm.IsWorldTab) return;
+        // Sync de SelectedMapId desde un doc world-/mosaic-bound tampoco debe abrir flotante.
+        if (_vm.IsSilentBoundDocumentActive) return;
         if (_vm.SelectedMapId is int id && _vm.HasLibrary)
             await _vm.LoadMapAsync(id);
+    }
+
+    private void MapList_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        var item = FindMapPickerItem(e.OriginalSource as DependencyObject);
+        _contextMenuMapId = item?.MapId;
+        if (item is null)
+            return;
+
+        // Select without opening (right-click = context menu / Eliminar).
+        _suppressMapListOpen = true;
+        MapList.SelectedValue = item.MapId;
+    }
+
+    private void MapListContextMenu_Opened(object sender, RoutedEventArgs e)
+    {
+        if (sender is not ContextMenu menu)
+            return;
+        foreach (var obj in menu.Items)
+        {
+            if (obj is MenuItem mi && mi.Header is string h && h.StartsWith("Eliminar", StringComparison.Ordinal))
+                mi.IsEnabled = _contextMenuMapId is > 0;
+        }
+    }
+
+    private void DeleteLibraryMap_Click(object sender, RoutedEventArgs e)
+    {
+        if (_contextMenuMapId is not int mapId || mapId <= 0)
+            return;
+        _vm.DeleteLibraryMap(mapId);
+        _contextMenuMapId = null;
     }
 
     private void MapList_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)

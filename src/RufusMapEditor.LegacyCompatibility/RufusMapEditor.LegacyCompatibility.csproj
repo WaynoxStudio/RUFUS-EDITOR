@@ -1,19 +1,24 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\RufusMapEditor.Domain\RufusMapEditor.Domain.csproj" />
-    <ProjectReference Include="..\RufusMapEditor.Licensing\RufusMapEditor.Licensing.csproj" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Cont6aAudit" />
     <InternalsVisibleTo Include="Cont7aAudit" />
     <InternalsVisibleTo Include="RufusMapEditor.LegacyCompatibility.Tests" />
     <InternalsVisibleTo Include="SpriteDebug" />
+    <InternalsVisibleTo Include="probe" />
+    <InternalsVisibleTo Include="InspectHints" />
+    <InternalsVisibleTo Include="RemoveHintMapIds" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="MySqlConnector" Version="2.4.0" />
     <PackageReference Include="SSH.NET" Version="2026.0.0" />
+    <PackageReference Include="SkiaSharp" Version="3.119.2" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Win32" Version="3.119.2" />
+    <PackageReference Include="Svg.Skia" Version="5.1.1" />
     <PackageReference Include="System.Drawing.Common" Version="10.0.11" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.0" />
   </ItemGroup>

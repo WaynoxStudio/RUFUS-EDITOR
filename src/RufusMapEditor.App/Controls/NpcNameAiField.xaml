@@ -31,7 +31,7 @@
             ClickMode="Press"
             Background="Transparent"
             BorderThickness="0"
-            ToolTip="Asistente IA · Nombre"
+            ToolTip="Perfil IA del NPC"
             Click="AiButton_Click"
             Visibility="{Binding IsEditorEnabled, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}">
       <Button.Template>
@@ -95,8 +95,11 @@
                          VerticalAlignment="Center" Margin="8,0,0,0"
                          Text="{Binding ServiceStatusLabel}"
                          Foreground="{DynamicResource BrandAccent}"/>
-              <TextBlock Text="ASISTENTE IA · NOMBRE" FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center"/>
+              <TextBlock Text="PERFIL IA DEL NPC" FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center"/>
             </DockPanel>
+            <TextBlock Text="Este perfil se utilizará como contexto al generar nombres y diálogos con IA."
+                       FontSize="11" Foreground="{DynamicResource TextMuted}" TextWrapping="Wrap"
+                       Margin="0,0,0,10"/>
 
             <Grid Margin="0,0,0,8">
               <Grid.ColumnDefinitions>

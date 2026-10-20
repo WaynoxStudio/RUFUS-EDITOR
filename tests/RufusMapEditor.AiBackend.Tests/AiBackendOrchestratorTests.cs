@@ -12,7 +12,7 @@ public sealed class AiBackendOrchestratorTests
     public async Task Generate_name_ok_with_mock_openai()
     {
         var orch = CreateOrchestrator(configured: true, openAi: FakeOpenAi.Success(AiMockResponses.NamesJson));
-        var result = await orch.GenerateAsync(SampleRequest(AiBackendWireActions.GenerateName), null, legacyAuth: true, default);
+        var result = await orch.GenerateAsync(SampleRequest(AiBackendWireActions.GenerateName), default);
         Assert.True(result.Success);
         Assert.Equal(AiBackendWireActions.GenerateName, result.Action);
         Assert.NotNull(result.Result);
@@ -23,7 +23,7 @@ public sealed class AiBackendOrchestratorTests
     public async Task Generate_dialogue_ok_with_mock_openai()
     {
         var orch = CreateOrchestrator(configured: true, openAi: FakeOpenAi.Success(AiMockResponses.DialogueJson));
-        var result = await orch.GenerateAsync(SampleRequest(AiBackendWireActions.GenerateDialogue), null, legacyAuth: true, default);
+        var result = await orch.GenerateAsync(SampleRequest(AiBackendWireActions.GenerateDialogue), default);
         Assert.True(result.Success);
         Assert.Equal(AiBackendWireActions.GenerateDialogue, result.Action);
     }
@@ -32,7 +32,7 @@ public sealed class AiBackendOrchestratorTests
     public async Task Generate_conversation_ok_with_mock_openai()
     {
         var orch = CreateOrchestrator(configured: true, openAi: FakeOpenAi.Success(AiMockResponses.ConversationJson));
-        var result = await orch.GenerateAsync(SampleRequest(AiBackendWireActions.GenerateConversation), null, legacyAuth: true, default);
+        var result = await orch.GenerateAsync(SampleRequest(AiBackendWireActions.GenerateConversation), default);
         Assert.True(result.Success);
         Assert.Equal(AiBackendWireActions.GenerateConversation, result.Action);
     }
@@ -44,7 +44,7 @@ public sealed class AiBackendOrchestratorTests
         var orch = CreateOrchestrator(configured: true, openAi: fake);
         var req = SampleRequest(AiBackendWireActions.GenerateName);
         req.Action = "generate_quest";
-        var result = await orch.GenerateAsync(req, null, legacyAuth: true, default);
+        var result = await orch.GenerateAsync(req, default);
         Assert.False(result.Success);
         Assert.Equal(AiBackendErrorCodes.InvalidAction, result.Error!.Code);
         Assert.Equal(0, fake.CallCount);
@@ -57,7 +57,7 @@ public sealed class AiBackendOrchestratorTests
         var orch = CreateOrchestrator(configured: true, openAi: fake);
         var req = SampleRequest(AiBackendWireActions.GenerateName);
         req.Version = 99;
-        var result = await orch.GenerateAsync(req, null, legacyAuth: true, default);
+        var result = await orch.GenerateAsync(req, default);
         Assert.False(result.Success);
         Assert.Equal(AiBackendErrorCodes.InvalidRequest, result.Error!.Code);
         Assert.Equal(0, fake.CallCount);
@@ -68,7 +68,7 @@ public sealed class AiBackendOrchestratorTests
     {
         var fake = FakeOpenAi.Unused();
         var orch = CreateOrchestrator(configured: false, openAi: fake);
-        var result = await orch.GenerateAsync(SampleRequest(AiBackendWireActions.GenerateName), null, legacyAuth: true, default);
+        var result = await orch.GenerateAsync(SampleRequest(AiBackendWireActions.GenerateName), default);
         Assert.False(result.Success);
         Assert.Equal(AiBackendErrorCodes.AiNotConfigured, result.Error!.Code);
         Assert.Equal(0, fake.CallCount);
@@ -81,7 +81,7 @@ public sealed class AiBackendOrchestratorTests
         var orch = CreateOrchestrator(
             configured: true,
             openAi: FakeOpenAi.Fail(AiBackendErrorCodes.OpenAiTimeout, "Timeout OpenAI."));
-        var result = await orch.GenerateAsync(SampleRequest(AiBackendWireActions.GenerateDialogue), null, legacyAuth: true, default);
+        var result = await orch.GenerateAsync(SampleRequest(AiBackendWireActions.GenerateDialogue), default);
         Assert.False(result.Success);
         Assert.Equal(AiBackendErrorCodes.OpenAiTimeout, result.Error!.Code);
     }
@@ -92,7 +92,7 @@ public sealed class AiBackendOrchestratorTests
         var orch = CreateOrchestrator(
             configured: true,
             openAi: FakeOpenAi.Fail(AiBackendErrorCodes.OpenAiError, "OpenAI rate limit."));
-        var result = await orch.GenerateAsync(SampleRequest(AiBackendWireActions.GenerateName), null, legacyAuth: true, default);
+        var result = await orch.GenerateAsync(SampleRequest(AiBackendWireActions.GenerateName), default);
         Assert.False(result.Success);
         Assert.Equal(AiBackendErrorCodes.OpenAiError, result.Error!.Code);
     }
@@ -102,7 +102,7 @@ public sealed class AiBackendOrchestratorTests
     {
         var bad = """{ "nombres": [ { "nombre": "Solo", "motivo": "x" } ] }""";
         var orch = CreateOrchestrator(configured: true, openAi: FakeOpenAi.Success(bad));
-        var result = await orch.GenerateAsync(SampleRequest(AiBackendWireActions.GenerateName), null, legacyAuth: true, default);
+        var result = await orch.GenerateAsync(SampleRequest(AiBackendWireActions.GenerateName), default);
         Assert.False(result.Success);
         Assert.Equal(AiBackendErrorCodes.InvalidAiResponse, result.Error!.Code);
     }
@@ -111,7 +111,7 @@ public sealed class AiBackendOrchestratorTests
     public async Task Null_request_invalid()
     {
         var orch = CreateOrchestrator(configured: true, openAi: FakeOpenAi.Unused());
-        var result = await orch.GenerateAsync(null, null, legacyAuth: true, default);
+        var result = await orch.GenerateAsync(null, default);
         Assert.False(result.Success);
         Assert.Equal(AiBackendErrorCodes.InvalidRequest, result.Error!.Code);
     }
@@ -122,6 +122,14 @@ public sealed class AiBackendOrchestratorTests
         Assert.Equal("gpt-5-mini", OpenAiOptions.DefaultModel);
         var opts = new OpenAiOptions { ApiKey = null, Model = OpenAiOptions.DefaultModel };
         Assert.Equal("gpt-5-mini", opts.Model);
+    }
+
+    [Fact]
+    public void Env_value_normalizer_strips_wrapping_quotes()
+    {
+        Assert.Equal("sk-test", OpenAiOptions.NormalizeEnvValue("  \"sk-test\"  "));
+        Assert.Equal("sk-test", OpenAiOptions.NormalizeEnvValue("'sk-test'"));
+        Assert.Null(OpenAiOptions.NormalizeEnvValue("   "));
     }
 
     [Fact]
@@ -201,10 +209,7 @@ public sealed class AiBackendOrchestratorTests
             ApiKey = configured ? "test-key-not-real" : null,
             Model = OpenAiOptions.DefaultModel
         };
-        var db = RufusMapEditor.Licensing.Sqlite.SqliteLicenseUnitOfWork.CreateInMemory();
-        var clock = new RufusMapEditor.Licensing.Abstractions.SystemServerClock();
-        var quota = new RufusMapEditor.Licensing.Services.AiQuotaService(db, clock);
-        return new AiGenerateOrchestrator(opts, openAi, quota);
+        return new AiGenerateOrchestrator(opts, openAi);
     }
 
     private static AiBackendGenerateRequest SampleRequest(string action)
@@ -244,6 +249,7 @@ public sealed class AiBackendOrchestratorTests
             string inputText,
             string schemaName,
             JsonElement schema,
+            TimeSpan timeout,
             CancellationToken cancellationToken)
         {
             CallCount++;
@@ -251,6 +257,7 @@ public sealed class AiBackendOrchestratorTests
             Assert.False(string.IsNullOrWhiteSpace(schemaName));
             Assert.Equal(JsonValueKind.Object, schema.ValueKind);
             Assert.True(schema.TryGetProperty("additionalProperties", out var ap));
+            Assert.True(timeout > TimeSpan.Zero);
             return Task.FromResult(_result);
         }
     }

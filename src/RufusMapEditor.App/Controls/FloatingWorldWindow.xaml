@@ -14,6 +14,7 @@
     <Grid>
       <Grid.RowDefinitions>
         <RowDefinition Height="Auto"/>
+        <RowDefinition Height="Auto"/>
         <RowDefinition Height="*"/>
       </Grid.RowDefinitions>
 
@@ -50,17 +51,44 @@
         </Grid>
       </Border>
 
-      <Grid x:Name="ContentHost" Grid.Row="1" MinHeight="160" ClipToBounds="True">
-        <controls:WorldViewport x:Name="WorldViewportControl"
-                                HorizontalAlignment="Stretch"
-                                VerticalAlignment="Stretch"/>
-        <Thumb x:Name="ResizeGrip" Width="16" Height="16"
-               HorizontalAlignment="Right" VerticalAlignment="Bottom"
-               Margin="0,0,1,1" Cursor="SizeNWSE"
-               DragStarted="ResizeGrip_DragStarted"
-               DragDelta="ResizeGrip_DragDelta"
-               DragCompleted="ResizeGrip_DragCompleted"
-               Template="{StaticResource ResizeGripTemplate}"/>
+      <!-- Same MAPA top visibility bar (Fondo, no transitables, …) while editing. -->
+      <Border x:Name="WorldEditVisibilityBar" Grid.Row="1"
+              Visibility="Collapsed"
+              Background="{DynamicResource PanelBackground}"
+              BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
+              Padding="8,4">
+        <DockPanel LastChildFill="False">
+          <controls:MapEditVisibilityToolbar DockPanel.Dock="Left" VerticalAlignment="Center"/>
+          <Button DockPanel.Dock="Right" Content="Dejar de editar" Margin="12,0,0,0"
+                  Padding="10,4" FontSize="11" Style="{StaticResource PrimaryButton}"
+                  VerticalAlignment="Center"
+                  Command="{Binding World.ExitMultiMapEditCommand}"
+                  ToolTip="Guarda en Library sin publicar y vuelve a mundo"/>
+        </DockPanel>
+      </Border>
+
+      <Grid x:Name="ContentHost" Grid.Row="2" MinHeight="160" ClipToBounds="True">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto"/>
+          <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <!-- Same MAPA tool sidebar UI while editing maps inside MUNDO. -->
+        <controls:MapToolSidebarControl x:Name="WorldEditToolsStrip" Grid.Column="0"
+                                        Visibility="Collapsed"
+                                        ToolGroupName="WorldMapTool"
+                                        LayerGroupName="WorldLayer"/>
+        <Grid Grid.Column="1">
+          <controls:WorldViewport x:Name="WorldViewportControl"
+                                  HorizontalAlignment="Stretch"
+                                  VerticalAlignment="Stretch"/>
+          <Thumb x:Name="ResizeGrip" Width="16" Height="16"
+                 HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                 Margin="0,0,1,1" Cursor="SizeNWSE"
+                 DragStarted="ResizeGrip_DragStarted"
+                 DragDelta="ResizeGrip_DragDelta"
+                 DragCompleted="ResizeGrip_DragCompleted"
+                 Template="{StaticResource ResizeGripTemplate}"/>
+        </Grid>
       </Grid>
     </Grid>
   </Border>

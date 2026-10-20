@@ -7,8 +7,8 @@
         MinHeight="220"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
-        Background="#FF1A1A1A"
-        Foreground="#FFFFFFFF"
+        Background="{DynamicResource WindowBackground}"
+        Foreground="{DynamicResource TextPrimary}"
         FontFamily="Segoe UI"
         FontSize="13">
   <Grid Margin="20">
@@ -20,12 +20,15 @@
       <RowDefinition Height="Auto"/>
     </Grid.RowDefinitions>
     <TextBlock x:Name="PromptText" TextWrapping="Wrap" Margin="0,0,0,14"
-               Foreground="#FFFFFFFF"/>
-    <TextBlock Grid.Row="1" Text="Map ID" Margin="0,0,0,6" Foreground="#FFFFFFFF"/>
+               Foreground="{DynamicResource TextPrimary}"/>
+    <TextBlock Grid.Row="1" Text="Map ID" Margin="0,0,0,6"
+               Foreground="{DynamicResource TextPrimary}"/>
     <TextBox x:Name="MapIdBox" Grid.Row="2" FontFamily="Consolas" Padding="4,2"
-             Foreground="#FF222222" Background="#FFFFFFFF" BorderBrush="#FFCCCCCC"/>
+             Foreground="{DynamicResource InputForeground}"
+             Background="{DynamicResource InputBackground}"
+             BorderBrush="{DynamicResource InputBorder}"/>
     <TextBlock Grid.Row="3" TextWrapping="Wrap" FontSize="12" Margin="0,10,0,16"
-               Foreground="#FFE0E0E0"
+               Foreground="{DynamicResource TextMuted}"
                Text="Se creará Library\Maps\&lt;ID&gt; con .rufmap, .png, _MapData.txt y _AME.swf (si Flasm está disponible)."/>
     <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
       <Button Content="Cancelar" Width="90" Margin="0,0,8,0" Padding="8,4" IsCancel="True" Click="Cancel_Click"/>

@@ -10,6 +10,7 @@ public sealed class InMemoryContentPublishStore : IContentPublishStore
     private readonly Dictionary<string, string> _engines;
     private bool _allowLocks = true;
     private bool _failNextInsert;
+    private bool _failReadMax;
     private string? _failTable;
 
     public int InsertCallCount { get; private set; }
@@ -51,6 +52,7 @@ public sealed class InMemoryContentPublishStore : IContentPublishStore
     public void SetMaxes(ContentPublishMaxSnapshot maxes) => _maxes = maxes;
     public void SetAllowLocks(bool allow) => _allowLocks = allow;
     public void SetEngine(string table, string engine) => _engines[table] = engine;
+    public void SetFailReadMax(bool fail) => _failReadMax = fail;
     public void FailNextInsertOn(string table)
     {
         _failNextInsert = true;
@@ -70,6 +72,9 @@ public sealed class InMemoryContentPublishStore : IContentPublishStore
 
     public Task<ContentPublishMaxSnapshot> ReadMaxIdsAsync(CancellationToken ct = default)
     {
+        if (_failReadMax)
+            throw new InvalidOperationException("No se pudo obtener MAX de misiones.id (simulado).");
+
         // Live MAX from base snapshot + rows inserted via this store.
         // Existing* sets are collision seeds only (do not raise MAX).
         lock (_gate)
@@ -219,6 +224,36 @@ public sealed class InMemoryContentPublishStore : IContentPublishStore
         {
             ThrowIfFail(MisionObjetivosColumns.DefaultTable);
             InsertCallCount++;
+            Objectives[row.Id] = row;
+        }
+        return Task.CompletedTask;
+    }
+
+    public Task UpdateMisionAsync(MisionInsertRow row, CancellationToken ct = default)
+    {
+        lock (_gate)
+        {
+            ThrowIfFail(MisionesColumns.DefaultTable);
+            Missions[row.Id] = row;
+        }
+        return Task.CompletedTask;
+    }
+
+    public Task UpdateEtapaAsync(MisionEtapaInsertRow row, CancellationToken ct = default)
+    {
+        lock (_gate)
+        {
+            ThrowIfFail(MisionEtapasColumns.DefaultTable);
+            Stages[row.Id] = row;
+        }
+        return Task.CompletedTask;
+    }
+
+    public Task UpdateObjetivoAsync(MisionObjetivoInsertRow row, CancellationToken ct = default)
+    {
+        lock (_gate)
+        {
+            ThrowIfFail(MisionObjetivosColumns.DefaultTable);
             Objectives[row.Id] = row;
         }
         return Task.CompletedTask;

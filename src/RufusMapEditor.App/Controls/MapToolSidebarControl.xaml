@@ -1,0 +1,140 @@
+<UserControl x:Class="RufusMapEditor.App.Controls.MapToolSidebarControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Name="Root"
+             Background="{DynamicResource PanelCardBackground}"
+             BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0"
+             SnapsToDevicePixels="True"
+             Padding="4,8,4,6"
+             MinWidth="88">
+  <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <WrapPanel Width="{StaticResource ToolSidebarWrapWidth}"
+               Orientation="Horizontal"
+               HorizontalAlignment="Center"
+               VerticalAlignment="Top">
+      <TextBlock Text="HERRAMIENTAS" Style="{StaticResource ToolSidebarGroupHeader}"
+                 Width="{StaticResource ToolSidebarWrapWidth}"/>
+      <RadioButton Style="{StaticResource ToolSidebarCompact}"
+                   GroupName="{Binding ToolGroupName, ElementName=Root}"
+                   IsChecked="{Binding IsSelectTool}"
+                   ToolTip="Seleccionar (V) · Clic: celda · Ctrl+clic: añadir/quitar · Arrastra la selección: mover GFX">
+        <Viewbox Width="{StaticResource ToolSidebarIconSize}" Height="{StaticResource ToolSidebarIconSize}">
+          <Path Data="{StaticResource IconSelectGeom}" Fill="{DynamicResource TextPrimary}"/>
+        </Viewbox>
+      </RadioButton>
+      <RadioButton Style="{StaticResource ToolSidebarCompact}"
+                   GroupName="{Binding ToolGroupName, ElementName=Root}"
+                   IsChecked="{Binding IsRectSelectTool}"
+                   ToolTip="Selección de área (R) · Arrastra sobre la selección para mover el bloque">
+        <Viewbox Width="{StaticResource ToolSidebarIconSize}" Height="{StaticResource ToolSidebarIconSize}">
+          <Path Data="{StaticResource IconRectSelectGeom}" Stroke="{DynamicResource TextPrimary}" StrokeThickness="1.4" Fill="Transparent"/>
+        </Viewbox>
+      </RadioButton>
+      <RadioButton Style="{StaticResource ToolSidebarCompact}"
+                   GroupName="{Binding ToolGroupName, ElementName=Root}"
+                   IsChecked="{Binding IsPaintTool}"
+                   ToolTip="Pintar / construir (B) · Arrastra para pintar · Clic derecho: borrar solo el GFX activo (arrastra)">
+        <Viewbox Width="{StaticResource ToolSidebarIconSize}" Height="{StaticResource ToolSidebarIconSize}">
+          <Path Data="{StaticResource IconPaintGeom}" Fill="{DynamicResource AccentGround}" Stroke="{DynamicResource TextPrimary}" StrokeThickness="0.4"/>
+        </Viewbox>
+      </RadioButton>
+      <RadioButton Style="{StaticResource ToolSidebarCompact}"
+                   GroupName="{Binding ToolGroupName, ElementName=Root}"
+                   IsChecked="{Binding IsEraseTool}"
+                   ToolTip="Borrar · Con «Solo GFX activo»: solo quita el ítem del pincel (arrastra) · Sin eso: vacía la capa destino">
+        <Viewbox Width="{StaticResource ToolSidebarIconSize}" Height="{StaticResource ToolSidebarIconSize}">
+          <Path Data="{StaticResource IconEraseGeom}" Fill="{DynamicResource TextPrimary}"/>
+        </Viewbox>
+      </RadioButton>
+      <Rectangle Height="1" Margin="0,6" Width="{StaticResource ToolSidebarWrapWidth}" Fill="{DynamicResource Divider}"/>
+      <TextBlock Text="CELDA" Style="{StaticResource ToolSidebarGroupHeader}"
+                 Width="{StaticResource ToolSidebarWrapWidth}"/>
+      <!-- Toggle (not Radio): clic de nuevo desactiva y vuelve a Seleccionar. -->
+      <ToggleButton Style="{StaticResource ToolSidebarCompactToggle}"
+                    IsChecked="{Binding IsUnwalkableTool}"
+                    ToolTip="Herramienta: No transitable · Clic otra vez para salir y ocultar las celdas rojas">
+        <Viewbox Width="{StaticResource ToolSidebarIconSize}" Height="{StaticResource ToolSidebarIconSize}">
+          <Path Data="{StaticResource IconUnwalkableGeom}" Stroke="{DynamicResource OverlayUnwalkableStroke}" StrokeThickness="1.4" Fill="#40EF5350"/>
+        </Viewbox>
+      </ToggleButton>
+      <ToggleButton Style="{StaticResource ToolSidebarCompactToggle}"
+                    IsChecked="{Binding IsLineOfSightTool}"
+                    ToolTip="Herramienta: Bloquear visión · Clic otra vez para salir · Visibilidad arriba">
+        <Viewbox Width="{StaticResource ToolSidebarIconSize}" Height="{StaticResource ToolSidebarIconSize}">
+          <Grid Width="16" Height="16">
+            <Path Data="{StaticResource IconLoSOuterGeom}" Stroke="{DynamicResource OverlayLosBlockStroke}" StrokeThickness="1.25" Fill="Transparent"/>
+            <Path Data="{StaticResource IconLoSPupilGeom}" Fill="{DynamicResource OverlayLosBlockStroke}"/>
+            <Path Data="{StaticResource IconLoSBlockSlashGeom}" Stroke="{DynamicResource OverlayLosBlockStroke}" StrokeThickness="1.6"/>
+          </Grid>
+        </Viewbox>
+      </ToggleButton>
+      <Rectangle Height="1" Margin="0,6" Width="{StaticResource ToolSidebarWrapWidth}" Fill="{DynamicResource Divider}"/>
+      <TextBlock Text="COMBATE" Style="{StaticResource ToolSidebarGroupHeader}"
+                 Width="{StaticResource ToolSidebarWrapWidth}"/>
+      <ToggleButton Style="{StaticResource ToolSidebarCompactToggle}"
+                    IsChecked="{Binding IsFightCell1Tool}"
+                    ToolTip="Equipo 1 (rojo) · Clic: colocar · Clic derecho: quitar · Clic otra vez en el botón: salir">
+        <Viewbox Width="{StaticResource ToolSidebarIconSize}" Height="{StaticResource ToolSidebarIconSize}">
+          <Grid Width="16" Height="16">
+            <Path Data="{StaticResource IconFightDiamondGeom}" Stroke="{DynamicResource OverlayFight1Stroke}" StrokeThickness="1.3" Fill="{DynamicResource OverlayFight1Fill}"/>
+            <TextBlock Text="1" FontWeight="Bold" FontSize="10" Foreground="White"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-0.5,0,0"/>
+          </Grid>
+        </Viewbox>
+      </ToggleButton>
+      <ToggleButton Style="{StaticResource ToolSidebarCompactToggle}"
+                    IsChecked="{Binding IsFightCell2Tool}"
+                    ToolTip="Equipo 2 (azul) · Clic: colocar · Clic derecho: quitar · Clic otra vez en el botón: salir">
+        <Viewbox Width="{StaticResource ToolSidebarIconSize}" Height="{StaticResource ToolSidebarIconSize}">
+          <Grid Width="16" Height="16">
+            <Path Data="{StaticResource IconFightDiamondGeom}" Stroke="{DynamicResource OverlayFight2Stroke}" StrokeThickness="1.3" Fill="{DynamicResource OverlayFight2Fill}"/>
+            <TextBlock Text="2" FontWeight="Bold" FontSize="10" Foreground="White"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-0.5,0,0"/>
+          </Grid>
+        </Viewbox>
+      </ToggleButton>
+      <Rectangle Height="1" Margin="0,6" Width="{StaticResource ToolSidebarWrapWidth}" Fill="{DynamicResource Divider}"/>
+      <TextBlock Text="CAPA GFX" Style="{StaticResource ToolSidebarGroupHeader}"
+                 Width="{StaticResource ToolSidebarWrapWidth}"/>
+      <RadioButton Style="{StaticResource ToolSidebarCompactLayer1}"
+                   GroupName="{Binding LayerGroupName, ElementName=Root}"
+                   IsChecked="{Binding IsLayerObject1}"
+                   IsEnabled="{Binding AreGfxObjectLayersEnabled}"
+                   ToolTip="Capa 1 (GFX) · Desactivada en modo combate">
+        <Grid Width="28" Height="28">
+          <Border Background="{DynamicResource AccentLayer1}" CornerRadius="5" Opacity="0.92"/>
+          <TextBlock Text="1" FontSize="16" FontWeight="Bold" Foreground="White"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        </Grid>
+      </RadioButton>
+      <RadioButton Style="{StaticResource ToolSidebarCompactLayer2}"
+                   GroupName="{Binding LayerGroupName, ElementName=Root}"
+                   IsChecked="{Binding IsLayerObject2}"
+                   IsEnabled="{Binding AreGfxObjectLayersEnabled}"
+                   ToolTip="Capa 2 (GFX) · Desactivada en modo combate">
+        <Grid Width="28" Height="28">
+          <Border Background="{DynamicResource AccentLayer2}" CornerRadius="5" Opacity="0.92"/>
+          <TextBlock Text="2" FontSize="16" FontWeight="Bold" Foreground="White"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        </Grid>
+      </RadioButton>
+      <Rectangle Height="1" Margin="0,6" Width="{StaticResource ToolSidebarWrapWidth}" Fill="{DynamicResource Divider}"/>
+      <TextBlock Text="TRANSFORM" Style="{StaticResource ToolSidebarGroupHeader}"
+                 Width="{StaticResource ToolSidebarWrapWidth}"/>
+      <ToggleButton Style="{StaticResource ToolSidebarCompactToggle}"
+                    IsChecked="{Binding BrushFlip}"
+                    ToolTip="Voltear horizontalmente">
+        <Viewbox Width="{StaticResource ToolSidebarIconSize}" Height="{StaticResource ToolSidebarIconSize}">
+          <Path Data="{StaticResource IconFlipGeom}" Stroke="{DynamicResource TextPrimary}" StrokeThickness="1.35" Fill="Transparent"/>
+        </Viewbox>
+      </ToggleButton>
+      <Button Style="{StaticResource ToolSidebarCompactButton}"
+              Command="{Binding CycleBrushRotationCommand}"
+              ToolTip="Rotar pincel">
+        <Viewbox Width="{StaticResource ToolSidebarIconSize}" Height="{StaticResource ToolSidebarIconSize}">
+          <Path Data="{StaticResource IconRotateGeom}" Stroke="{DynamicResource AccentGround}" StrokeThickness="1.4" Fill="Transparent"/>
+        </Viewbox>
+      </Button>
+    </WrapPanel>
+  </ScrollViewer>
+</UserControl>

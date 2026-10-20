@@ -23,12 +23,9 @@
     <DockPanel LastChildFill="True">
     <Border DockPanel.Dock="Top" Background="{DynamicResource BrandBarBackground}"
             BorderBrush="{DynamicResource Divider}" BorderThickness="0,0,0,1" Padding="8,2">
-      <DockPanel LastChildFill="True">
-        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,4,0">
-          <ToggleButton Style="{StaticResource ThemeSunMoonToggle}"
-                        IsChecked="{Binding IsDarkTheme}"/>
-        </StackPanel>
-        <Menu Background="Transparent" BorderThickness="0">
+      <Grid>
+        <Menu Background="Transparent" BorderThickness="0"
+              HorizontalAlignment="Center" VerticalAlignment="Center">
       <MenuItem Header="_Archivo">
         <MenuItem Header="Nuevo mapa..." Command="{Binding NewMapCommand}"
                   ToolTip="Crear mapa vacío: Medio 15×17, Grande 19×22 o tamaño personalizado."/>
@@ -58,6 +55,8 @@
                   ToolTip="Abrir la cola: único lugar para PUBLICAR TODOS (lote BD + maps_es N+1)."/>
         <MenuItem Header="Sincronizar metadatos desde BD" Command="{Binding SyncMetadataFromDatabaseCommand}"
                   ToolTip="Lee revisión, background, música, ambiente, outdoor, capabilities y X/Y desde la fila existente. No toca MapData ni publica."/>
+        <MenuItem Header="Cargar mapa desde BD…" Command="{Binding LoadMapFromDatabaseCommand}"
+                  ToolTip="Pide un Map ID, lee mapData de estaticos.mapas, crea la carpeta en Library y abre el mapa."/>
         <Separator/>
         <MenuItem Header="Exportar">
           <MenuItem Header="SWF..." Command="{Binding ExportSwfCommand}"/>
@@ -94,6 +93,8 @@
           <MenuItem Header="Guardar mundo" Command="{Binding World.SaveWorldCommand}" InputGestureText="Ctrl+S"/>
           <MenuItem Header="Guardar mundo como..." Command="{Binding World.SaveWorldAsCommand}"/>
           <Separator/>
+          <MenuItem Header="Cargar mapa desde BD…" Command="{Binding LoadMapFromDatabaseCommand}"
+                    ToolTip="Pide un Map ID, lee mapData de estaticos.mapas, crea la carpeta en Library y abre el mapa."/>
           <MenuItem Header="Importar .geo (legado)..." Command="{Binding World.ImportGeoCommand}"/>
         </MenuItem>
         <Separator/>
@@ -178,7 +179,11 @@
                   ToolTip="FASE 11A — genera maps_es_N+1.swf en local. Sin SFTP ni BD."/>
       </MenuItem>
       </Menu>
-      </DockPanel>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,4,0">
+          <ToggleButton Style="{StaticResource ThemeSunMoonToggle}"
+                        IsChecked="{Binding IsDarkTheme}"/>
+        </StackPanel>
+      </Grid>
     </Border>
 
     <StatusBar x:Name="MainStatusBar" DockPanel.Dock="Bottom" Height="28">
@@ -271,22 +276,6 @@
               </Grid>
             </Border>
 
-            <Border DockPanel.Dock="Bottom"
-                    BorderBrush="{DynamicResource Divider}" BorderThickness="0,1,0,0"
-                    Padding="8,6" Background="{DynamicResource SurfaceBackground}">
-              <Button Command="{Binding OpenGfxVisualSearchCommand}"
-                      HorizontalAlignment="Left" Padding="10,5"
-                      ToolTip="Buscar GFX por imagen: pega captura del juego, recorta el ítem y compara con el catálogo local (gratis, sin IA)">
-                <StackPanel Orientation="Horizontal">
-                  <Viewbox Width="14" Height="14" Margin="0,0,8,0">
-                    <Path Data="{StaticResource IconSearchGeom}"
-                          Stroke="{DynamicResource TextPrimary}" StrokeThickness="1.4" Fill="Transparent"/>
-                  </Viewbox>
-                  <TextBlock Text="Buscar por imagen" VerticalAlignment="Center" FontSize="12"/>
-                </StackPanel>
-              </Button>
-            </Border>
-
             <Grid Margin="0,0,0,2">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition x:Name="CategoriesTreeCol" Width="148" MinWidth="100" MaxWidth="260"/>
@@ -294,26 +283,78 @@
                 <ColumnDefinition Width="*" MinWidth="120"/>
               </Grid.ColumnDefinitions>
 
-              <TreeView x:Name="FolderTreeView" Grid.Column="0"
-                        ItemsSource="{Binding FolderTree}" Background="Transparent" BorderThickness="0"
-                        Margin="6,6,2,6"
-                        ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                        ScrollViewer.VerticalScrollBarVisibility="Auto"
-                        SelectedItemChanged="FolderTree_OnSelectedItemChanged">
-                <TreeView.ItemContainerStyle>
-                  <Style TargetType="TreeViewItem">
-                    <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
-                    <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}"/>
-                    <Setter Property="Padding" Value="2,1"/>
-                  </Style>
-                </TreeView.ItemContainerStyle>
-                <TreeView.ItemTemplate>
-                  <HierarchicalDataTemplate ItemsSource="{Binding Children}">
-                    <TextBlock Text="{Binding Name}" Margin="2,3"
-                               TextTrimming="CharacterEllipsis"/>
-                  </HierarchicalDataTemplate>
-                </TreeView.ItemTemplate>
-              </TreeView>
+              <DockPanel Grid.Column="0" Margin="6,6,2,6" LastChildFill="True">
+                <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+                  <Border Background="{DynamicResource InputBackground}"
+                          BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="4"
+                          Margin="0,0,0,6" Padding="0">
+                    <Grid>
+                      <TextBox x:Name="CatalogGfxIdSearchBox"
+                               Text="{Binding CatalogGfxIdSearchText, UpdateSourceTrigger=PropertyChanged}"
+                               Background="Transparent" BorderThickness="0"
+                               Padding="6,5" FontFamily="{StaticResource AppFontFamilyMono}" FontSize="11"
+                               Foreground="{DynamicResource TextPrimary}"
+                               CaretBrush="{DynamicResource Accent}"
+                               VerticalContentAlignment="Center"
+                               ToolTip="Buscar GFX por ID"/>
+                      <TextBlock Text="Buscar por ID" Margin="6,0,0,0"
+                                 VerticalAlignment="Center" IsHitTestVisible="False"
+                                 Foreground="{DynamicResource TextMuted}" FontSize="11"
+                                 FontFamily="{StaticResource AppFontFamily}">
+                        <TextBlock.Style>
+                          <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                              <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                  <Condition Binding="{Binding Text, ElementName=CatalogGfxIdSearchBox}" Value=""/>
+                                  <Condition Binding="{Binding IsKeyboardFocused, ElementName=CatalogGfxIdSearchBox}" Value="False"/>
+                                </MultiDataTrigger.Conditions>
+                                <Setter Property="Visibility" Value="Visible"/>
+                              </MultiDataTrigger>
+                            </Style.Triggers>
+                          </Style>
+                        </TextBlock.Style>
+                      </TextBlock>
+                    </Grid>
+                  </Border>
+                  <Button Command="{Binding OpenGfxVisualSearchCommand}"
+                          HorizontalAlignment="Stretch" Padding="6,5"
+                          ToolTip="Buscar GFX por imagen: pega captura del juego, recorta el ítem y compara con el catálogo local (gratis, sin IA)">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                      <Viewbox Width="12" Height="12" Margin="0,0,6,0">
+                        <Path Data="{StaticResource IconSearchGeom}"
+                              Stroke="{DynamicResource TextPrimary}" StrokeThickness="1.4" Fill="Transparent"/>
+                      </Viewbox>
+                      <TextBlock Text="Por imagen" VerticalAlignment="Center" FontSize="11"
+                                 Foreground="{DynamicResource TextPrimary}"/>
+                    </StackPanel>
+                  </Button>
+                </StackPanel>
+                <TreeView x:Name="FolderTreeView"
+                          ItemsSource="{Binding FolderTree}" Background="Transparent" BorderThickness="0"
+                          Foreground="{DynamicResource TextPrimary}"
+                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                          ScrollViewer.VerticalScrollBarVisibility="Auto"
+                          SelectedItemChanged="FolderTree_OnSelectedItemChanged">
+                  <TreeView.ItemContainerStyle>
+                    <Style TargetType="TreeViewItem">
+                      <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+                      <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}"/>
+                      <Setter Property="Padding" Value="2,1"/>
+                      <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+                      <Setter Property="Background" Value="Transparent"/>
+                    </Style>
+                  </TreeView.ItemContainerStyle>
+                  <TreeView.ItemTemplate>
+                    <HierarchicalDataTemplate ItemsSource="{Binding Children}">
+                      <TextBlock Text="{Binding Name}" Margin="2,3"
+                                 Foreground="{DynamicResource TextPrimary}"
+                                 TextTrimming="CharacterEllipsis"/>
+                    </HierarchicalDataTemplate>
+                  </TreeView.ItemTemplate>
+                </TreeView>
+              </DockPanel>
 
               <Border Grid.Column="1" Width="1" HorizontalAlignment="Center"
                       Background="{DynamicResource Divider}" Margin="0,6"/>
@@ -471,59 +512,43 @@
 
         <Grid Grid.Column="0" x:Name="MapsHost">
           <Border x:Name="MapsPanelExpanded" Style="{StaticResource PanelCard}"
-                  Margin="6,6,2,6" Background="{DynamicResource PanelCardBackground}">
+                  Margin="4,6,2,6" Background="{DynamicResource PanelCardBackground}">
           <DockPanel>
-            <DockPanel DockPanel.Dock="Top" Margin="12,10,10,8">
+            <DockPanel DockPanel.Dock="Top" Margin="8,8,6,6">
               <Button x:Name="CollapseMapsButton" DockPanel.Dock="Right" Content="◂" Width="28"
                       Click="CollapseMaps_Click" Margin="4,0,0,0" ToolTip="Ocultar mapas"
                       Style="{StaticResource IconButtonCompact}"/>
+              <Button DockPanel.Dock="Right" Content="Biblioteca..." Margin="0,0,4,0" Padding="8,3"
+                      VerticalAlignment="Center"
+                      Command="{Binding SelectLibraryCommand}"
+                      ToolTip="Seleccionar carpeta de biblioteca"/>
               <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                 <Border Width="3" Height="14" CornerRadius="1.5" Background="{DynamicResource BrandAccent}" Margin="0,0,8,0"/>
                 <TextBlock Text="MAPAS" Style="{StaticResource SectionHeader}" VerticalAlignment="Center" Margin="0"/>
               </StackPanel>
             </DockPanel>
-            <TextBlock DockPanel.Dock="Top" Text="{Binding LibraryStatusMessage}" TextWrapping="Wrap"
-                       Margin="12,0,12,8" Foreground="{DynamicResource TextMuted}" FontSize="11"/>
-            <Button DockPanel.Dock="Top" Content="Nuevo mapa..." Margin="12,0,12,6" Padding="8,5"
-                    Command="{Binding NewMapCommand}"
-                    ToolTip="Crear mapa vacío (Medio / Grande / Personalizado)"/>
-            <Button DockPanel.Dock="Top" Content="Biblioteca..." Margin="12,0,12,6" Padding="8,5"
-                    Command="{Binding SelectLibraryCommand}"/>
-            <StackPanel DockPanel.Dock="Top" Margin="12,0,12,8">
-              <TextBox Text="{Binding MapListSearchText, UpdateSourceTrigger=PropertyChanged}"
-                       Padding="6,3" Margin="0,0,0,4"
-                       Background="{DynamicResource InputBackground}" BorderBrush="{DynamicResource InputBorder}"
-                       ToolTip="Filtrar por Map ID (texto). Se guarda hasta que lo borres."/>
-              <WrapPanel Orientation="Horizontal">
-                <TextBlock Text="Desde" VerticalAlignment="Center" Margin="0,0,4,4"
-                           Foreground="{DynamicResource TextSecondary}" FontSize="11"/>
-                <TextBox Text="{Binding MapListRangeFromText, UpdateSourceTrigger=PropertyChanged}"
-                         Width="64" Padding="4,2" Margin="0,0,8,4"
-                         Background="{DynamicResource InputBackground}" BorderBrush="{DynamicResource InputBorder}"
-                         ToolTip="Map ID mínimo"/>
-                <TextBlock Text="Hasta" VerticalAlignment="Center" Margin="0,0,4,4"
-                           Foreground="{DynamicResource TextSecondary}" FontSize="11"/>
-                <TextBox Text="{Binding MapListRangeToText, UpdateSourceTrigger=PropertyChanged}"
-                         Width="64" Padding="4,2" Margin="0,0,8,4"
-                         Background="{DynamicResource InputBackground}" BorderBrush="{DynamicResource InputBorder}"
-                         ToolTip="Map ID máximo"/>
-                <Button Content="Limpiar" Padding="8,2" Margin="0,0,0,4"
-                        Command="{Binding ClearMapListFilterCommand}"
-                        ToolTip="Borra el filtro de mapas (lista y buscadores)"/>
-              </WrapPanel>
-            </StackPanel>
+            <!-- Search floats over the list so no full-width brown footer strip remains. -->
+            <Grid Margin="0,0,0,2">
             <ListBox x:Name="MapList" ItemsSource="{Binding MapListItems}"
                    SelectedValuePath="MapId" SelectedValue="{Binding SelectedMapId}"
-                   Background="Transparent" BorderThickness="0" Margin="6,0,6,8"
+                   Background="Transparent" BorderThickness="0" Margin="2,0,2,32"
+                   Padding="0"
                    Foreground="{DynamicResource TextPrimary}"
                    ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                    PreviewMouseLeftButtonDown="MapList_PreviewMouseLeftButtonDown"
                    PreviewMouseMove="MapList_PreviewMouseMove"
                    PreviewMouseLeftButtonUp="MapList_PreviewMouseLeftButtonUp"
+                   PreviewMouseRightButtonDown="MapList_PreviewMouseRightButtonDown"
                    MouseDoubleClick="MapList_OnMouseDoubleClick" SelectionChanged="MapList_OnSelectionChanged">
+            <ListBox.ContextMenu>
+              <ContextMenu Opened="MapListContextMenu_Opened">
+                <MenuItem Header="Eliminar…" Click="DeleteLibraryMap_Click"
+                          Foreground="#FFFF5252" FontWeight="SemiBold"/>
+              </ContextMenu>
+            </ListBox.ContextMenu>
             <ListBox.ItemsPanel>
               <ItemsPanelTemplate>
-                <WrapPanel/>
+                <WrapPanel ItemWidth="112" ItemHeight="104"/>
               </ItemsPanelTemplate>
             </ListBox.ItemsPanel>
             <ListBox.ItemContainerStyle>
@@ -532,14 +557,15 @@
                 <Setter Property="BorderBrush" Value="Transparent"/>
                 <Setter Property="BorderThickness" Value="0"/>
                 <Setter Property="Padding" Value="0"/>
-                <Setter Property="Margin" Value="3"/>
+                <Setter Property="Margin" Value="1"/>
+                <Setter Property="Width" Value="110"/>
                 <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
                 <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
                 <Setter Property="Template">
                   <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
                       <Border x:Name="ItemBd" Background="{TemplateBinding Background}"
-                              CornerRadius="6" Padding="0" SnapsToDevicePixels="True">
+                              CornerRadius="5" Padding="0" SnapsToDevicePixels="True">
                         <ContentPresenter HorizontalAlignment="Stretch"/>
                       </Border>
                     </ControlTemplate>
@@ -558,17 +584,17 @@
             </ListBox.ItemContainerStyle>
             <ListBox.ItemTemplate>
               <DataTemplate>
-                <Border Width="118" Padding="4" Background="{DynamicResource ThumbBackground}"
+                <Border Padding="3" Background="{DynamicResource ThumbBackground}"
                         BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="4"
                         MouseEnter="MapListItem_MouseEnter" MouseLeave="MapListItem_MouseLeave"
                         Loaded="MapThumb_Loaded" SnapsToDevicePixels="True">
                   <StackPanel>
-                    <Border Height="78" Background="{DynamicResource CheckerA}" CornerRadius="3" ClipToBounds="True">
+                    <Border Height="72" Background="{DynamicResource CheckerA}" CornerRadius="3" ClipToBounds="True">
                       <Grid>
-                        <Image Source="{Binding Thumbnail}" Stretch="Uniform" Margin="2"
+                        <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" Margin="1"
                                RenderOptions.BitmapScalingMode="HighQuality"/>
                         <TextBlock Text="…" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                   Foreground="{DynamicResource TextMuted}" FontSize="16">
+                                   Foreground="{DynamicResource TextMuted}" FontSize="14">
                           <TextBlock.Style>
                             <Style TargetType="TextBlock">
                               <Setter Property="Visibility" Value="Collapsed"/>
@@ -582,14 +608,33 @@
                         </TextBlock>
                       </Grid>
                     </Border>
-                    <TextBlock Text="{Binding MapId}" FontFamily="{StaticResource AppFontFamilyMono}" FontSize="11"
-                               HorizontalAlignment="Center" Margin="0,4,0,0"
+                    <TextBlock Text="{Binding MapId}" FontFamily="{StaticResource AppFontFamilyMono}" FontSize="10"
+                               HorizontalAlignment="Center" Margin="0,2,0,0"
                                Foreground="{DynamicResource TextSecondary}"/>
                   </StackPanel>
                 </Border>
               </DataTemplate>
             </ListBox.ItemTemplate>
             </ListBox>
+              <Border HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                      Width="120" Margin="0,0,0,4" Padding="0"
+                      Background="{DynamicResource InputBackground}"
+                      BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="4">
+                <DockPanel LastChildFill="True">
+                  <Button DockPanel.Dock="Right" Content="✕" Width="26" Padding="0"
+                          ToolTip="Limpiar filtro"
+                          Command="{Binding ClearMapListFilterCommand}"
+                          Style="{StaticResource IconButtonCompact}"/>
+                  <TextBox Text="{Binding MapListSearchText, UpdateSourceTrigger=PropertyChanged}"
+                           Background="Transparent" BorderThickness="0"
+                           Padding="8,5" FontFamily="{StaticResource AppFontFamilyMono}" FontSize="12"
+                           Foreground="{DynamicResource TextPrimary}"
+                           CaretBrush="{DynamicResource Accent}"
+                           VerticalContentAlignment="Center"
+                           ToolTip="Filtrar por ID de mapa (ej. 31031)"/>
+                </DockPanel>
+              </Border>
+            </Grid>
           </DockPanel>
           </Border>
 
@@ -664,62 +709,7 @@
                             ToolTip="Guardar con otro Map ID"/>
                     <Border Width="1" Height="18" Margin="0,0,12,0" VerticalAlignment="Center"
                             Background="{DynamicResource Border}"/>
-                    <ToggleButton Margin="0,0,8,0" Content="Fondo" Style="{StaticResource VisibilityToggle}" IsChecked="{Binding ShowBackgroundLayer}" ToolTip="Mostrar fondo" Padding="6,4"/>
-                    <ToggleButton Margin="0,0,8,0" Style="{StaticResource VisibilityToggleLayerGround}" IsChecked="{Binding ShowGroundLayer}" ToolTip="Mostrar suelo" Padding="6,4"/>
-                    <ToggleButton Margin="0,0,8,0" Style="{StaticResource VisibilityToggleLayer1}" IsChecked="{Binding ShowObject1Layer}" ToolTip="Mostrar capa 1" Padding="6,4"/>
-                    <ToggleButton Margin="0,0,8,0" Style="{StaticResource VisibilityToggleLayer2}" IsChecked="{Binding ShowObject2Layer}" ToolTip="Mostrar capa 2" Padding="6,4"/>
-                    <ToggleButton Margin="0,0,8,0" Style="{StaticResource VisibilityToggle}" IsChecked="{Binding ShowGrid}" ToolTip="Rejilla" Padding="6,4" MinWidth="36">
-                      <Viewbox Width="14" Height="14">
-                        <Path Data="{StaticResource IconGridGeom}" Stroke="{DynamicResource TextPrimary}" StrokeThickness="1.2" Fill="Transparent"/>
-                      </Viewbox>
-                    </ToggleButton>
-                    <ToggleButton Margin="0,0,8,0" Style="{StaticResource VisibilityToggle}" IsChecked="{Binding ShowCellIds}" ToolTip="Cell ID" Padding="6,4" MinWidth="36">
-                      <Viewbox Width="14" Height="14">
-                        <Path Data="{StaticResource IconCellIdGeom}" Stroke="{DynamicResource TextPrimary}" StrokeThickness="1.2" Fill="Transparent"/>
-                      </Viewbox>
-                    </ToggleButton>
-                    <ToggleButton Margin="0,0,12,0" Style="{StaticResource VisibilityToggle}" IsChecked="{Binding ShowMapExportLimit}" ToolTip="Límite de exportación" Padding="6,4" MinWidth="36">
-                      <Viewbox Width="14" Height="14">
-                        <Path Data="{StaticResource IconMapLimitGeom}" Stroke="{DynamicResource TextPrimary}" StrokeThickness="1.2" Fill="Transparent"/>
-                      </Viewbox>
-                    </ToggleButton>
-                    <Border Width="1" Height="18" Margin="0,0,12,0" VerticalAlignment="Center"
-                            Background="{DynamicResource Border}"/>
-                    <ToggleButton Margin="0,0,8,0" Style="{StaticResource VisibilityToggle}" IsChecked="{Binding ShowUnwalkableMarkers}"
-                                  ToolTip="Mostrar no transitables" Padding="6,4" MinWidth="36">
-                      <Viewbox Width="14" Height="14">
-                        <Path Data="{StaticResource IconUnwalkableGeom}" Stroke="{DynamicResource OverlayUnwalkableStroke}" StrokeThickness="1.4" Fill="#33EF5350"/>
-                      </Viewbox>
-                    </ToggleButton>
-                    <ToggleButton Margin="0,0,8,0" Style="{StaticResource VisibilityToggle}" IsChecked="{Binding ShowLosBlockMarkers}"
-                                  ToolTip="Mostrar bloqueos de visión" Padding="6,4" MinWidth="36">
-                      <Viewbox Width="14" Height="14">
-                        <Grid Width="16" Height="16">
-                          <Path Data="{StaticResource IconLoSOuterGeom}" Stroke="{DynamicResource OverlayLosBlockStroke}" StrokeThickness="1.2" Fill="Transparent"/>
-                          <Path Data="{StaticResource IconLoSPupilGeom}" Fill="{DynamicResource OverlayLosBlockStroke}"/>
-                          <Path Data="{StaticResource IconLoSBlockSlashGeom}" Stroke="{DynamicResource OverlayLosBlockStroke}" StrokeThickness="1.5"/>
-                        </Grid>
-                      </Viewbox>
-                    </ToggleButton>
-                    <ToggleButton Style="{StaticResource VisibilityToggle}" IsChecked="{Binding ShowFightMarkers}"
-                                  ToolTip="Mostrar posiciones de combate" Padding="6,4" MinWidth="40">
-                      <StackPanel Orientation="Horizontal">
-                        <Viewbox Width="12" Height="12" Margin="0,0,2,0">
-                          <Grid Width="16" Height="16">
-                            <Path Data="{StaticResource IconFightDiamondGeom}" Fill="{DynamicResource OverlayFight1Fill}" Stroke="{DynamicResource OverlayFight1Stroke}" StrokeThickness="1"/>
-                            <TextBlock Text="1" FontSize="8" FontWeight="Bold" Foreground="White"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                          </Grid>
-                        </Viewbox>
-                        <Viewbox Width="12" Height="12">
-                          <Grid Width="16" Height="16">
-                            <Path Data="{StaticResource IconFightDiamondGeom}" Fill="{DynamicResource OverlayFight2Fill}" Stroke="{DynamicResource OverlayFight2Stroke}" StrokeThickness="1"/>
-                            <TextBlock Text="2" FontSize="8" FontWeight="Bold" Foreground="White"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                          </Grid>
-                        </Viewbox>
-                      </StackPanel>
-                    </ToggleButton>
+                    <controls:MapEditVisibilityToolbar VerticalAlignment="Center"/>
                     <Border Width="1" Height="18" Margin="12,0,12,0" VerticalAlignment="Center"
                             Background="{DynamicResource Border}"/>
                     <StackPanel Orientation="Horizontal"
@@ -749,121 +739,9 @@
                     <ColumnDefinition Width="88"/>
                     <ColumnDefinition Width="*"/>
                   </Grid.ColumnDefinitions>
-                  <Border x:Name="MapToolSidebar" Grid.Column="0"
-                          Background="{DynamicResource PanelCardBackground}"
-                          BorderBrush="{DynamicResource Border}" BorderThickness="0,0,1,0"
-                          SnapsToDevicePixels="True"
-                          Padding="4,8,4,6">
-                    <WrapPanel Width="{StaticResource ToolSidebarWrapWidth}"
-                               Orientation="Horizontal"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Top">
-                        <TextBlock Text="HERRAMIENTAS" Style="{StaticResource ToolSidebarGroupHeader}"
-                                   Width="{StaticResource ToolSidebarWrapWidth}"/>
-                        <RadioButton Style="{StaticResource ToolSidebarCompact}" GroupName="MapTool" IsChecked="{Binding IsSelectTool}"
-                                     ToolTip="Seleccionar (V) · Clic: celda · Ctrl+clic: añadir/quitar · Arrastra la selección: mover GFX">
-                          <Viewbox Width="{StaticResource ToolSidebarIconSize}" Height="{StaticResource ToolSidebarIconSize}">
-                            <Path Data="{StaticResource IconSelectGeom}" Fill="{DynamicResource TextPrimary}"/>
-                          </Viewbox>
-                        </RadioButton>
-                        <RadioButton Style="{StaticResource ToolSidebarCompact}" GroupName="MapTool" IsChecked="{Binding IsRectSelectTool}"
-                                     ToolTip="Selección de área (R) · Arrastra sobre la selección para mover el bloque">
-                          <Viewbox Width="{StaticResource ToolSidebarIconSize}" Height="{StaticResource ToolSidebarIconSize}">
-                            <Path Data="{StaticResource IconRectSelectGeom}" Stroke="{DynamicResource TextPrimary}" StrokeThickness="1.4" Fill="Transparent"/>
-                          </Viewbox>
-                        </RadioButton>
-                        <RadioButton Style="{StaticResource ToolSidebarCompact}" GroupName="MapTool" IsChecked="{Binding IsPaintTool}"
-                                     ToolTip="Pintar / construir (B) · Arrastra para pintar · Clic derecho: borrar solo el GFX activo (arrastra)">
-                          <Viewbox Width="{StaticResource ToolSidebarIconSize}" Height="{StaticResource ToolSidebarIconSize}">
-                            <Path Data="{StaticResource IconPaintGeom}" Fill="{DynamicResource AccentGround}" Stroke="{DynamicResource TextPrimary}" StrokeThickness="0.4"/>
-                          </Viewbox>
-                        </RadioButton>
-                        <RadioButton Style="{StaticResource ToolSidebarCompact}" GroupName="MapTool" IsChecked="{Binding IsEraseTool}"
-                                     ToolTip="Borrar · Con «Solo GFX activo»: solo quita el ítem del pincel (arrastra) · Sin eso: vacía la capa destino">
-                          <Viewbox Width="{StaticResource ToolSidebarIconSize}" Height="{StaticResource ToolSidebarIconSize}">
-                            <Path Data="{StaticResource IconEraseGeom}" Fill="{DynamicResource TextPrimary}"/>
-                          </Viewbox>
-                        </RadioButton>
-                        <Rectangle Height="1" Margin="0,6" Width="{StaticResource ToolSidebarWrapWidth}" Fill="{DynamicResource Divider}"/>
-                        <TextBlock Text="CELDA" Style="{StaticResource ToolSidebarGroupHeader}"
-                                   Width="{StaticResource ToolSidebarWrapWidth}"/>
-                        <RadioButton Style="{StaticResource ToolSidebarCompact}" GroupName="MapTool" IsChecked="{Binding IsUnwalkableTool}"
-                                     ToolTip="No transitable">
-                          <Viewbox Width="{StaticResource ToolSidebarIconSize}" Height="{StaticResource ToolSidebarIconSize}">
-                            <Path Data="{StaticResource IconUnwalkableGeom}" Stroke="{DynamicResource OverlayUnwalkableStroke}" StrokeThickness="1.4" Fill="#40EF5350"/>
-                          </Viewbox>
-                        </RadioButton>
-                        <RadioButton Style="{StaticResource ToolSidebarCompact}" GroupName="MapTool" IsChecked="{Binding IsLineOfSightTool}"
-                                     ToolTip="Bloquear visión">
-                          <Viewbox Width="{StaticResource ToolSidebarIconSize}" Height="{StaticResource ToolSidebarIconSize}">
-                            <Grid Width="16" Height="16">
-                              <Path Data="{StaticResource IconLoSOuterGeom}" Stroke="{DynamicResource OverlayLosBlockStroke}" StrokeThickness="1.25" Fill="Transparent"/>
-                              <Path Data="{StaticResource IconLoSPupilGeom}" Fill="{DynamicResource OverlayLosBlockStroke}"/>
-                              <Path Data="{StaticResource IconLoSBlockSlashGeom}" Stroke="{DynamicResource OverlayLosBlockStroke}" StrokeThickness="1.6"/>
-                            </Grid>
-                          </Viewbox>
-                        </RadioButton>
-                        <Rectangle Height="1" Margin="0,6" Width="{StaticResource ToolSidebarWrapWidth}" Fill="{DynamicResource Divider}"/>
-                        <TextBlock Text="COMBATE" Style="{StaticResource ToolSidebarGroupHeader}"
-                                   Width="{StaticResource ToolSidebarWrapWidth}"/>
-                        <RadioButton Style="{StaticResource ToolSidebarCompact}" GroupName="MapTool" IsChecked="{Binding IsFightCell1Tool}"
-                                     ToolTip="Equipo 1 (rojo) · Clic: colocar · Clic derecho: quitar combate (1 o 2)">
-                          <Viewbox Width="{StaticResource ToolSidebarIconSize}" Height="{StaticResource ToolSidebarIconSize}">
-                            <Grid Width="16" Height="16">
-                              <Path Data="{StaticResource IconFightDiamondGeom}" Stroke="{DynamicResource OverlayFight1Stroke}" StrokeThickness="1.3" Fill="{DynamicResource OverlayFight1Fill}"/>
-                              <TextBlock Text="1" FontWeight="Bold" FontSize="10" Foreground="White"
-                                         HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-0.5,0,0"/>
-                            </Grid>
-                          </Viewbox>
-                        </RadioButton>
-                        <RadioButton Style="{StaticResource ToolSidebarCompact}" GroupName="MapTool" IsChecked="{Binding IsFightCell2Tool}"
-                                     ToolTip="Equipo 2 (azul) · Clic: colocar · Clic derecho: quitar combate (1 o 2)">
-                          <Viewbox Width="{StaticResource ToolSidebarIconSize}" Height="{StaticResource ToolSidebarIconSize}">
-                            <Grid Width="16" Height="16">
-                              <Path Data="{StaticResource IconFightDiamondGeom}" Stroke="{DynamicResource OverlayFight2Stroke}" StrokeThickness="1.3" Fill="{DynamicResource OverlayFight2Fill}"/>
-                              <TextBlock Text="2" FontWeight="Bold" FontSize="10" Foreground="White"
-                                         HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-0.5,0,0"/>
-                            </Grid>
-                          </Viewbox>
-                        </RadioButton>
-                        <Rectangle Height="1" Margin="0,6" Width="{StaticResource ToolSidebarWrapWidth}" Fill="{DynamicResource Divider}"/>
-                        <TextBlock Text="CAPA GFX" Style="{StaticResource ToolSidebarGroupHeader}"
-                                   Width="{StaticResource ToolSidebarWrapWidth}"/>
-                        <RadioButton Style="{StaticResource ToolSidebarCompactLayer1}" GroupName="Layer" IsChecked="{Binding IsLayerObject1}"
-                                     IsEnabled="{Binding AreGfxObjectLayersEnabled}"
-                                     ToolTip="Capa 1 (GFX) · Desactivada en modo combate">
-                          <Grid Width="28" Height="28">
-                            <Border Background="{DynamicResource AccentLayer1}" CornerRadius="5" Opacity="0.92"/>
-                            <TextBlock Text="1" FontSize="16" FontWeight="Bold" Foreground="White"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                          </Grid>
-                        </RadioButton>
-                        <RadioButton Style="{StaticResource ToolSidebarCompactLayer2}" GroupName="Layer" IsChecked="{Binding IsLayerObject2}"
-                                     IsEnabled="{Binding AreGfxObjectLayersEnabled}"
-                                     ToolTip="Capa 2 (GFX) · Desactivada en modo combate">
-                          <Grid Width="28" Height="28">
-                            <Border Background="{DynamicResource AccentLayer2}" CornerRadius="5" Opacity="0.92"/>
-                            <TextBlock Text="2" FontSize="16" FontWeight="Bold" Foreground="White"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                          </Grid>
-                        </RadioButton>
-                        <Rectangle Height="1" Margin="0,6" Width="{StaticResource ToolSidebarWrapWidth}" Fill="{DynamicResource Divider}"/>
-                        <TextBlock Text="TRANSFORM" Style="{StaticResource ToolSidebarGroupHeader}"
-                                   Width="{StaticResource ToolSidebarWrapWidth}"/>
-                        <ToggleButton Style="{StaticResource ToolSidebarCompactToggle}" IsChecked="{Binding BrushFlip}"
-                                      ToolTip="Voltear horizontalmente">
-                          <Viewbox Width="{StaticResource ToolSidebarIconSize}" Height="{StaticResource ToolSidebarIconSize}">
-                            <Path Data="{StaticResource IconFlipGeom}" Stroke="{DynamicResource TextPrimary}" StrokeThickness="1.35" Fill="Transparent"/>
-                          </Viewbox>
-                        </ToggleButton>
-                        <Button Style="{StaticResource ToolSidebarCompactButton}" Command="{Binding CycleBrushRotationCommand}"
-                                ToolTip="Rotar pincel">
-                          <Viewbox Width="{StaticResource ToolSidebarIconSize}" Height="{StaticResource ToolSidebarIconSize}">
-                            <Path Data="{StaticResource IconRotateGeom}" Stroke="{DynamicResource AccentGround}" StrokeThickness="1.4" Fill="Transparent"/>
-                          </Viewbox>
-                        </Button>
-                    </WrapPanel>
-                  </Border>
+                  <controls:MapToolSidebarControl x:Name="MapToolSidebar" Grid.Column="0"
+                                                  ToolGroupName="MapTool"
+                                                  LayerGroupName="Layer"/>
                   <Border Grid.Column="1" Style="{StaticResource ViewportFrame}">
                   <Grid x:Name="MapWorkspaceHost" ClipToBounds="True"
                         Background="{DynamicResource CanvasBackground}">
@@ -955,27 +833,47 @@
                                               DataContext="{Binding CombinedMaps}"
                                               IsCombinedMapsSurface="True"/>
                     </DockPanel>
-                    <Button HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                            Margin="0,0,16,16" Padding="12,8" MinWidth="72"
-                            Panel.ZIndex="100"
-                            Command="{Binding MapPublishQueue.OpenQueueCommand}"
-                            ToolTip="{Binding MapPublishQueue.FloatingTooltip}">
-                      <Button.Style>
-                        <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
-                          <Setter Property="Opacity" Value="0.55"/>
-                          <Style.Triggers>
-                            <DataTrigger Binding="{Binding MapPublishQueue.HasItems}" Value="True">
-                              <Setter Property="Opacity" Value="1"/>
-                            </DataTrigger>
-                          </Style.Triggers>
-                        </Style>
-                      </Button.Style>
-                      <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="{Binding MapPublishQueue.FloatingLabel}" FontWeight="SemiBold"/>
-                        <TextBlock Text=" !" FontWeight="Bold"
-                                   Visibility="{Binding MapPublishQueue.HasWarnings, Converter={StaticResource BoolToVis}}"/>
+                    <Border Style="{StaticResource PanelCard}"
+                            HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                            Margin="0,0,16,16" Padding="8,6" Panel.ZIndex="100"
+                            Background="{DynamicResource PanelCardBackground}"
+                            BorderBrush="{DynamicResource Border}" BorderThickness="1"
+                            CornerRadius="8">
+                      <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBox Text="{Binding LoadMapFromDatabaseIdText, UpdateSourceTrigger=PropertyChanged}"
+                                 Width="88" Padding="6,5" Margin="0,0,6,0" VerticalAlignment="Center"
+                                 Background="{DynamicResource InputBackground}" BorderBrush="{DynamicResource InputBorder}"
+                                 ToolTip="Map ID en estaticos.mapas. Solo descarga ese mapa."/>
+                        <Button Content="Cargar BD" Padding="10,5" Margin="0,0,6,0" VerticalAlignment="Center"
+                                Command="{Binding LoadMapFromDatabaseCommand}"
+                                ToolTip="Lee mapData de estaticos.mapas, crea Library\Maps\{id}\ y abre el mapa."/>
+                        <Button Content="Actualizar Map ID" Padding="10,5" Margin="0,0,8,0" VerticalAlignment="Center"
+                                Command="{Binding QuickUpdateMapIdToDatabaseCommand}"
+                                Style="{StaticResource PrimaryButton}"
+                                ToolTip="UPDATE rápido en estaticos.mapas: mapData + bgID + X/Y + fecha(+1). Solo mapas existentes. No toca ancho/alto ni posPelea."/>
+                        <Rectangle Width="1" Margin="0,2,8,2"
+                                   Fill="{DynamicResource Divider}"/>
+                        <Button Padding="10,5" MinWidth="64" VerticalAlignment="Center"
+                                Command="{Binding MapPublishQueue.OpenQueueCommand}"
+                                ToolTip="{Binding MapPublishQueue.FloatingTooltip}">
+                          <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+                              <Setter Property="Opacity" Value="0.55"/>
+                              <Style.Triggers>
+                                <DataTrigger Binding="{Binding MapPublishQueue.HasItems}" Value="True">
+                                  <Setter Property="Opacity" Value="1"/>
+                                </DataTrigger>
+                              </Style.Triggers>
+                            </Style>
+                          </Button.Style>
+                          <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding MapPublishQueue.FloatingLabel}" FontWeight="SemiBold"/>
+                            <TextBlock Text=" !" FontWeight="Bold"
+                                       Visibility="{Binding MapPublishQueue.HasWarnings, Converter={StaticResource BoolToVis}}"/>
+                          </StackPanel>
+                        </Button>
                       </StackPanel>
-                    </Button>
+                    </Border>
                     <Border Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}">
                       <Border Background="{DynamicResource OverlayCellIdShadow}">
                         <TextBlock Text="Cargando mapa..." Foreground="{DynamicResource TextPrimary}" FontSize="16"
@@ -1030,12 +928,95 @@
                     <Border Width="1" Height="18" Margin="0,0,12,0" VerticalAlignment="Center"
                             Background="{DynamicResource Border}"/>
                     <Button Content="Añadir mapa" Command="{Binding World.AddMapCommand}" Padding="8,4" Margin="0,0,6,0"/>
+                    <Border Width="1" Height="18" Margin="6,0,12,0" VerticalAlignment="Center"
+                            Background="{DynamicResource Border}"/>
+                    <TextBox Text="{Binding LoadMapFromDatabaseIdText, UpdateSourceTrigger=PropertyChanged}"
+                             Width="88" Padding="6,4" Margin="0,0,6,0" VerticalAlignment="Center"
+                             Background="{DynamicResource InputBackground}" BorderBrush="{DynamicResource InputBorder}"
+                             ToolTip="Map ID en estaticos.mapas. Solo descarga ese mapa."/>
+                    <Button Content="Cargar BD" Padding="8,4" Margin="0,0,12,0" VerticalAlignment="Center"
+                            Command="{Binding LoadMapFromDatabaseCommand}"
+                            ToolTip="Lee mapData de estaticos.mapas, crea Library\Maps\{id}\ y abre el mapa."/>
+                    <Border Width="1" Height="18" Margin="0,0,12,0" VerticalAlignment="Center"
+                            Background="{DynamicResource Border}"/>
+                    <TextBox Text="{Binding LoadMapsByFechaKeywordText, UpdateSourceTrigger=PropertyChanged}"
+                             Width="110" Padding="6,4" Margin="0,0,6,0" VerticalAlignment="Center"
+                             Background="{DynamicResource InputBackground}" BorderBrush="{DynamicResource InputBorder}"
+                             ToolTip="Palabra de la columna fecha (ej. VULKANIA). Incluye variantes que la contengan con la misma capitalización (VULKANIA1, VULKANIAEXTRA…)."/>
+                    <Button Content="Cargar isla BD" Padding="8,4" Margin="0,0,12,0" VerticalAlignment="Center"
+                            Command="{Binding LoadMapsByFechaKeywordCommand}"
+                            ToolTip="Importa mapas cuya fecha contenga esa palabra (mayúsculas exactas), sobrescribe Library y los coloca en Mundo según X/Y de la BD."/>
+                    <Button Content="Coordenadas automáticas" Padding="8,4" Margin="0,0,6,0" VerticalAlignment="Center"
+                            Command="{Binding World.ApplyAutomaticCoordinatesCommand}"
+                            Visibility="{Binding World.HasCoordinateReference, Converter={StaticResource BoolToVis}}"
+                            ToolTip="Tras cambiar coordenadas de un mapa de referencia, recalcula X/Y BD de todos los demás según su posición en la cuadrícula (sin mover casillas)."/>
+                    <Button Content="Subir coordenadas BD" Padding="8,4" Margin="0,0,12,0" VerticalAlignment="Center"
+                            Command="{Binding PushWorldCoordinatesToDatabaseCommand}"
+                            Visibility="{Binding World.HasPushableWorldCoordinates, Converter={StaticResource BoolToVis}}"
+                            ToolTip="Actualiza solo las columnas X e Y de todos los mapas colocados en este mundo. No toca mapData ni fecha."/>
                     <Button Content="Enviar a modo mapa" Command="{Binding SendWorldToCombinedCommand}"
                             Padding="8,4" Style="{StaticResource PrimaryButton}"
                             ToolTip="Copia este mundo al combinado de MAPA (misma disposición)"/>
                     </StackPanel>
                   </Grid>
                 </Border>
+              <Border DockPanel.Dock="Top"
+                      Visibility="{Binding ShowIslaFechaPreview, Converter={StaticResource BoolToVis}}"
+                      Background="{DynamicResource ElevatedSurface}"
+                      BorderBrush="{DynamicResource Border}" BorderThickness="0,0,0,1"
+                      Padding="10,6" MaxHeight="118">
+                <DockPanel LastChildFill="True">
+                  <TextBlock DockPanel.Dock="Top" Text="{Binding IslaFechaPreviewStatusText}"
+                             FontWeight="SemiBold" FontSize="12" Margin="0,0,0,6"
+                             Foreground="#FFFFFFFF"/>
+                  <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
+                                Focusable="False">
+                    <ItemsControl ItemsSource="{Binding IslaFechaPreviewItems}">
+                      <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                          <StackPanel Orientation="Horizontal"/>
+                        </ItemsPanelTemplate>
+                      </ItemsControl.ItemsPanel>
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <Border Width="72" Margin="0,0,6,0" Padding="3"
+                                  Background="{DynamicResource ThumbBackground}"
+                                  BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="4"
+                                  ToolTip="{Binding Fecha}">
+                            <StackPanel>
+                              <Border Height="44" Background="{DynamicResource CheckerA}" CornerRadius="3" ClipToBounds="True">
+                                <Grid>
+                                  <Image Source="{Binding Thumbnail}" Stretch="Uniform" Margin="1"
+                                         RenderOptions.BitmapScalingMode="HighQuality"/>
+                                  <TextBlock Text="{Binding MapId}" FontSize="10"
+                                             HorizontalAlignment="Center" VerticalAlignment="Center"
+                                             Foreground="{DynamicResource TextMuted}">
+                                    <TextBlock.Style>
+                                      <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                        <Style.Triggers>
+                                          <DataTrigger Binding="{Binding HasThumbnail}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                          </DataTrigger>
+                                        </Style.Triggers>
+                                      </Style>
+                                    </TextBlock.Style>
+                                  </TextBlock>
+                                </Grid>
+                              </Border>
+                              <TextBlock Text="{Binding MapId}" FontFamily="{StaticResource AppFontFamilyMono}"
+                                         FontSize="10" HorizontalAlignment="Center" Margin="0,2,0,0"
+                                         Foreground="#FFFFFFFF"/>
+                              <TextBlock Text="{Binding CoordText}" FontSize="9"
+                                         HorizontalAlignment="Center" Foreground="#FFE8DFD0"/>
+                            </StackPanel>
+                          </Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </ScrollViewer>
+                </DockPanel>
+              </Border>
               <Grid>
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="230" MinWidth="180"/>
@@ -1050,9 +1031,12 @@
                                ToolTip="Carpeta de proyectos de mundo (equivalente a Géopositions de Astria)"/>
                     <TextBlock Text="{Binding World.MultiMapStatusText}" Foreground="{DynamicResource Accent}" FontWeight="SemiBold"
                                Margin="0,0,0,6" Visibility="{Binding World.IsMultiMapEditMode, Converter={StaticResource BoolToVis}}"/>
-                    <Button Content="Editar selección" Command="{Binding World.EnterMultiMapEditCommand}" Padding="6,3" Margin="0,0,0,4"/>
-                    <Button Content="Salir edición multimap" Command="{Binding World.ExitMultiMapEditCommand}" Padding="6,3" Margin="0,0,0,4"
-                            Visibility="{Binding World.IsMultiMapEditMode, Converter={StaticResource BoolToVis}}"/>
+                    <Button Content="Editar selección" Command="{Binding World.EnterMultiMapEditCommand}" Padding="6,3" Margin="0,0,0,4"
+                            ToolTip="Activa las herramientas de MAPA sobre los mapas colocados (también ✎ en cada casilla)"/>
+                    <Button Content="Dejar de editar" Command="{Binding World.ExitMultiMapEditCommand}" Padding="6,3" Margin="0,0,0,4"
+                            Style="{StaticResource PrimaryButton}"
+                            Visibility="{Binding World.IsMultiMapEditMode, Converter={StaticResource BoolToVis}}"
+                            ToolTip="Guarda en Library (sin publicar a BD) y vuelve a las herramientas de mundo"/>
                     <Button Content="Guardar mapas modificados" Command="{Binding World.SaveModifiedMapsCommand}" Padding="6,3" Margin="0,0,0,4"
                             Visibility="{Binding World.IsMultiMapEditMode, Converter={StaticResource BoolToVis}}"/>
                     <CheckBox Content="Vista mosaico" IsChecked="{Binding World.MosaicMode}" Margin="0,0,0,4"/>
@@ -1101,6 +1085,32 @@
                     <Canvas x:Name="WorldWorkspaceCanvas"/>
                       </Grid>
                     </DockPanel>
+                    <Border Visibility="{Binding IsIslaImportInProgress, Converter={StaticResource BoolToVis}}"
+                            Background="{DynamicResource OverlayCellIdShadow}"
+                            Panel.ZIndex="200">
+                      <Border HorizontalAlignment="Center" VerticalAlignment="Center"
+                              MinWidth="320" MaxWidth="480" Padding="20,16"
+                              Background="{DynamicResource PanelCardBackground}"
+                              BorderBrush="{DynamicResource Border}" BorderThickness="1"
+                              CornerRadius="8">
+                        <StackPanel>
+                          <TextBlock Text="Cargando isla BD"
+                                     FontWeight="SemiBold" FontSize="15"
+                                     Foreground="{DynamicResource TextPrimary}"
+                                     HorizontalAlignment="Center" Margin="0,0,0,10"/>
+                          <ProgressBar Height="14" Minimum="0" Maximum="100"
+                                       Value="{Binding IslaImportProgress, Mode=OneWay}"/>
+                          <TextBlock Margin="0,8,0,0" HorizontalAlignment="Center"
+                                     FontFamily="{StaticResource AppFontFamilyMono}" FontSize="12"
+                                     Foreground="{DynamicResource TextPrimary}"
+                                     Text="{Binding IslaImportProgress, StringFormat={}{0:0}%, Mode=OneWay}"/>
+                          <TextBlock Text="{Binding IslaImportProgressText}"
+                                     TextWrapping="Wrap" TextAlignment="Center"
+                                     Foreground="{DynamicResource TextSecondary}"
+                                     FontSize="12" Margin="0,6,0,0"/>
+                        </StackPanel>
+                      </Border>
+                    </Border>
                   </Grid>
                 </Border>
               </Grid>
@@ -1472,10 +1482,10 @@
                   <TextBlock Grid.Row="4" Text="Interactive" Style="{StaticResource InspectorFieldLabel}"/>
                   <CheckBox Grid.Row="4" Grid.Column="1" IsThreeState="True" IsChecked="{Binding EditIo}" VerticalAlignment="Center" Margin="8,0,0,0"/>
                   <TextBlock Grid.Row="5" Text="GroundLevel" Style="{StaticResource InspectorFieldLabel}"/>
-                  <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding EditGroundLevel, UpdateSourceTrigger=PropertyChanged, TargetNullValue=''}"
+                  <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding EditGroundLevel, StringFormat={}{0}, UpdateSourceTrigger=LostFocus, TargetNullValue='', ValidatesOnExceptions=False}"
                            HorizontalAlignment="Stretch" MinWidth="0" Margin="8,0,0,0"/>
                   <TextBlock Grid.Row="6" Text="GroundSlope" Style="{StaticResource InspectorFieldLabel}"/>
-                  <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding EditGroundSlope, UpdateSourceTrigger=PropertyChanged, TargetNullValue=''}"
+                  <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding EditGroundSlope, StringFormat={}{0}, UpdateSourceTrigger=LostFocus, TargetNullValue='', ValidatesOnExceptions=False}"
                            HorizontalAlignment="Stretch" MinWidth="0" Margin="8,0,0,0"/>
                   <TextBlock Grid.Row="7" Text="Flip Ground" Style="{StaticResource InspectorFieldLabel}"/>
                   <CheckBox Grid.Row="7" Grid.Column="1" IsThreeState="True" IsChecked="{Binding EditFlipG}" VerticalAlignment="Center" Margin="8,0,0,0"/>

@@ -21,21 +21,35 @@ public readonly struct QuestionDeleteBlocked
 
 /// <summary>
 /// Global question ID batch for Content module (CONT.3).
-/// Response drafts use Guid only — never MAX(npc_respuestas.id)+1.
+/// Response drafts use Guid only until CONT.5 — numeric Response ID is reserved at publish.
+/// DbMaxResponseId is cached for UI "próximo" and dialog_es coordination (CONTENT.IDS.MAX.1).
 /// </summary>
 public sealed class DialogDraftBatch
 {
     private readonly List<DialogQuestionDraft> _questions = new();
     private int _dbMaxQuestionId;
+    private int _dbMaxResponseId;
 
     public IReadOnlyList<DialogQuestionDraft> Questions => _questions;
     public int DbMaxQuestionId => _dbMaxQuestionId;
+    public int DbMaxResponseId => _dbMaxResponseId;
     public int NextQuestionId => ComputeNextQuestionId();
+    /// <summary>
+    /// Next logical response id after BD MAX + unpublished local response drafts
+    /// (drafts hold Guid until publish; count reserves consecutive slots).
+    /// </summary>
+    public int NextResponseId => ComputeNextResponseId();
 
     public void SetDbMaxQuestionId(int maxId)
     {
         if (maxId < 0) throw new ArgumentOutOfRangeException(nameof(maxId));
         _dbMaxQuestionId = maxId;
+    }
+
+    public void SetDbMaxResponseId(int maxId)
+    {
+        if (maxId < 0) throw new ArgumentOutOfRangeException(nameof(maxId));
+        _dbMaxResponseId = maxId;
     }
 
     public void LoadQuestions(IEnumerable<DialogQuestionDraft> questions)
@@ -48,6 +62,12 @@ public sealed class DialogDraftBatch
     public DialogQuestionDraft CreateQuestion(int ownerNpcId)
     {
         var id = ComputeNextQuestionId();
+        return CreateQuestionWithId(ownerNpcId, id);
+    }
+
+    /// <summary>MISSIONS.DIALOG.ROLES.3B — create with a pre-reserved npc_preguntas.id.</summary>
+    public DialogQuestionDraft CreateQuestionWithId(int ownerNpcId, int id)
+    {
         EnsureQuestionUnique(id);
         var q = new DialogQuestionDraft { Id = id, OwnerNpcId = ownerNpcId };
         _questions.Add(q);
@@ -138,10 +158,36 @@ public sealed class DialogDraftBatch
 
     public DialogActionDraft AddAction(DialogResponseDraft response, int accion = DialogActionCodes.GotoQuestion)
     {
+        if (!TryAddAction(response, accion, out var action, out var error))
+            throw new InvalidOperationException(error);
+        return action!;
+    }
+
+    /// <summary>Acción avanzada / cargas legacy: permite estados inválidos detectados por validación.</summary>
+    public DialogActionDraft AddActionAllowingRuleViolations(
+        DialogResponseDraft response, int accion = DialogActionCodes.Teleport)
+    {
         ArgumentNullException.ThrowIfNull(response);
         var a = new DialogActionDraft { Accion = accion };
         response.Actions.Add(a);
         return a;
+    }
+
+    public bool TryAddAction(
+        DialogResponseDraft response, int accion, out DialogActionDraft? action, out string? error)
+    {
+        ArgumentNullException.ThrowIfNull(response);
+        if (!DialogResponseActionRules.CanAddAction(response, accion))
+        {
+            action = null;
+            error = DialogResponseActionRules.DescribeAddBlock(response, accion);
+            return false;
+        }
+
+        action = new DialogActionDraft { Accion = accion };
+        response.Actions.Add(action);
+        error = null;
+        return true;
     }
 
     public bool RemoveAction(DialogResponseDraft response, DialogActionDraft action)
@@ -149,6 +195,25 @@ public sealed class DialogDraftBatch
         ArgumentNullException.ThrowIfNull(response);
         ArgumentNullException.ThrowIfNull(action);
         return response.Actions.Remove(action);
+    }
+
+    /// <summary>True when another accion=44 still links to <paramref name="missionDraftId"/>.</summary>
+    public bool HasStartQuestReferenceToMission(Guid missionDraftId, DialogActionDraft? excludingAction = null)
+    {
+        foreach (var q in _questions)
+        {
+            foreach (var r in q.Responses)
+            {
+                foreach (var a in r.Actions)
+                {
+                    if (ReferenceEquals(a, excludingAction)) continue;
+                    if (a.Accion == DialogActionCodes.StartQuest && a.TargetMissionDraftId == missionDraftId)
+                        return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     public void LinkGotoQuestion(DialogActionDraft action, int targetQuestionId)
@@ -276,6 +341,16 @@ public sealed class DialogDraftBatch
     public bool HasIncompleteResponsesForNpc(int npcId) =>
         FindIncompleteResponsesForNpc(npcId).Count > 0;
 
+    public IReadOnlyList<(Guid ResponseDraftId, string Error)> FindActionRuleViolationsForNpc(int npcId) =>
+        QuestionsForNpc(npcId)
+            .SelectMany(q => q.Responses)
+            .SelectMany(r => DialogResponseActionRules.ValidateResponse(r)
+                .Select(err => (r.DraftId, err)))
+            .ToList();
+
+    public bool HasActionRuleViolationsForNpc(int npcId) =>
+        FindActionRuleViolationsForNpc(npcId).Count > 0;
+
     public IReadOnlyList<Guid> FindResponseRefsToQuestion(int questionId)
     {
         var list = new List<Guid>();
@@ -293,6 +368,44 @@ public sealed class DialogDraftBatch
             }
         }
         return list;
+    }
+
+    public int? ResolveGotoTargetQuestionId(DialogActionDraft action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        if (action.Accion != DialogActionCodes.GotoQuestion)
+            return null;
+        if (action.TargetQuestionId is int tid)
+            return tid;
+        if (int.TryParse(action.Args, out var parsed))
+            return parsed;
+        return null;
+    }
+
+    public int CountGotoReferencesToQuestion(int questionId) =>
+        _questions.Sum(q => q.Responses.Sum(r =>
+            r.Actions.Count(a =>
+                a.Accion == DialogActionCodes.GotoQuestion &&
+                (a.TargetQuestionId == questionId ||
+                 (int.TryParse(a.Args, out var parsed) && parsed == questionId)))));
+
+    /// <summary>True when <paramref name="gotoAction"/> is the only goto pointing at its target.</summary>
+    public bool IsExclusiveGotoReference(DialogActionDraft gotoAction)
+    {
+        ArgumentNullException.ThrowIfNull(gotoAction);
+        if (ResolveGotoTargetQuestionId(gotoAction) is not int questionId)
+            return false;
+        return CountGotoReferencesToQuestion(questionId) == 1;
+    }
+
+    public void ConvertActionAwayFromGoto(DialogActionDraft action, int newAccion)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        if (action.Accion == DialogActionCodes.GotoQuestion)
+            ClearGotoLink(action);
+        action.Accion = newAccion;
+        if (newAccion != DialogActionCodes.StartQuest)
+            action.TargetMissionDraftId = null;
     }
 
     public bool HasDuplicateQuestionIds()
@@ -318,16 +431,10 @@ public sealed class DialogDraftBatch
         {
             foreach (var r in q.Responses)
             {
-                foreach (var a in r.Actions)
-                {
-                    if (a.Accion != DialogActionCodes.GotoQuestion) continue;
-                    if (a.TargetQuestionId == questionId ||
-                        (int.TryParse(a.Args, out var parsed) && parsed == questionId))
-                    {
-                        a.TargetQuestionId = null;
-                        a.Args = "";
-                    }
-                }
+                r.Actions.RemoveAll(a =>
+                    a.Accion == DialogActionCodes.GotoQuestion &&
+                    (a.TargetQuestionId == questionId ||
+                     (int.TryParse(a.Args, out var parsed) && parsed == questionId)));
             }
         }
     }
@@ -336,6 +443,15 @@ public sealed class DialogDraftBatch
     {
         var maxDraft = _questions.Count == 0 ? 0 : _questions.Max(q => q.Id);
         return Math.Max(_dbMaxQuestionId, maxDraft) + 1;
+    }
+
+    private int ComputeNextResponseId()
+    {
+        var unpublished = _questions
+            .Where(q => !q.PublishedBd)
+            .SelectMany(q => q.Responses)
+            .Count();
+        return _dbMaxResponseId + unpublished + 1;
     }
 
     private void EnsureQuestionUnique(int id)

@@ -43,11 +43,23 @@ public sealed class NpcDraftBatchTests
         a.GfxId = 71;
         a.Pregunta = 20000;
 
+        a.DialogMode = NpcDialogMode.Simple;
+        a.SimpleDialogTextLocal = "Hola duplicado";
+        a.DialogEsPublished = true;
+        a.NpcEsPublished = true;
+        a.NpcEsPublishedName = "Lío";
+        a.PublishedBd = true;
+
         var copy = batch.Duplicate(a);
         Assert.Equal(20063, copy.Id);
         Assert.Equal("Lío", copy.Nombre);
         Assert.Equal(71, copy.GfxId);
-        Assert.Equal(20000, copy.Pregunta);
+        Assert.Equal(0, copy.Pregunta);
+        Assert.False(copy.PublishedBd);
+        Assert.False(copy.DialogEsPublished);
+        Assert.False(copy.NpcEsPublished);
+        Assert.True(copy.IsPendingDialogEs);
+        Assert.True(copy.IsPendingNpcEs);
         Assert.NotEqual(a.Id, copy.Id);
         Assert.False(batch.HasDuplicateIds());
     }
@@ -93,7 +105,10 @@ public sealed class NpcDraftBatchTests
         Assert.Equal(NpcsModeloDraft.DefaultGfxId, d.GfxId);
         Assert.Equal(71, d.GfxId);
         Assert.Equal(0, d.Sexo);
-        Assert.Empty(d.Locations);
+        Assert.Single(d.Locations);
+        Assert.Equal(0, d.Locations[0].MapId);
+        Assert.Equal(0, d.Locations[0].CellId);
+        Assert.Equal(new[] { NpcEsClientActions.Talk }, NpcEsClientActions.Normalize(d.NpcEsActionIds));
     }
 
     [Fact]
@@ -131,7 +146,7 @@ public sealed class NpcDraftBatchTests
     }
 
     [Fact]
-    public void Multiple_locations_same_npc()
+    public void AddLocation_keeps_single_slot_per_npc()
     {
         var batch = new NpcDraftBatch();
         batch.SetDbMaxId(20061);
@@ -143,9 +158,10 @@ public sealed class NpcDraftBatchTests
         b.MapId = 12502;
         b.CellId = 200;
 
-        Assert.Equal(2, npc.Locations.Count);
+        Assert.Single(npc.Locations);
+        Assert.Same(a, b);
+        Assert.Equal(12502, npc.Locations[0].MapId);
         Assert.Equal(20062, npc.ResolveLocationNpcId(a));
-        Assert.Equal(20062, npc.ResolveLocationNpcId(b));
     }
 
     [Fact]
@@ -165,7 +181,9 @@ public sealed class NpcDraftBatchTests
         c.MapId = 3;
         c.CellId = 30;
 
-        Assert.Equal(2, n1.Locations.Count);
+        Assert.Single(n1.Locations);
+        Assert.Same(a, b);
+        Assert.Equal(2, n1.Locations[0].MapId);
         Assert.Single(n2.Locations);
         Assert.DoesNotContain(c, n1.Locations);
         Assert.DoesNotContain(a, n2.Locations);
@@ -173,7 +191,7 @@ public sealed class NpcDraftBatchTests
         Assert.Equal(20063, n2.ResolveLocationNpcId(c));
 
         var flat = batch.EnumerateLocationsForPublish();
-        Assert.Equal(3, flat.Count);
+        Assert.Equal(2, flat.Count);
         Assert.All(flat.Where(x => x.NpcId == 20062), x => Assert.Contains(x.Location, n1.Locations));
         Assert.All(flat.Where(x => x.NpcId == 20063), x => Assert.Contains(x.Location, n2.Locations));
     }
@@ -221,7 +239,6 @@ public sealed class NpcDraftBatchTests
         var n1 = batch.CreateNew();
         var n2 = batch.CreateNew();
         batch.AddLocation(n1).MapId = 1;
-        batch.AddLocation(n1).MapId = 2;
         var keep = batch.AddLocation(n2);
         keep.MapId = 9;
 

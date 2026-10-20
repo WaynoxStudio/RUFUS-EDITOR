@@ -40,6 +40,27 @@ public static class AiCreativeRequestPreview
         sb.AppendLine("Instrucción:");
         sb.AppendLine(Blank(request.AdditionalInstruction));
 
+        if (request.GeneratePlayerReply)
+        {
+            sb.AppendLine();
+            sb.AppendLine("Destino:");
+            sb.AppendLine("Respuesta del jugador");
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.ParentNpcQuestionText))
+        {
+            sb.AppendLine();
+            sb.AppendLine("Pregunta NPC padre:");
+            sb.AppendLine(request.ParentNpcQuestionText.Trim());
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.ConversationPriorText))
+        {
+            sb.AppendLine();
+            sb.AppendLine("Conversación anterior:");
+            sb.AppendLine(request.ConversationPriorText.Trim());
+        }
+
         if (request.Action is AiCreativeAction.GenerarDialogo or AiCreativeAction.GenerarConversacion
             || !string.IsNullOrWhiteSpace(request.CurrentNpcName))
         {

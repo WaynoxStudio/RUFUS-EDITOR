@@ -14,15 +14,24 @@ public sealed class AiPlayerResponseSuggestion
     public string Tono { get; set; } = "";
 }
 
-/// <summary>AI.3 — conversation creative payload.</summary>
+/// <summary>AI.3 — conversation creative payload (full mission dialog roles).</summary>
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed class AiConversationResult
 {
+    /// <summary>NPC text for OFRECER (opening / PregDar).</summary>
     [JsonPropertyName("textoNpc")]
     public string TextoNpc { get; set; } = "";
 
     [JsonPropertyName("respuestasJugador")]
     public List<AiPlayerResponseSuggestion> RespuestasJugador { get; set; } = [];
+
+    /// <summary>NPC text for MISIÓN INCOMPLETA (PregIncompleta).</summary>
+    [JsonPropertyName("textoIncompleta")]
+    public string TextoIncompleta { get; set; } = "";
+
+    /// <summary>NPC text for MISIÓN COMPLETADA (PregCompletada).</summary>
+    [JsonPropertyName("textoCompletada")]
+    public string TextoCompletada { get; set; } = "";
 }
 
 /// <summary>AI.3 — GenerateConversation structured response.</summary>

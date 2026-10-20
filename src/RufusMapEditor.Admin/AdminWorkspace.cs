@@ -1,14 +1,12 @@
 using System.Windows;
 using RufusMapEditor.Admin.Services;
+using RufusMapEditor.LegacyCompatibility.AdminAuth;
 using RufusMapEditor.LegacyCompatibility.Content.Ai;
-using RufusMapEditor.Licensing.Client;
-using RufusMapEditor.Licensing.Contracts.Admin;
 
 namespace RufusMapEditor.Admin;
 
 /// <summary>
-/// Shared ADMIN session: DPAPI connection, API client, license cache, Admin AI session provider.
-/// Views bind to this instead of duplicating connection logic.
+/// Shared ADMIN session: DPAPI connection, API client, Admin AI session provider.
 /// </summary>
 public sealed class AdminWorkspace
 {
@@ -27,12 +25,10 @@ public sealed class AdminWorkspace
     public string BaseUrl => _baseUrl;
     public string? DisplayHost => TryGetDisplayHost(_baseUrl);
     public string StatusMessage { get; private set; } = "";
-    public IReadOnlyList<AdminLicenseListItemDto> Licenses { get; private set; } =
-        Array.Empty<AdminLicenseListItemDto>();
 
     public event Action? Changed;
 
-    /// <summary>ADMIN.AI.1 — token provider for Content IA (in-memory; cleared on credential change).</summary>
+    /// <summary>Token provider for Content IA (in-memory; cleared on credential change).</summary>
     public AdminAiSessionAccessTokenProvider GetOrCreateAiSessionProvider()
     {
         _aiSessionProvider ??= new AdminAiSessionAccessTokenProvider(async ct =>
@@ -47,10 +43,22 @@ public sealed class AdminWorkspace
 
     public void LoadPersistedConnection()
     {
+        LoadPersistedConnectionCoreAsync().GetAwaiter().GetResult();
+        RaiseChanged();
+    }
+
+    public async Task LoadPersistedConnectionAsync(CancellationToken ct = default)
+    {
+        await LoadPersistedConnectionCoreAsync(ct).ConfigureAwait(false);
+        await Application.Current.Dispatcher.InvokeAsync(RaiseChanged);
+    }
+
+    private async Task LoadPersistedConnectionCoreAsync(CancellationToken ct = default)
+    {
         AdminConnectionState? saved = null;
         try
         {
-            saved = _connectionStore.LoadAsync().GetAwaiter().GetResult();
+            saved = await _connectionStore.LoadAsync(ct).ConfigureAwait(false);
         }
         catch
         {
@@ -74,7 +82,6 @@ public sealed class AdminWorkspace
         StatusMessage = HasCredentials
             ? "Listo para conectar…"
             : "Configure el backend en Ajustes.";
-        RaiseChanged();
     }
 
     public bool HasCredentials =>
@@ -136,14 +143,13 @@ public sealed class AdminWorkspace
     {
         try
         {
-            StatusMessage = "Cargando…";
+            StatusMessage = "Conectando…";
             RaiseChanged();
             InvalidateAiSession();
             var client = RequireClient();
-            var list = await client.ListAsync();
-            Licenses = list;
+            await client.ProbeConnectionAsync();
             IsConnected = true;
-            StatusMessage = $"{list.Count} licencia(s)";
+            StatusMessage = "Conectado";
             await PersistIfValidAsync();
             RaiseChanged();
             return true;
@@ -165,16 +171,6 @@ public sealed class AdminWorkspace
 
             return false;
         }
-    }
-
-    public async Task ReloadLicensesAsync()
-    {
-        var client = RequireClient();
-        var list = await client.ListAsync();
-        Licenses = list;
-        IsConnected = true;
-        StatusMessage = $"{list.Count} licencia(s)";
-        RaiseChanged();
     }
 
     public async Task PersistIfValidAsync()

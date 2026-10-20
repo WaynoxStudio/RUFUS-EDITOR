@@ -49,7 +49,15 @@ public sealed class ContentPublishPlan
     public List<MisionEtapaInsertRow> Stages { get; } = new();
     public List<MisionObjetivoInsertRow> Objectives { get; } = new();
 
+    /// <summary>Published mision_objetivos rows to DELETE after stage/mission UPDATEs.</summary>
+    public List<int> ObjectiveIdsToDelete { get; } = new();
+
     public List<string> Errors { get; } = new();
+
+    /// <summary>
+    /// PUBLISH.PREFLIGHT.LATIN1 — client/dialog_es issues that must NOT block BD publish.
+    /// </summary>
+    public List<string> ClientWarnings { get; } = new();
 
     /// <summary>CONT.6B — provisional dialog_es IDs (not definitive until a later publish re-reads SWF+BD).</summary>
     public bool DialogEsIdsAreProvisional { get; set; }
@@ -64,7 +72,8 @@ public sealed class ContentPublishPlan
     public bool HasWork =>
         Npcs.Count > 0 || Locations.Count > 0 || Questions.Count > 0
         || ResponseActions.Count > 0 || Missions.Count > 0
-        || Stages.Count > 0 || Objectives.Count > 0;
+        || Stages.Count > 0 || Objectives.Count > 0
+        || ObjectiveIdsToDelete.Count > 0;
 
     public int LogicalResponseCount => ResponseIdMap.Count;
     public int ResponseActionRowCount => ResponseActions.Count;
@@ -143,9 +152,40 @@ public sealed class ContentPublishPlan
     public IReadOnlyList<int> ReservedNpcIds => Npcs.Select(n => n.Id).ToList();
     public IReadOnlyList<int> ReservedQuestionIds => Questions.Select(q => q.Id).ToList();
     public IReadOnlyList<int> ReservedResponseIds => ResponseIdMap.Values.Distinct().OrderBy(x => x).ToList();
-    public IReadOnlyList<int> ReservedQuestIds => Missions.Select(m => m.Id).ToList();
-    public IReadOnlyList<int> ReservedStageIds => Stages.Select(s => s.Id).ToList();
-    public IReadOnlyList<int> ReservedObjectiveIds => Objectives.Select(o => o.Id).ToList();
+    public IReadOnlyList<int> ReservedQuestIds => Missions.Where(m => !m.IsUpdate).Select(m => m.Id).ToList();
+    public IReadOnlyList<int> ReservedStageIds => Stages.Where(s => !s.IsUpdate).Select(s => s.Id).ToList();
+    public IReadOnlyList<int> ReservedObjectiveIds => Objectives.Where(o => !o.IsUpdate).Select(o => o.Id).ToList();
+
+    public string FormatMissionWritePreview()
+    {
+        var sb = new System.Text.StringBuilder();
+        var updates = Missions.Where(m => m.IsUpdate).ToList();
+        var inserts = Missions.Where(m => !m.IsUpdate).ToList();
+        if (updates.Count > 0)
+        {
+            sb.AppendLine("ACTUALIZACIONES:");
+            foreach (var m in updates)
+                sb.AppendLine(string.Create(CultureInfo.InvariantCulture, $"Quest {m.Id}"));
+            foreach (var s in Stages.Where(x => x.IsUpdate))
+                sb.AppendLine(string.Create(CultureInfo.InvariantCulture, $"Etapa {s.Id}"));
+            foreach (var o in Objectives.Where(x => x.IsUpdate))
+                sb.AppendLine(string.Create(CultureInfo.InvariantCulture, $"Objetivo {o.Id}"));
+            sb.AppendLine();
+        }
+
+        if (inserts.Count > 0 || Stages.Any(s => !s.IsUpdate) || Objectives.Any(o => !o.IsUpdate))
+        {
+            sb.AppendLine("NUEVOS:");
+            foreach (var m in inserts)
+                sb.AppendLine(string.Create(CultureInfo.InvariantCulture, $"Quest {m.Id}"));
+            foreach (var s in Stages.Where(x => !x.IsUpdate))
+                sb.AppendLine(string.Create(CultureInfo.InvariantCulture, $"Etapa {s.Id}"));
+            foreach (var o in Objectives.Where(x => !x.IsUpdate))
+                sb.AppendLine(string.Create(CultureInfo.InvariantCulture, $"Objetivo {o.Id}"));
+        }
+
+        return sb.ToString().TrimEnd();
+    }
 }
 
 public sealed class NpcModeloInsertRow
@@ -205,6 +245,7 @@ public sealed class MisionInsertRow
     public string PregMisIncompleta { get; init; } = "";
     public bool PuedeRepetirse { get; init; }
     public Guid DraftId { get; init; }
+    public bool IsUpdate { get; init; }
 }
 
 public sealed class MisionEtapaInsertRow
@@ -214,8 +255,9 @@ public sealed class MisionEtapaInsertRow
     public string Descripcion { get; init; } = "";
     public string Recompensas { get; init; } = "";
     public string Objetivos { get; init; } = "";
-    public string VariosObj { get; init; } = "0";
+    public string VariosObj { get; init; } = "";
     public int ProvisionalId { get; init; }
+    public bool IsUpdate { get; init; }
 }
 
 public sealed class MisionObjetivoInsertRow
@@ -228,6 +270,7 @@ public sealed class MisionObjetivoInsertRow
     public int EsOculto { get; init; }
     public string Condicion { get; init; } = "";
     public int ProvisionalId { get; init; }
+    public bool IsUpdate { get; init; }
 }
 
 public sealed class ContentPublishOutcome

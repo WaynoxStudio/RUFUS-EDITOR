@@ -52,10 +52,13 @@ public partial class WorldViewport : UserControl
     private const double PanDragThreshold = 4;
     private const string DragPreviewTag = "DragPreview";
     private const string MapCloseBtnTag = "MapCloseBtn";
+    private const string MapEditBtnTag = "MapEditBtn";
+    private const string MapFinishEditBtnTag = "MapFinishEditBtn";
     private const double GridChromeBtnSize = 18;
     private const double GridChromeGap = 4;
     private const string GridLineChromeTag = "GridLineChrome";
     private const double MapCloseBtnSize = 22;
+    private const double MapEditBtnSize = 22;
     private const double MapCloseBtnMargin = 6;
 
     /// <summary>Only the MAPA combinado viewport. World floating windows must stay independent.</summary>
@@ -131,6 +134,7 @@ public partial class WorldViewport : UserControl
         {
             _vm.RequestRedraw -= RedrawAll;
             _vm.RequestFitAll -= FitAll;
+            _vm.RequestFitSelection -= FitSelection;
             _vm.WorldChanged -= OnWorldChanged;
             _vm.RequestOverlayRedraw -= RedrawMultiMapOverlays;
         }
@@ -140,6 +144,7 @@ public partial class WorldViewport : UserControl
         {
             _vm.RequestRedraw += RedrawAll;
             _vm.RequestFitAll += FitAll;
+            _vm.RequestFitSelection += FitSelection;
             _vm.WorldChanged += OnWorldChanged;
             _vm.RequestOverlayRedraw += RedrawMultiMapOverlays;
             RestoreCameraFromWorld();
@@ -190,6 +195,64 @@ public partial class WorldViewport : UserControl
         RedrawOverlays();
     }
 
+    /// <summary>Zoom to the selected (or first placed) map so in-world edit feels like MAPA.</summary>
+    public void FitSelection()
+    {
+        if (_vm?.World is null) return;
+        var mosaic = _vm.MosaicMode || _vm.IsMultiMapEditMode;
+        var keys = _vm.SelectedKeys.Count > 0
+            ? _vm.SelectedKeys
+            : _vm.World.Placements.Select(p => p.DocumentKey).Take(1).ToHashSet(StringComparer.Ordinal);
+
+        var any = false;
+        double minX = 0, minY = 0, maxX = 0, maxY = 0;
+        foreach (var key in keys)
+        {
+            var placement = _vm.World.Placements.FirstOrDefault(p => p.DocumentKey == key);
+            if (placement is null || !_vm.World.Documents.TryGetValue(key, out var entry))
+                continue;
+            var (rx, ry, w, h) = _vm.GetSelectionRect(placement, entry.Document, mosaic);
+            if (!any)
+            {
+                minX = rx;
+                minY = ry;
+                maxX = rx + w;
+                maxY = ry + h;
+                any = true;
+            }
+            else
+            {
+                minX = Math.Min(minX, rx);
+                minY = Math.Min(minY, ry);
+                maxX = Math.Max(maxX, rx + w);
+                maxY = Math.Max(maxY, ry + h);
+            }
+        }
+
+        if (!any)
+        {
+            FitAll();
+            return;
+        }
+
+        var pad = 40.0;
+        var cw = maxX - minX + pad * 2;
+        var ch = maxY - minY + pad * 2;
+        _contentOffsetX = minX - pad;
+        _contentOffsetY = minY - pad;
+        ContentCanvas.Width = cw;
+        ContentCanvas.Height = ch;
+        OverlayCanvas.Width = cw;
+        OverlayCanvas.Height = ch;
+        _camera.SetContentSize(cw, ch);
+        _camera.SetViewportSize(ActualWidth, ActualHeight);
+        _camera.FitToViewport(padding: 16);
+        ApplyTransform();
+        PersistCameraToWorld();
+        RedrawAll();
+        UpdateMapChromeButtons();
+    }
+
     private void ComputeContentBounds(out double minX, out double minY, out double width, out double height)
     {
         minX = 0;
@@ -226,7 +289,7 @@ public partial class WorldViewport : UserControl
 
         foreach (var (p, entry) in _vm.EnumeratePlaced())
         {
-            var (rx, ry, w, h) = WorldGeometry.GetMapRect(p.WorldX, p.WorldY, entry.Document, mosaic);
+            var (rx, ry, w, h) = _vm.GetSelectionRect(p, entry.Document, mosaic);
             IncludeRect(rx, ry, w, h);
         }
 
@@ -241,7 +304,12 @@ public partial class WorldViewport : UserControl
         }
         else if (_vm.World.HasGrid)
         {
-            foreach (var (gx, gy) in WorldGeometry.EnumerateGridCells(_vm.World))
+            // Mosaic: fit to placed maps + adjacent empties (not the full BD bounding box of holes).
+            var occupied = _vm.World.Placements.Select(p => (p.WorldX, p.WorldY)).ToHashSet();
+            var slots = mosaic
+                ? EnumerateAdjacentEmptySlots(_vm.World, occupied).Concat(occupied)
+                : WorldGeometry.EnumerateGridCells(_vm.World);
+            foreach (var (gx, gy) in slots)
             {
                 var (rx, ry, w, h) = WorldGeometry.GetSlotRect(gx, gy, mosaic);
                 IncludeRect(rx, ry, w, h);
@@ -290,19 +358,26 @@ public partial class WorldViewport : UserControl
         if (_vm.World.HasGrid && !_vm.IsMultiMapEditMode)
         {
             var occupied = _vm.World.Placements.Select(p => (p.WorldX, p.WorldY)).ToHashSet();
-            foreach (var (gx, gy) in WorldGeometry.EnumerateGridCells(_vm.World))
+            // Mosaic: only empty neighbors of placed maps (island shape), not the full BB of holes.
+            var emptySlots = mosaic
+                ? EnumerateAdjacentEmptySlots(_vm.World, occupied)
+                : WorldGeometry.EnumerateGridCells(_vm.World);
+            foreach (var (gx, gy) in emptySlots)
             {
                 if (occupied.Contains((gx, gy))) continue;
                 DrawEmptyGridSlot(gx, gy, mosaic, prominentInfo);
             }
         }
 
+        var editableKeys = _vm.IsMultiMapEditMode ? _vm.MultiMap.EditableKeys : null;
         foreach (var (p, entry) in _vm.EnumerateAllPlaced())
         {
-            var (rx, ry, w, h) = WorldGeometry.GetMapRect(p.WorldX, p.WorldY, entry.Document, mosaic);
+            var (rx, ry, w, h) = _vm.GetSelectionRect(p, entry.Document, mosaic);
             var left = rx - _contentOffsetX;
             var top = ry - _contentOffsetY;
 
+            // Non-editable maps stay visible but dimmed so "what am I editing?" is obvious.
+            var isEditable = editableKeys is null || editableKeys.Contains(entry.Key);
             var img = new Image
             {
                 Width = w,
@@ -310,7 +385,7 @@ public partial class WorldViewport : UserControl
                 Stretch = Stretch.Fill,
                 SnapsToDevicePixels = true,
                 Tag = entry.Key,
-                Opacity = 1.0,
+                Opacity = isEditable ? 1.0 : 0.42,
             };
             RenderOptions.SetBitmapScalingMode(img, BitmapScalingMode.NearestNeighbor);
             var thumb = _vm.GetThumbnail(entry.Key, renderOpts);
@@ -323,9 +398,11 @@ public partial class WorldViewport : UserControl
 
             DrawPlacedMapChrome(p, entry, left, top, w, h);
 
+            var labelX = entry.Document.WorldCoordinatesSet ? entry.Document.WorldX : p.WorldX;
+            var labelY = entry.Document.WorldCoordinatesSet ? entry.Document.WorldY : p.WorldY;
             DrawMapInfoLabel(
                 left, top, w, h,
-                $"{entry.Document.Id}\n({p.WorldX},{p.WorldY})",
+                $"{entry.Document.Id}\n({labelX},{labelY})",
                 prominentInfo);
         }
 
@@ -345,12 +422,16 @@ public partial class WorldViewport : UserControl
         double w,
         double h)
     {
-        if (_vm is null || !_vm.IsMultiMapEditMode) return;
-        if (!(_vm.ShowMapBounds || _vm.ShowSeams || _vm.SelectedKeys.Contains(entry.Key)))
+        if (_vm is null) return;
+        var selected = _vm.SelectedKeys.Contains(entry.Key);
+        // En MUNDO normal la selección la pinta RedrawOverlays; aquí solo multi-mapa / bordes.
+        if (!_vm.IsMultiMapEditMode)
+            return;
+        if (!(_vm.ShowMapBounds || _vm.ShowSeams || selected))
             return;
 
-        var selected = _vm.SelectedKeys.Contains(entry.Key);
         var seam = _vm.ShowSeams && !selected;
+        var zoom = Math.Max(_camera.Zoom, 0.1);
         var border = new Rectangle
         {
             Width = w,
@@ -360,14 +441,37 @@ public partial class WorldViewport : UserControl
                 : seam
                     ? new SolidColorBrush(Color.FromArgb(180, 255, 140, 40))
                     : new SolidColorBrush(Color.FromArgb(120, 255, 255, 255)),
-            StrokeDashArray = seam ? [4.0 / _camera.Zoom, 3.0 / _camera.Zoom] : null,
-            StrokeThickness = (selected ? 3 : seam ? 1.5 : 1) / _camera.Zoom,
+            StrokeDashArray = seam ? [4.0 / zoom, 3.0 / zoom] : null,
+            StrokeThickness = (selected ? 3.5 : seam ? 1.5 : 1) / zoom,
             Fill = Brushes.Transparent,
             IsHitTestVisible = false,
         };
         Canvas.SetLeft(border, left);
         Canvas.SetTop(border, top);
         OverlayCanvas.Children.Add(border);
+    }
+
+    private static IEnumerable<(int X, int Y)> EnumerateAdjacentEmptySlots(
+        WorldDocument world,
+        HashSet<(int X, int Y)> occupied)
+    {
+        if (occupied.Count == 0)
+            yield break;
+
+        var seen = new HashSet<(int X, int Y)>();
+        foreach (var (ox, oy) in occupied)
+        {
+            foreach (var (dx, dy) in new[] { (1, 0), (-1, 0), (0, 1), (0, -1) })
+            {
+                var x = ox + dx;
+                var y = oy + dy;
+                if (occupied.Contains((x, y)) || !seen.Add((x, y)))
+                    continue;
+                if (world.HasGrid && !WorldGeometry.IsInGrid(world, x, y))
+                    continue;
+                yield return (x, y);
+            }
+        }
     }
 
     private void DrawEmptyGridSlot(int gx, int gy, bool mosaic, bool prominentInfo)
@@ -461,6 +565,18 @@ public partial class WorldViewport : UserControl
         OverlayCanvas.Children.Add(chip);
     }
 
+    private long _lastStrokeOverlayTick;
+
+    /// <summary>Throttle overlay rebuild while dragging a stroke (~30 fps) to keep paint fluid.</summary>
+    private void RedrawMultiMapOverlaysThrottled()
+    {
+        var now = Environment.TickCount64;
+        if (now - _lastStrokeOverlayTick < 33)
+            return;
+        _lastStrokeOverlayTick = now;
+        RedrawMultiMapOverlays();
+    }
+
     private void RedrawMultiMapOverlays()
     {
         if (_vm is null || !_vm.IsMultiMapEditMode) return;
@@ -497,13 +613,16 @@ public partial class WorldViewport : UserControl
             }
 
             if (!mm.EditableKeys.Contains(entry.Key)) continue;
+            // Skip off-screen editable maps — avoids building geometry for the whole island.
+            if (!IsContentRectVisible(left, top, w, h)) continue;
             var tester = mm.GetHitTester(entry.Key);
             if (tester is null) continue;
             var ox = left;
             var oy = top;
 
-            if (host.ShowGrid)
-                DrawMapGrid(tester, ox, oy);
+            // Grid / cell-ids only when zoomed in enough — batched into few Path elements.
+            if (host.ShowGrid && _camera.Zoom >= 0.35)
+                DrawMapGridBatched(tester, ox, oy);
 
             DrawMultiMapCellModeMarkers(host, tester, entry.Document, ox, oy);
 
@@ -716,31 +835,41 @@ public partial class WorldViewport : UserControl
         OverlayCanvas.Children.Add(rect);
     }
 
-    private void DrawMapGrid(IsoHitTester tester, double offsetX, double offsetY)
+    private void DrawMapGridBatched(IsoHitTester tester, double offsetX, double offsetY)
     {
-        for (var id = 0; id < tester.Corners.Count; id++)
+        var geo = new StreamGeometry { FillRule = FillRule.Nonzero };
+        using (var ctx = geo.Open())
         {
-            if (!tester.TryGetCellCornersInHitSpace(id, out var c)) continue;
-            OverlayCanvas.Children.Add(new System.Windows.Shapes.Path
+            for (var id = 0; id < tester.Corners.Count; id++)
             {
-                Data = new PathGeometry
-                {
-                    Figures =
-                    {
-                        new PathFigure(new Point(c.A.X + offsetX, c.A.Y + offsetY), new[]
-                        {
-                            new LineSegment(new Point(c.B.X + offsetX, c.B.Y + offsetY), true),
-                            new LineSegment(new Point(c.C.X + offsetX, c.C.Y + offsetY), true),
-                            new LineSegment(new Point(c.D.X + offsetX, c.D.Y + offsetY), true),
-                        }, true),
-                    },
-                },
-                Stroke = new SolidColorBrush(Color.FromArgb(80, 200, 200, 200)),
-                StrokeThickness = 1 / Math.Max(_camera.Zoom, 0.1),
-                Fill = Brushes.Transparent,
-                IsHitTestVisible = false,
-            });
+                if (!tester.TryGetCellCornersInHitSpace(id, out var c)) continue;
+                ctx.BeginFigure(new Point(c.A.X + offsetX, c.A.Y + offsetY), isFilled: false, isClosed: true);
+                ctx.LineTo(new Point(c.B.X + offsetX, c.B.Y + offsetY), isStroked: true, isSmoothJoin: false);
+                ctx.LineTo(new Point(c.C.X + offsetX, c.C.Y + offsetY), isStroked: true, isSmoothJoin: false);
+                ctx.LineTo(new Point(c.D.X + offsetX, c.D.Y + offsetY), isStroked: true, isSmoothJoin: false);
+            }
         }
+        geo.Freeze();
+        OverlayCanvas.Children.Add(new System.Windows.Shapes.Path
+        {
+            Data = geo,
+            Stroke = new SolidColorBrush(Color.FromArgb(80, 200, 200, 200)),
+            StrokeThickness = 1 / Math.Max(_camera.Zoom, 0.1),
+            Fill = Brushes.Transparent,
+            IsHitTestVisible = false,
+        });
+    }
+
+    /// <summary>Content-space AABB vs current camera frustum (with small pad).</summary>
+    private bool IsContentRectVisible(double left, double top, double w, double h)
+    {
+        if (ActualWidth <= 0 || ActualHeight <= 0 || _camera.Zoom <= 0) return true;
+        var pad = 64;
+        var vx0 = (0 - _camera.OffsetX) / _camera.Zoom - pad;
+        var vy0 = (0 - _camera.OffsetY) / _camera.Zoom - pad;
+        var vx1 = (ActualWidth - _camera.OffsetX) / _camera.Zoom + pad;
+        var vy1 = (ActualHeight - _camera.OffsetY) / _camera.Zoom + pad;
+        return !(left + w < vx0 || left > vx1 || top + h < vy0 || top > vy1);
     }
 
     private void DrawMapCellIds(IsoHitTester tester, double offsetX, double offsetY)
@@ -803,44 +932,129 @@ public partial class WorldViewport : UserControl
         double offsetX,
         double offsetY)
     {
+        var showUnwalkable = host.ShowUnwalkableMarkers;
+        var showLos = host.ShowLosBlockMarkers;
+        var showFight = host.ShowFightMarkers;
+        if (!showUnwalkable && !showLos && !showFight) return;
+        // Far zoom: skip per-cell markers entirely (island overview stays fluid).
+        if (_camera.Zoom < 0.22) return;
+
+        // Batch every diamond/cross into a few StreamGeometry Paths (not thousands of Shape FEs).
+        // This is what keeps multi-map edit from freezing/crashing WPF.
+        var drawCrosses = _camera.Zoom >= 0.45;
+        StreamGeometry? unwalkFill = null;
+        StreamGeometryContext? unwalkFillCtx = null;
+        StreamGeometry? unwalkCross = null;
+        StreamGeometryContext? unwalkCrossCtx = null;
+        StreamGeometry? losFill = null;
+        StreamGeometryContext? losFillCtx = null;
+        StreamGeometry? fight1Fill = null;
+        StreamGeometryContext? fight1FillCtx = null;
+        StreamGeometry? fight2Fill = null;
+        StreamGeometryContext? fight2FillCtx = null;
+
+        void Ensure(ref StreamGeometry? geo, ref StreamGeometryContext? ctx)
+        {
+            if (geo is not null) return;
+            geo = new StreamGeometry { FillRule = FillRule.Nonzero };
+            ctx = geo.Open();
+        }
+
         var cells = map.Cells;
         for (var id = 0; id < tester.Corners.Count && id < cells.Count; id++)
         {
-            if (!tester.TryGetCellCornersInHitSpace(id, out var corners)) continue;
-            var shifted = ShiftCorners(corners, offsetX, offsetY);
             var cell = cells[id];
+            var needUnwalkable = showUnwalkable && cell.Movement == MovementType.Unwalkable;
+            var needLos = showLos && !cell.LineOfSight;
+            var needFight1 = showFight && cell.FightCell == 1;
+            var needFight2 = showFight && cell.FightCell == 2;
+            if (!needUnwalkable && !needLos && !needFight1 && !needFight2) continue;
+            if (!tester.TryGetCellCornersInHitSpace(id, out var corners)) continue;
 
-            if (cell.Movement == MovementType.Unwalkable && host.ShowUnwalkableMarkers)
+            var ax = corners.A.X + offsetX;
+            var ay = corners.A.Y + offsetY;
+            var bx = corners.B.X + offsetX;
+            var by = corners.B.Y + offsetY;
+            var cx = corners.C.X + offsetX;
+            var cy = corners.C.Y + offsetY;
+            var dx = corners.D.X + offsetX;
+            var dy = corners.D.Y + offsetY;
+
+            void AddDiamond(ref StreamGeometry? geo, ref StreamGeometryContext? ctx)
             {
-                OverlayCanvas.Children.Add(CreateDiamondPolygon(shifted,
-                    (SolidColorBrush)OverlayBrush("OverlayUnwalkableFill"),
-                    (SolidColorBrush)OverlayBrush("OverlayUnwalkableStroke"), 1.5 / _camera.Zoom));
-                DrawMultiMapUnwalkableCross(shifted);
+                Ensure(ref geo, ref ctx);
+                ctx!.BeginFigure(new Point(ax, ay), isFilled: true, isClosed: true);
+                ctx.LineTo(new Point(bx, by), isStroked: true, isSmoothJoin: false);
+                ctx.LineTo(new Point(cx, cy), isStroked: true, isSmoothJoin: false);
+                ctx.LineTo(new Point(dx, dy), isStroked: true, isSmoothJoin: false);
             }
 
-            if (!cell.LineOfSight && host.ShowLosBlockMarkers)
+            if (needUnwalkable)
             {
-                OverlayCanvas.Children.Add(CreateDiamondPolygon(shifted,
-                    (SolidColorBrush)OverlayBrush("OverlayLosBlockFill"),
-                    (SolidColorBrush)OverlayBrush("OverlayLosBlockStroke"), 1.2 / _camera.Zoom));
-                DrawMultiMapLosInnerDiamond(shifted);
+                AddDiamond(ref unwalkFill, ref unwalkFillCtx);
+                if (drawCrosses)
+                {
+                    Ensure(ref unwalkCross, ref unwalkCrossCtx);
+                    var midX = (ax + bx + cx + dx) * 0.25;
+                    var midY = (ay + by + cy + dy) * 0.25;
+                    var half = Math.Max(4, (bx - ax) / 6.0);
+                    unwalkCrossCtx!.BeginFigure(new Point(midX - half, midY - half / 2), false, false);
+                    unwalkCrossCtx.LineTo(new Point(midX + half, midY + half / 2), true, false);
+                    unwalkCrossCtx.BeginFigure(new Point(midX + half, midY - half / 2), false, false);
+                    unwalkCrossCtx.LineTo(new Point(midX - half, midY + half / 2), true, false);
+                }
             }
 
-            if (host.ShowFightMarkers && cell.FightCell == 1)
-            {
-                OverlayCanvas.Children.Add(CreateDiamondPolygon(shifted,
-                    (SolidColorBrush)OverlayBrush("OverlayFight1Fill"),
-                    (SolidColorBrush)OverlayBrush("OverlayFight1Stroke"), 1.5 / _camera.Zoom));
-                DrawMultiMapCellModeLabel(shifted, "1", OverlayBrush("OverlayFightLabel"));
-            }
-            else if (host.ShowFightMarkers && cell.FightCell == 2)
-            {
-                OverlayCanvas.Children.Add(CreateDiamondPolygon(shifted,
-                    (SolidColorBrush)OverlayBrush("OverlayFight2Fill"),
-                    (SolidColorBrush)OverlayBrush("OverlayFight2Stroke"), 1.5 / _camera.Zoom));
-                DrawMultiMapCellModeLabel(shifted, "2", OverlayBrush("OverlayFightLabel"));
-            }
+            if (needLos)
+                AddDiamond(ref losFill, ref losFillCtx);
+            if (needFight1)
+                AddDiamond(ref fight1Fill, ref fight1FillCtx);
+            if (needFight2)
+                AddDiamond(ref fight2Fill, ref fight2FillCtx);
         }
+
+        void CloseAndAdd(
+            StreamGeometry? geo,
+            StreamGeometryContext? ctx,
+            Brush fill,
+            Brush stroke,
+            double thickness)
+        {
+            if (geo is null || ctx is null) return;
+            ctx.Close();
+            geo.Freeze();
+            OverlayCanvas.Children.Add(new System.Windows.Shapes.Path
+            {
+                Data = geo,
+                Fill = fill,
+                Stroke = stroke,
+                StrokeThickness = thickness,
+                IsHitTestVisible = false,
+            });
+        }
+
+        var zt = 1.0 / Math.Max(_camera.Zoom, 0.1);
+        CloseAndAdd(unwalkFill, unwalkFillCtx,
+            OverlayBrush("OverlayUnwalkableFill"), OverlayBrush("OverlayUnwalkableStroke"), 1.5 * zt);
+        if (unwalkCross is not null && unwalkCrossCtx is not null)
+        {
+            unwalkCrossCtx.Close();
+            unwalkCross.Freeze();
+            OverlayCanvas.Children.Add(new System.Windows.Shapes.Path
+            {
+                Data = unwalkCross,
+                Stroke = OverlayBrush("OverlayUnwalkableStroke"),
+                StrokeThickness = 1.5 * zt,
+                IsHitTestVisible = false,
+            });
+        }
+
+        CloseAndAdd(losFill, losFillCtx,
+            OverlayBrush("OverlayLosBlockFill"), OverlayBrush("OverlayLosBlockStroke"), 1.2 * zt);
+        CloseAndAdd(fight1Fill, fight1FillCtx,
+            OverlayBrush("OverlayFight1Fill"), OverlayBrush("OverlayFight1Stroke"), 1.5 * zt);
+        CloseAndAdd(fight2Fill, fight2FillCtx,
+            OverlayBrush("OverlayFight2Fill"), OverlayBrush("OverlayFight2Stroke"), 1.5 * zt);
     }
 
     private void DrawMultiMapCellModeHover(EditorTool tool, IsoGeometry.CellCorners shifted)
@@ -952,21 +1166,39 @@ public partial class WorldViewport : UserControl
         if (_vm?.World is null) return;
 
         var mosaic = _vm.MosaicMode;
+        var zoom = Math.Max(_camera.Zoom, 0.1);
         foreach (var (p, entry) in _vm.EnumeratePlaced())
         {
             if (!_vm.SelectedKeys.Contains(entry.Key)) continue;
-            var (rx, ry, w, h) = WorldGeometry.GetMapRect(p.WorldX, p.WorldY, entry.Document, mosaic);
+            var (rx, ry, w, h) = _vm.GetSelectionRect(p, entry.Document, mosaic);
+            var left = rx - _contentOffsetX;
+            var top = ry - _contentOffsetY;
+
+            // Contorno exterior oscuro + trazo amarillo: se ve bien sobre arena y mapas negros.
+            var outline = new Rectangle
+            {
+                Width = w,
+                Height = h,
+                Stroke = new SolidColorBrush(Color.FromArgb(220, 20, 20, 20)),
+                StrokeThickness = 5.0 / zoom,
+                Fill = Brushes.Transparent,
+                IsHitTestVisible = false,
+            };
+            Canvas.SetLeft(outline, left);
+            Canvas.SetTop(outline, top);
+            OverlayCanvas.Children.Add(outline);
+
             var rect = new Rectangle
             {
                 Width = w,
                 Height = h,
                 Stroke = SelectionStroke,
-                StrokeThickness = 2 / _camera.Zoom,
+                StrokeThickness = 3.0 / zoom,
                 Fill = SelectionFill,
                 IsHitTestVisible = false,
             };
-            Canvas.SetLeft(rect, rx - _contentOffsetX);
-            Canvas.SetTop(rect, ry - _contentOffsetY);
+            Canvas.SetLeft(rect, left);
+            Canvas.SetTop(rect, top);
             OverlayCanvas.Children.Add(rect);
         }
     }
@@ -1119,7 +1351,7 @@ public partial class WorldViewport : UserControl
                     onPlus: () => _vm.InsertGridColumnAt(colX),
                     onMinus: () => _vm.DeleteGridColumnAt(colX),
                     canMinus: world.GridWidth > 1,
-                    above: true);
+                    side: GridChromeSide.Above);
             }
 
             for (var y = y0; y <= y1; y++)
@@ -1137,11 +1369,43 @@ public partial class WorldViewport : UserControl
                     onPlus: () => _vm.InsertGridRowAt(rowY),
                     onMinus: () => _vm.DeleteGridRowAt(rowY),
                     canMinus: world.GridHeight > 1,
-                    above: false);
+                    side: GridChromeSide.Left);
             }
+
+            // Outer expand/shrink on the right and bottom edges of the whole grid.
+            var (_, _, rightEdge, _) = SlotViewportRect(x1, y0, mosaic);
+            var (_, _, _, bottomEdge) = SlotViewportRect(x0, y1, mosaic);
+            var (_, midTop, _, midBottom) = SlotViewportRect(x0, (y0 + y1) / 2, mosaic);
+            var (midLeft, _, midRight, _) = SlotViewportRect((x0 + x1) / 2, y0, mosaic);
+
+            PlaceAxisChrome(
+                midX: rightEdge + GridChromeGap,
+                midY: (midTop + midBottom) * 0.5,
+                horizontal: false,
+                plusTip: "Añadir columna vacía a la derecha",
+                minusTip: world.GridWidth > 1
+                    ? "Quitar la columna derecha"
+                    : "Tamaño mínimo (1 columna)",
+                onPlus: () => _vm.ExpandGrid(WorldGridEdge.East),
+                onMinus: () => _vm.ShrinkGrid(WorldGridEdge.East),
+                canMinus: world.GridWidth > 1,
+                side: GridChromeSide.Right);
+
+            PlaceAxisChrome(
+                midX: (midLeft + midRight) * 0.5,
+                midY: bottomEdge + GridChromeGap,
+                horizontal: true,
+                plusTip: "Añadir fila vacía abajo",
+                minusTip: world.GridHeight > 1
+                    ? "Quitar la fila inferior"
+                    : "Tamaño mínimo (1 fila)",
+                onPlus: () => _vm.ExpandGrid(WorldGridEdge.South),
+                onMinus: () => _vm.ShrinkGrid(WorldGridEdge.South),
+                canMinus: world.GridHeight > 1,
+                side: GridChromeSide.Below);
         }
 
-        UpdateMapCloseButton();
+        UpdateMapChromeButtons();
     }
 
     private const string CombinedAddSlotTag = "CombinedAddSlot";
@@ -1278,32 +1542,100 @@ public partial class WorldViewport : UserControl
     {
         if (_hoveredMapKey == key) return;
         _hoveredMapKey = key;
-        UpdateMapCloseButton();
+        UpdateMapChromeButtons();
     }
 
-    private void UpdateMapCloseButton()
+    private void UpdateMapChromeButtons()
     {
-        GridChromeCanvas.Children.RemoveWhere(IsMapCloseButton);
+        GridChromeCanvas.Children.RemoveWhere(IsMapChromeButton);
 
-        if (_hoveredMapKey is null ||
-            _vm?.World is null ||
-            _vm.IsMultiMapEditMode ||
-            _draggingMap ||
-            _panning)
+        if (_vm?.World is null || _draggingMap || _panning)
             return;
 
-        var placement = _vm.World.Placements.FirstOrDefault(p => p.DocumentKey == _hoveredMapKey);
-        if (placement is null || !_vm.World.Documents.TryGetValue(_hoveredMapKey, out var entry))
+        if (_vm.IsMultiMapEditMode)
+        {
+            var finish = CreateFinishEditButton();
+            Canvas.SetLeft(finish, 10);
+            Canvas.SetTop(finish, 10);
+            GridChromeCanvas.Children.Add(finish);
+            return;
+        }
+
+        // Prefer hover; if not, show on the single selected map.
+        var chromeKey = _hoveredMapKey
+                        ?? (_vm.HasSingleSelection ? _vm.SelectedKeys.FirstOrDefault() : null);
+        if (chromeKey is null)
+            return;
+
+        var placement = _vm.World.Placements.FirstOrDefault(p => p.DocumentKey == chromeKey);
+        if (placement is null || !_vm.World.Documents.TryGetValue(chromeKey, out var entry))
             return;
 
         var mosaic = _vm.MosaicMode;
-        var (rx, ry, w, _) = WorldGeometry.GetMapRect(placement.WorldX, placement.WorldY, entry.Document, mosaic);
+        var (rx, ry, w, _) = _vm.GetSelectionRect(placement, entry.Document, mosaic);
         var (right, top) = ContentToViewport(rx + w - _contentOffsetX, ry - _contentOffsetY);
 
-        var btn = CreateMapCloseButton(_hoveredMapKey);
-        Canvas.SetLeft(btn, right - MapCloseBtnSize - MapCloseBtnMargin);
-        Canvas.SetTop(btn, top + MapCloseBtnMargin);
-        GridChromeCanvas.Children.Add(btn);
+        var close = CreateMapCloseButton(chromeKey);
+        Canvas.SetLeft(close, right - MapCloseBtnSize - MapCloseBtnMargin);
+        Canvas.SetTop(close, top + MapCloseBtnMargin);
+        GridChromeCanvas.Children.Add(close);
+
+        var edit = CreateMapEditButton(chromeKey);
+        Canvas.SetLeft(edit, right - MapCloseBtnSize - MapEditBtnSize - MapCloseBtnMargin * 2);
+        Canvas.SetTop(edit, top + MapCloseBtnMargin);
+        GridChromeCanvas.Children.Add(edit);
+    }
+
+    private Button CreateMapEditButton(string documentKey)
+    {
+        var btn = new Button
+        {
+            Content = "✎",
+            Width = MapEditBtnSize,
+            Height = MapEditBtnSize,
+            Padding = new Thickness(0),
+            FontSize = 12,
+            FontWeight = FontWeights.Bold,
+            ToolTip = "Editar este mapa aquí (herramientas de MAPA en MUNDO)",
+            Cursor = Cursors.Hand,
+            Focusable = false,
+            Tag = MapEditBtnTag,
+            Background = ThemeService.GetBrush("Accent"),
+            Foreground = Brushes.White,
+            BorderBrush = ThemeService.GetBrush("Border"),
+            BorderThickness = new Thickness(1),
+        };
+        btn.Click += (_, e) =>
+        {
+            _vm?.EnterMultiMapEditForDocument(documentKey);
+            e.Handled = true;
+        };
+        return btn;
+    }
+
+    private Button CreateFinishEditButton()
+    {
+        var btn = new Button
+        {
+            Content = "Dejar de editar",
+            Padding = new Thickness(12, 6, 12, 6),
+            FontSize = 12,
+            FontWeight = FontWeights.SemiBold,
+            ToolTip = "Guarda los cambios en Library (sin publicar a BD) y vuelve a herramientas de mundo",
+            Cursor = Cursors.Hand,
+            Focusable = false,
+            Tag = MapFinishEditBtnTag,
+            Background = ThemeService.GetBrush("Accent"),
+            Foreground = Brushes.White,
+            BorderBrush = ThemeService.GetBrush("Border"),
+            BorderThickness = new Thickness(1),
+        };
+        btn.Click += (_, e) =>
+        {
+            _vm?.FinishMultiMapEdit();
+            e.Handled = true;
+        };
+        return btn;
     }
 
     private Button CreateMapCloseButton(string documentKey)
@@ -1346,19 +1678,22 @@ public partial class WorldViewport : UserControl
         return false;
     }
 
-    private static bool IsMapCloseButton(UIElement element) =>
-        element is FrameworkElement { Tag: MapCloseBtnTag };
+    private static bool IsMapChromeButton(UIElement element) =>
+        element is FrameworkElement { Tag: MapCloseBtnTag or MapEditBtnTag or MapFinishEditBtnTag };
 
-    private static bool IsOverMapCloseButton(DependencyObject? source)
+    private static bool IsOverMapChromeButton(DependencyObject? source)
     {
         while (source is not null)
         {
-            if (source is FrameworkElement { Tag: MapCloseBtnTag })
+            if (source is FrameworkElement { Tag: MapCloseBtnTag or MapEditBtnTag or MapFinishEditBtnTag })
                 return true;
             source = VisualTreeHelper.GetParent(source);
         }
         return false;
     }
+
+    private static bool IsOverMapCloseButton(DependencyObject? source) =>
+        IsOverMapChromeButton(source);
 
     private (double Left, double Top, double Right, double Bottom) SlotViewportRect(int gx, int gy, bool mosaic)
     {
@@ -1371,6 +1706,8 @@ public partial class WorldViewport : UserControl
     private (double X, double Y) ContentToViewport(double contentX, double contentY) =>
         _camera.ContentToViewport(contentX, contentY);
 
+    private enum GridChromeSide { Above, Below, Left, Right }
+
     private void PlaceAxisChrome(
         double midX,
         double midY,
@@ -1380,7 +1717,7 @@ public partial class WorldViewport : UserControl
         Action onPlus,
         Action onMinus,
         bool canMinus,
-        bool above)
+        GridChromeSide side)
     {
         var stack = new StackPanel
         {
@@ -1393,23 +1730,14 @@ public partial class WorldViewport : UserControl
         stack.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
         var sz = stack.DesiredSize;
 
-        double left;
-        double top;
-        if (horizontal && above)
+        var (left, top) = side switch
         {
-            left = midX - sz.Width * 0.5;
-            top = midY - sz.Height;
-        }
-        else if (!horizontal && !above)
-        {
-            left = midX - sz.Width;
-            top = midY - sz.Height * 0.5;
-        }
-        else
-        {
-            left = midX;
-            top = midY;
-        }
+            GridChromeSide.Above => (midX - sz.Width * 0.5, midY - sz.Height),
+            GridChromeSide.Below => (midX - sz.Width * 0.5, midY),
+            GridChromeSide.Left => (midX - sz.Width, midY - sz.Height * 0.5),
+            GridChromeSide.Right => (midX, midY - sz.Height * 0.5),
+            _ => (midX, midY),
+        };
 
         Canvas.SetLeft(stack, left);
         Canvas.SetTop(stack, top);
@@ -1542,31 +1870,20 @@ public partial class WorldViewport : UserControl
                 }
             }
 
-            // Ctrl+arrastrar = mover / intercambiar el mapa. Sin Ctrl = seleccionar y pan de vista.
+            // Arrastrar un mapa = mover / intercambiar. Pan = hueco vacío, Space, rueda o herramienta Mano.
             if (ctrl)
-            {
-                if (!_vm.SelectedKeys.Contains(key))
-                    _vm.SelectKey(key);
-                SetHoveredMapKey(null);
-                _dragKey = key;
-                _draggingMap = true;
-                _mapDragMoved = false;
-                _mapPressPos = pos;
-                _dragTargetCell = null;
-                CaptureMouse();
-                e.Handled = true;
-                return;
-            }
-
-            if (!_vm.SelectedKeys.Contains(key))
+                _vm.SelectKey(key, additive: true);
+            else if (!_vm.SelectedKeys.Contains(key))
                 _vm.SelectKey(key, additive: false);
             else
                 _vm.EnsureKeySelected(key);
 
             SetHoveredMapKey(null);
-            _viewPanPending = true;
+            _dragKey = key;
+            _draggingMap = true;
+            _mapDragMoved = false;
             _mapPressPos = pos;
-            _leftPressPos = pos;
+            _dragTargetCell = null;
             CaptureMouse();
             e.Handled = true;
             return;
@@ -1635,7 +1952,7 @@ public partial class WorldViewport : UserControl
         if (_editErasing && e.ChangedButton == MouseButton.Right)
         {
             CancelPointerStroke(finish: true);
-            RedrawMultiMapOverlays();
+            RedrawAll();
             e.Handled = true;
             return;
         }
@@ -1768,7 +2085,8 @@ public partial class WorldViewport : UserControl
         if (_editStroking && e.ChangedButton == MouseButton.Left)
         {
             CancelPointerStroke(finish: true);
-            RedrawMultiMapOverlays();
+            // One full refresh after the stroke (GFX thumbs + overlays).
+            RedrawAll();
             e.Handled = true;
             return;
         }
@@ -1815,6 +2133,8 @@ public partial class WorldViewport : UserControl
             ReleaseMouseCapture();
             if (_vm?.IsScratchCombined == true && _vm.EditorHost?.IsMapCombinedMode == true)
                 _ = _vm.EditorHost.PromptAddMapToCombinedAtAsync(_pendingAddMapX, _pendingAddMapY);
+            else if (_vm?.EditorHost is { } host)
+                _ = host.PromptLoadMapIdFromDatabaseAtAsync(_pendingAddMapX, _pendingAddMapY);
             else
                 _vm?.AddMapFromLibrary(_pendingAddMapX, _pendingAddMapY);
             e.Handled = true;
@@ -2004,7 +2324,8 @@ public partial class WorldViewport : UserControl
                 }
 
                 _vm.DispatchMultiMapContinueStroke(wx, wy);
-                RedrawAll();
+                // Overlays only during drag — full thumbnail redraw is deferred to stroke end.
+                RedrawMultiMapOverlaysThrottled();
                 return;
             }
 
@@ -2030,7 +2351,8 @@ public partial class WorldViewport : UserControl
                 }
 
                 _vm.DispatchMultiMapContinueStroke(wx, wy);
-                RedrawAll();
+                // Overlays only during drag — full thumbnail redraw is deferred to stroke end.
+                RedrawMultiMapOverlaysThrottled();
                 return;
             }
 
@@ -2071,7 +2393,7 @@ public partial class WorldViewport : UserControl
                 var hoverPlacement = _vm.World.Placements.FirstOrDefault(p => p.DocumentKey == hoverKey);
                 _vm.HoverText = hoverPlacement is null
                     ? $"Map {hoverEntry.Document.Id}"
-                    : $"World ({hoverPlacement.WorldX},{hoverPlacement.WorldY}) | Map {hoverEntry.Document.Id} · Arrastrar = vista · Ctrl = mover";
+                    : $"World ({hoverPlacement.WorldX},{hoverPlacement.WorldY}) | Map {hoverEntry.Document.Id} · Arrastrar = mover · hueco/Space = vista";
             }
             return;
         }
@@ -2083,7 +2405,7 @@ public partial class WorldViewport : UserControl
             var placement = _vm.World.Placements.FirstOrDefault(p => p.DocumentKey == key);
             _vm.HoverText = placement is null
                 ? $"Map {entry.Document.Id}"
-                : $"World ({placement.WorldX},{placement.WorldY}) | Map {entry.Document.Id} · Arrastrar = vista · Ctrl = mover";
+                : $"World ({placement.WorldX},{placement.WorldY}) | Map {entry.Document.Id} · Arrastrar = mover · hueco/Space = vista";
         }
         else
         {
@@ -2225,7 +2547,8 @@ public partial class WorldViewport : UserControl
             return;
         }
 
-        var hit = _vm.MultiMap.HitTest(wx, wy, mosaicMode: true);
+        // Expand editable lazily when the stroke starts on a neighbor map.
+        var hit = _vm.MultiMap.HitTestAnyAndEnsureEditable(wx, wy, mosaicMode: true);
         if (hit is not WorldCellHit worldHit)
         {
             // Black margins / outside maps: drag pans the mosaic (never paint).
@@ -2428,7 +2751,7 @@ public partial class WorldViewport : UserControl
         if (tool is not EditorTool.Paint and not EditorTool.Erase && !tool.IsCellModeTool())
             return false;
 
-        var hit = _vm!.MultiMap.HitTest(wx, wy, mosaicMode: true);
+        var hit = _vm!.MultiMap.HitTestAnyAndEnsureEditable(wx, wy, mosaicMode: true);
         if (hit is not WorldCellHit worldHit)
             return true; // swallow the menu on empty margins
 
@@ -2497,7 +2820,30 @@ public partial class WorldViewport : UserControl
         }
         else
         {
-            AddMenu(menu, "Pegar", () => _vm.PasteAtWorldCell(HitWorldCell(wx, wy)));
+            var empty = HitWorldCell(wx, wy);
+            if (empty is { } cell
+                && _vm.IsCellEmpty(cell.X, cell.Y)
+                && _vm.CanPlaceAt(cell.X, cell.Y)
+                && !_vm.IsScratchCombined)
+            {
+                AddMenu(menu, "Cargar Map ID desde BD…",
+                    async () =>
+                    {
+                        if (_vm.EditorHost is { } host)
+                            await host.PromptLoadMapIdFromDatabaseAtAsync(cell.X, cell.Y);
+                    });
+                AddMenu(menu, "Crear mapa nuevo…",
+                    async () =>
+                    {
+                        if (_vm.EditorHost is { } host)
+                            await host.CreateNewMapAtWorldCellAsync(cell.X, cell.Y);
+                    });
+                AddMenu(menu, "Añadir mapa desde Library…",
+                    () => _vm.AddMapFromLibrary(cell.X, cell.Y));
+                menu.Items.Add(new Separator());
+            }
+
+            AddMenu(menu, "Pegar", () => _vm.PasteAtWorldCell(empty));
         }
 
         menu.IsOpen = true;

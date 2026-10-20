@@ -55,4 +55,22 @@ public sealed class DialogEsIdResolver
 
     private bool IsAnswerTaken(int id) =>
         _swf.ContainsAnswer(id) || _reservedA.Contains(id);
+
+    /// <summary>Claim a known BD-confirmed ID for post-BD dialog_es publish.</summary>
+    public bool TryClaimQuestion(int id)
+    {
+        if (id <= 0 || IsQuestionTaken(id))
+            return false;
+        _reservedQ.Add(id);
+        return true;
+    }
+
+    /// <summary>Claim a known BD-confirmed answer ID for post-BD dialog_es publish.</summary>
+    public bool TryClaimAnswer(int id)
+    {
+        if (id <= 0 || IsAnswerTaken(id))
+            return false;
+        _reservedA.Add(id);
+        return true;
+    }
 }

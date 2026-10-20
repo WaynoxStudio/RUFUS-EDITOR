@@ -42,5 +42,6 @@ public interface IOpenAiResponsesClient
         string inputText,
         string schemaName,
         JsonElement schema,
+        TimeSpan timeout,
         CancellationToken cancellationToken);
 }

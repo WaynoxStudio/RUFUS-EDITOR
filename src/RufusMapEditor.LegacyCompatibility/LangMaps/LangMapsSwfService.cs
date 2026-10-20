@@ -52,7 +52,7 @@ public static class LangMapsSwfService
 
     /// <summary>
     /// MAP-BATCH.1 — apply all MA.m entries then bump VERSION once (N → N+1).
-    /// Reuses <see cref="LangMapsMutator.Apply"/> without changing mutator internals.
+    /// Same MapId may appear multiple times when (sa,ep) differ and (x,y) match (dual-layer).
     /// </summary>
     public static LangMapsGenerateResult GenerateBatch(LangMapsBatchGenerateRequest request)
     {
@@ -62,13 +62,28 @@ public static class LangMapsSwfService
         if (request.Entries is null || request.Entries.Count == 0)
             return Fail("Lote vacío: no hay mapas para maps_es.");
 
-        var seen = new HashSet<int>();
+        var groups = new Dictionary<int, List<LangMapsBatchEntry>>();
         foreach (var e in request.Entries)
         {
             if (e.MapId <= 0)
                 return Fail($"MapId inválido en lote: {e.MapId}.");
-            if (!seen.Add(e.MapId))
-                return Fail($"MapId duplicado en lote maps_es: {e.MapId}.");
+            if (!groups.TryGetValue(e.MapId, out var list))
+            {
+                list = [];
+                groups[e.MapId] = list;
+            }
+
+            if (list.Count > 0 && (list[0].X != e.X || list[0].Y != e.Y))
+            {
+                return Fail(
+                    $"MapId {e.MapId}: coords divergentes en lote " +
+                    $"({list[0].X},{list[0].Y}) vs ({e.X},{e.Y}).");
+            }
+
+            if (list.Any(x => x.SubArea == e.SubArea && x.Ep == e.Ep))
+                return Fail($"MapId {e.MapId}: variante sa={e.SubArea} ep={e.Ep} duplicada en lote.");
+
+            list.Add(e);
         }
 
         string? outputPath = null;
@@ -81,7 +96,7 @@ public static class LangMapsSwfService
             var sourceVersion = firstParse.VersionValue;
             var targetVersion = sourceVersion + 1;
             RufusLog.Info(
-                $"VERSION detectada: {sourceVersion} → generación {targetVersion} · lote {request.Entries.Count} mapas");
+                $"VERSION detectada: {sourceVersion} → generación {targetVersion} · lote {request.Entries.Count} filas / {groups.Count} MapId");
 
             Directory.CreateDirectory(request.OutputDirectory);
             outputPath = Path.Combine(request.OutputDirectory, $"maps_es_{targetVersion}.swf");
@@ -96,22 +111,66 @@ public static class LangMapsSwfService
             var anyInsert = false;
             var anyUpdate = false;
 
-            foreach (var entry in request.Entries)
+            var removeIds = (request.RemoveMapIds ?? Array.Empty<int>())
+                .Where(id => id > 0)
+                .Distinct()
+                .ToList();
+            if (removeIds.Count > 0)
             {
-                RufusLog.Info($"Lote maps_es · MapId={entry.MapId} → VERSION fija {targetVersion}");
+                var parsedForRemove = LangMapsParser.Parse(working);
+                var present = removeIds
+                    .Where(id => parsedForRemove.Entries.Any(e => e.MapId == id))
+                    .ToList();
+                if (present.Count > 0)
+                {
+                    RufusLog.Info(
+                        $"Lote maps_es · quitar MapId [{string.Join(",", present)}] → VERSION fija {targetVersion}");
+                    var removedAction = LangMapsMutator.RemoveMapIds(
+                        parsedForRemove, present, targetVersion, out _);
+                    working = parsedForRemove.Container
+                        .WithReplacedTag(parsedForRemove.DoActionTagIndex, removedAction)
+                        .Write(compress: true);
+                    anyUpdate = true;
+                }
+            }
+
+            foreach (var (mapId, variants) in groups.OrderBy(g => g.Key))
+            {
+                RufusLog.Info(
+                    $"Lote maps_es · MapId={mapId} · {variants.Count} variante(s) → VERSION fija {targetVersion}");
                 var parsed = LangMapsParser.Parse(working);
-                var newAction = LangMapsMutator.Apply(
-                    parsed,
-                    entry.MapId,
-                    entry.X,
-                    entry.Y,
-                    entry.SubArea,
-                    entry.Ep,
-                    targetVersion,
-                    out var inserted,
-                    out var updated);
+                byte[] newAction;
+                bool inserted;
+                bool updated;
+                if (variants.Count == 1)
+                {
+                    var entry = variants[0];
+                    newAction = LangMapsMutator.Apply(
+                        parsed,
+                        entry.MapId,
+                        entry.X,
+                        entry.Y,
+                        entry.SubArea,
+                        entry.Ep,
+                        targetVersion,
+                        out inserted,
+                        out updated);
+                }
+                else
+                {
+                    newAction = LangMapsMutator.ReplaceVariants(
+                        parsed,
+                        mapId,
+                        variants[0].X,
+                        variants[0].Y,
+                        variants.Select(v => (v.SubArea, v.Ep)).ToList(),
+                        targetVersion,
+                        out inserted,
+                        out updated);
+                }
+
                 working = parsed.Container.WithReplacedTag(parsed.DoActionTagIndex, newAction).Write(compress: true);
-                entryResults.Add((entry.MapId, inserted, updated));
+                entryResults.Add((mapId, inserted, updated));
                 anyInsert |= inserted;
                 anyUpdate |= updated;
             }
@@ -126,6 +185,17 @@ public static class LangMapsSwfService
                 return Fail("El SWF original fue modificado; operación abortada.");
             }
 
+            foreach (var id in removeIds)
+            {
+                var stillThere = LangMapsParser.Parse(File.ReadAllBytes(outputPath))
+                    .Entries.Any(e => e.MapId == id);
+                if (stillThere)
+                {
+                    TryDelete(outputPath);
+                    return Fail($"Validación: MA.m[{id}] sigue presente tras eliminar.");
+                }
+            }
+
             foreach (var entry in request.Entries)
             {
                 var validationError = ValidateGenerated(
@@ -138,7 +208,7 @@ public static class LangMapsSwfService
                 }
             }
 
-            RufusLog.Ok($"Validación OK · maps_es_{targetVersion}.swf · {request.Entries.Count} mapas");
+            RufusLog.Ok($"Validación OK · maps_es_{targetVersion}.swf · {groups.Count} MapId");
             return new LangMapsGenerateResult
             {
                 Success = true,
@@ -159,6 +229,91 @@ public static class LangMapsSwfService
         }
     }
 
+    /// <summary>
+    /// Removes MA.m entries by MapId and writes maps_es_{target}.swf with bumped VERSION.
+    /// Target defaults to filename maps_es_N → N+1 when present; otherwise VersionValue+1.
+    /// </summary>
+    public static LangMapsGenerateResult RemoveMapIds(
+        string sourceSwfPath,
+        string outputDirectory,
+        IReadOnlyList<int> mapIds,
+        int? targetVersionOverride = null)
+    {
+        if (string.IsNullOrWhiteSpace(sourceSwfPath) || !File.Exists(sourceSwfPath))
+            return Fail("Archivo maps_es de origen no encontrado.");
+        if (mapIds is null || mapIds.Count == 0)
+            return Fail("Lista de MapId vacía.");
+
+        string? outputPath = null;
+        try
+        {
+            var originalBytes = File.ReadAllBytes(sourceSwfPath);
+            var originalSha = System.Security.Cryptography.SHA256.HashData(originalBytes);
+            var parsed = LangMapsParser.Parse(originalBytes);
+            var sourceVersion = parsed.VersionValue;
+            var fileVersion = TryParseMapsEsFileVersion(sourceSwfPath);
+            var targetVersion = targetVersionOverride
+                ?? (fileVersion is int fv ? fv + 1 : sourceVersion + 1);
+            RufusLog.Info(
+                $"SWF origen: {Path.GetFileName(sourceSwfPath)} · VERSION {sourceVersion}" +
+                (fileVersion is int fvv ? $" (archivo {fvv})" : "") +
+                $" → {targetVersion} · quitar {mapIds.Count} MapId");
+
+            Directory.CreateDirectory(outputDirectory);
+            outputPath = Path.Combine(outputDirectory, $"maps_es_{targetVersion}.swf");
+            if (string.Equals(
+                    Path.GetFullPath(outputPath),
+                    Path.GetFullPath(sourceSwfPath),
+                    StringComparison.OrdinalIgnoreCase))
+                return Fail("El destino no puede sobrescribir el SWF de origen.");
+
+            var newAction = LangMapsMutator.RemoveMapIds(parsed, mapIds, targetVersion, out var removed);
+            var working = parsed.Container.WithReplacedTag(parsed.DoActionTagIndex, newAction).Write(compress: true);
+            File.WriteAllBytes(outputPath, working);
+
+            var originalNow = File.ReadAllBytes(sourceSwfPath);
+            if (!System.Security.Cryptography.SHA256.HashData(originalNow).SequenceEqual(originalSha))
+            {
+                TryDelete(outputPath);
+                return Fail("El SWF original fue modificado; operación abortada.");
+            }
+
+            var check = LangMapsParser.Parse(File.ReadAllBytes(outputPath));
+            if (check.VersionValue != targetVersion)
+            {
+                TryDelete(outputPath);
+                return Fail($"Validación: VERSION={check.VersionValue}, esperado {targetVersion}.");
+            }
+
+            foreach (var id in mapIds.Where(x => x > 0).Distinct())
+            {
+                if (check.Entries.Any(e => e.MapId == id))
+                {
+                    TryDelete(outputPath);
+                    return Fail($"Validación: MA.m[{id}] sigue presente tras eliminar.");
+                }
+            }
+
+            RufusLog.Ok(
+                $"Validación OK · maps_es_{targetVersion}.swf · eliminados {removed} · entradas {check.Entries.Count}");
+            return new LangMapsGenerateResult
+            {
+                Success = true,
+                OutputPath = outputPath,
+                SourceVersion = sourceVersion,
+                TargetVersion = targetVersion,
+                Updated = removed > 0,
+            };
+        }
+        catch (Exception ex)
+        {
+            if (outputPath is not null)
+                TryDelete(outputPath);
+            RufusLog.Error("Eliminación LANG MapId: " + ex.Message);
+            return Fail(ex.Message);
+        }
+    }
+
     public static string? ValidateGenerated(
         string path, int expectedVersion, int mapId, int x, int y, int sa, int ep)
     {
@@ -171,18 +326,26 @@ public static class LangMapsSwfService
             var matches = parsed.Entries.Where(e => e.MapId == mapId).ToList();
             if (matches.Count == 0)
                 return $"Validación: MA.m[{mapId}] no encontrada.";
-            if (matches.Count != 1)
-                return $"Validación: MA.m[{mapId}] aparece {matches.Count} veces (debe ser 1).";
 
-            var e = matches[0];
+            var e = matches.FirstOrDefault(m =>
+                m.IntProps.GetValueOrDefault("sa") == sa
+                && m.IntProps.GetValueOrDefault("ep") == ep);
+            if (e is null)
+                return $"Validación: MA.m[{mapId}] sa={sa} ep={ep} no encontrada ({matches.Count} variante(s)).";
+
             if (e.IntProps.GetValueOrDefault("x") != x)
                 return $"Validación: X incorrecta ({e.IntProps.GetValueOrDefault("x")} ≠ {x}).";
             if (e.IntProps.GetValueOrDefault("y") != y)
                 return $"Validación: Y incorrecta ({e.IntProps.GetValueOrDefault("y")} ≠ {y}).";
-            if (e.IntProps.GetValueOrDefault("sa") != sa)
-                return $"Validación: SA incorrecta ({e.IntProps.GetValueOrDefault("sa")} ≠ {sa}).";
-            if (e.IntProps.GetValueOrDefault("ep") != ep)
-                return $"Validación: EP incorrecta ({e.IntProps.GetValueOrDefault("ep")} ≠ {ep}).";
+
+            foreach (var other in matches)
+            {
+                if (other.IntProps.GetValueOrDefault("x") != x
+                    || other.IntProps.GetValueOrDefault("y") != y)
+                {
+                    return $"Validación: MA.m[{mapId}] tiene coords divergentes entre variantes.";
+                }
+            }
 
             var hasFileEnd = parsed.Actions.Any(a =>
                 a.Code == Avm1Opcode.Push
@@ -203,6 +366,20 @@ public static class LangMapsSwfService
     }
 
     private static LangMapsGenerateResult Fail(string error) => new() { Success = false, Error = error };
+
+    private static int? TryParseMapsEsFileVersion(string path)
+    {
+        var name = Path.GetFileNameWithoutExtension(path);
+        if (string.IsNullOrEmpty(name))
+            return null;
+        const string prefix = "maps_es_";
+        if (!name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            return null;
+        return int.TryParse(name.AsSpan(prefix.Length), System.Globalization.NumberStyles.Integer,
+            System.Globalization.CultureInfo.InvariantCulture, out var n) && n > 0
+            ? n
+            : null;
+    }
 
     private static void TryDelete(string path)
     {

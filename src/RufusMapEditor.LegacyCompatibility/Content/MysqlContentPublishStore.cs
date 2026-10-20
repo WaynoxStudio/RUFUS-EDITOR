@@ -87,11 +87,19 @@ public sealed class MysqlContentPublishStore : IContentPublishStore, IAsyncDispo
         await EnsureOpenAsync(ct).ConfigureAwait(false);
         static async Task<int> MaxAsync(MySqlConnection conn, MySqlTransaction? tx, string schema, string table, string col, CancellationToken c)
         {
-            await using var cmd = new MySqlCommand(
-                $"SELECT MAX(`{col}`) FROM `{schema}`.`{table}`", conn, tx);
-            var r = await cmd.ExecuteScalarAsync(c).ConfigureAwait(false);
-            if (r is null or DBNull) return 0;
-            return Convert.ToInt32(r, CultureInfo.InvariantCulture);
+            try
+            {
+                await using var cmd = new MySqlCommand(
+                    $"SELECT MAX(`{col}`) FROM `{schema}`.`{table}`", conn, tx);
+                var r = await cmd.ExecuteScalarAsync(c).ConfigureAwait(false);
+                if (r is null or DBNull) return 0;
+                return Convert.ToInt32(r, CultureInfo.InvariantCulture);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException(
+                    $"No se pudo obtener MAX de {table}.{col}: {ex.Message}", ex);
+            }
         }
 
         return new ContentPublishMaxSnapshot
@@ -273,6 +281,57 @@ VALUES (@id,@nombre,@desc,@rew,@obj,@varios)";
         const string sql = @"INSERT INTO `{0}`.`mision_objetivos`
 (`id`,`tipo`,`args`,`detalle`,`esalHablar`,`esOculto`,`condicion`)
 VALUES (@id,@tipo,@args,@det,@hab,@oc,@cond)";
+        await using var cmd = new MySqlCommand(string.Format(CultureInfo.InvariantCulture, sql, _schema), _conn, _tx);
+        cmd.Parameters.AddWithValue("@id", row.Id);
+        cmd.Parameters.AddWithValue("@tipo", row.Tipo);
+        cmd.Parameters.AddWithValue("@args", row.Args);
+        cmd.Parameters.AddWithValue("@det", row.Detalle);
+        cmd.Parameters.AddWithValue("@hab", row.EsAlHablar);
+        cmd.Parameters.AddWithValue("@oc", row.EsOculto);
+        cmd.Parameters.AddWithValue("@cond", row.Condicion);
+        await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+    }
+
+    public async Task UpdateMisionAsync(MisionInsertRow row, CancellationToken ct = default)
+    {
+        await EnsureOpenAsync(ct).ConfigureAwait(false);
+        const string sql = @"UPDATE `{0}`.`misiones`
+SET `nombre`=@nombre,`etapas`=@etapas,`pregDarMision`=@dar,`pregMisCompletada`=@comp,
+    `pregMisIncompleta`=@inc,`puedeRepetirse`=@rep
+WHERE `id`=@id";
+        await using var cmd = new MySqlCommand(string.Format(CultureInfo.InvariantCulture, sql, _schema), _conn, _tx);
+        cmd.Parameters.AddWithValue("@id", row.Id);
+        cmd.Parameters.AddWithValue("@nombre", row.Nombre);
+        cmd.Parameters.AddWithValue("@etapas", row.Etapas);
+        cmd.Parameters.AddWithValue("@dar", row.PregDarMision);
+        cmd.Parameters.AddWithValue("@comp", row.PregMisCompletada);
+        cmd.Parameters.AddWithValue("@inc", row.PregMisIncompleta);
+        cmd.Parameters.AddWithValue("@rep", row.PuedeRepetirse);
+        await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+    }
+
+    public async Task UpdateEtapaAsync(MisionEtapaInsertRow row, CancellationToken ct = default)
+    {
+        await EnsureOpenAsync(ct).ConfigureAwait(false);
+        const string sql = @"UPDATE `{0}`.`mision_etapas`
+SET `nombre`=@nombre,`descripcion`=@desc,`recompensas`=@rew,`objetivos`=@obj,`variosobj`=@varios
+WHERE `id`=@id";
+        await using var cmd = new MySqlCommand(string.Format(CultureInfo.InvariantCulture, sql, _schema), _conn, _tx);
+        cmd.Parameters.AddWithValue("@id", row.Id);
+        cmd.Parameters.AddWithValue("@nombre", row.Nombre);
+        cmd.Parameters.AddWithValue("@desc", row.Descripcion);
+        cmd.Parameters.AddWithValue("@rew", row.Recompensas);
+        cmd.Parameters.AddWithValue("@obj", row.Objetivos);
+        cmd.Parameters.AddWithValue("@varios", row.VariosObj);
+        await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+    }
+
+    public async Task UpdateObjetivoAsync(MisionObjetivoInsertRow row, CancellationToken ct = default)
+    {
+        await EnsureOpenAsync(ct).ConfigureAwait(false);
+        const string sql = @"UPDATE `{0}`.`mision_objetivos`
+SET `tipo`=@tipo,`args`=@args,`detalle`=@det,`esalHablar`=@hab,`esOculto`=@oc,`condicion`=@cond
+WHERE `id`=@id";
         await using var cmd = new MySqlCommand(string.Format(CultureInfo.InvariantCulture, sql, _schema), _conn, _tx);
         cmd.Parameters.AddWithValue("@id", row.Id);
         cmd.Parameters.AddWithValue("@tipo", row.Tipo);

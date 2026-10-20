@@ -1,5 +1,5 @@
 using RufusMapEditor.LegacyCompatibility.Content.Ai;
-using RufusMapEditor.Licensing.Contracts.Admin;
+using RufusMapEditor.LegacyCompatibility.AdminAuth;
 
 namespace RufusMapEditor.LegacyCompatibility.Tests.Content;
 

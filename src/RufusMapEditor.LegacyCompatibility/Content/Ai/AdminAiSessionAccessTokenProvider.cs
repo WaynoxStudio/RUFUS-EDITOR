@@ -1,4 +1,4 @@
-using RufusMapEditor.Licensing.Contracts.Admin;
+using RufusMapEditor.LegacyCompatibility.AdminAuth;
 
 namespace RufusMapEditor.LegacyCompatibility.Content.Ai;
 

@@ -47,6 +47,9 @@ public sealed class UiLayoutSettings
     public bool LogsExpanded { get; set; }
     public double LogsPanelHeight { get; set; } = DefaultLogsPanelHeight;
 
+    /// <summary>RUFUS ADMIN — main navigation sidebar collapsed.</summary>
+    public bool AdminSidebarCollapsed { get; set; }
+
     public UiLayoutSettings Clone() => new()
     {
         LeftPanelWidth = LeftPanelWidth,
@@ -74,6 +77,7 @@ public sealed class UiLayoutSettings
         ShowStatusBar = ShowStatusBar,
         LogsExpanded = LogsExpanded,
         LogsPanelHeight = LogsPanelHeight,
+        AdminSidebarCollapsed = AdminSidebarCollapsed,
     };
 
     public void EnsureRatios()

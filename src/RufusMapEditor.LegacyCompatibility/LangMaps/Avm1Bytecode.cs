@@ -18,6 +18,7 @@ internal sealed class Avm1PushItem
     };
     public static Avm1PushItem StringLiteral(string value) => new() { Type = Avm1PushType.String, StringValue = value };
     public static Avm1PushItem Boolean(bool value) => new() { Type = Avm1PushType.Boolean, BoolValue = value };
+    public static Avm1PushItem Null() => new() { Type = Avm1PushType.Null };
 }
 
 internal sealed class Avm1Action
@@ -30,6 +31,11 @@ internal sealed class Avm1Action
 
 internal static class Avm1Bytecode
 {
+    /// <summary>SWF 6+ ActionPush / ConstantPool strings are UTF-8 (nul-terminated). Not Latin1.</summary>
+    internal static readonly Encoding SwfStringEncoding = new UTF8Encoding(
+        encoderShouldEmitUTF8Identifier: false,
+        throwOnInvalidBytes: false);
+
     public static IReadOnlyList<string> ReadConstantPool(ReadOnlySpan<byte> actionData, out int poolActionEnd)
     {
         if (actionData.Length < 3 || actionData[0] != Avm1Opcode.ConstantPool)
@@ -44,7 +50,7 @@ internal static class Avm1Bytecode
         {
             var end = payload[pos..].IndexOf((byte)0);
             if (end < 0) throw new InvalidOperationException("AVM1: ConstantPool truncado.");
-            list.Add(Encoding.Latin1.GetString(payload.Slice(pos, end)));
+            list.Add(SwfStringEncoding.GetString(payload.Slice(pos, end)));
             pos += end + 1;
         }
 
@@ -109,7 +115,8 @@ internal static class Avm1Bytecode
                 case Avm1PushType.String:
                 {
                     var end = payload[i..].IndexOf((byte)0);
-                    items.Add(Avm1PushItem.StringLiteral(Encoding.Latin1.GetString(payload.Slice(i, end))));
+                    if (end < 0) throw new InvalidOperationException("AVM1 Push: string sin NUL.");
+                    items.Add(Avm1PushItem.StringLiteral(SwfStringEncoding.GetString(payload.Slice(i, end))));
                     i += end + 1;
                     break;
                 }
@@ -178,7 +185,8 @@ internal static class Avm1Bytecode
             switch (item.Type)
             {
                 case Avm1PushType.String:
-                    ms.Write(Encoding.Latin1.GetBytes(item.StringValue ?? ""));
+                    // Byte length (not char length) must match UTF-8 payload for SWF6 ActionPush.
+                    ms.Write(SwfStringEncoding.GetBytes(item.StringValue ?? ""));
                     ms.WriteByte(0);
                     break;
                 case Avm1PushType.Boolean:
@@ -192,6 +200,9 @@ internal static class Avm1Bytecode
                     break;
                 case Avm1PushType.Constant16:
                     ms.Write(BitConverter.GetBytes((ushort)(item.ConstantIndex ?? 0)));
+                    break;
+                case Avm1PushType.Null:
+                case Avm1PushType.Undefined:
                     break;
                 default:
                     throw new InvalidOperationException($"EncodePush no soporta {item.Type}.");

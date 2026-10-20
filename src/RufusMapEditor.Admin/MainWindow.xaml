@@ -6,113 +6,188 @@
         MinHeight="720" MinWidth="1100"
         Background="{DynamicResource Bg}"
         WindowStartupLocation="CenterScreen"
+        Icon="pack://application:,,,/RufusMapEditor;component/Assets/RME.ico"
         Loaded="MainWindow_Loaded">
-  <Grid>
+  <Grid Background="{DynamicResource Panel}">
     <Grid.ColumnDefinitions>
-      <ColumnDefinition Width="220"/>
+      <ColumnDefinition Width="Auto"/>
       <ColumnDefinition Width="*"/>
     </Grid.ColumnDefinitions>
 
-    <!-- Sidebar -->
-    <Border Grid.Column="0" Background="{DynamicResource SidebarBg}" Padding="0,0,0,12"
-            BorderBrush="{DynamicResource SidebarBorder}" BorderThickness="0,0,1,0">
-      <DockPanel>
-        <StackPanel DockPanel.Dock="Top" Margin="16,20,16,8">
-          <TextBlock Text="RUFUS ADMIN" FontSize="17" FontWeight="SemiBold"
-                     Style="{StaticResource ShellTextBlock}"/>
-          <TextBlock Text="Centro de control" Style="{StaticResource ShellMutedText}"
-                     FontSize="12" Margin="0,4,0,0"/>
-        </StackPanel>
+    <!-- Sidebar fijo: abrir/cerrar con flecha grande centrada -->
+    <Border x:Name="SidebarHost"
+            Grid.Column="0"
+            Width="220"
+            Background="{DynamicResource SidebarBg}"
+            BorderBrush="{DynamicResource SidebarBorder}" BorderThickness="0,0,1,0"
+            ClipToBounds="True">
+      <Grid>
+        <!-- Rail colapsado: solo flecha grande al centro -->
+        <Button x:Name="SidebarCollapsedRail"
+                Visibility="Collapsed"
+                Background="Transparent"
+                BorderThickness="0"
+                Cursor="Hand"
+                ToolTip="Abrir menú"
+                Click="SidebarToggle_Click"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
+                Focusable="False">
+          <TextBlock Text="›"
+                     FontSize="42"
+                     FontWeight="SemiBold"
+                     Foreground="{DynamicResource Accent}"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Center"
+                     Margin="0,-4,0,0"/>
+        </Button>
 
-        <StackPanel DockPanel.Dock="Bottom" Margin="0,0,0,0"
-                    TextElement.Foreground="{DynamicResource ShellText}">
-          <Border Style="{StaticResource SidebarConnectionPanel}">
-            <StackPanel>
-              <TextBlock Text="CONEXIONES" Style="{StaticResource SidebarConnectionTitle}"/>
-
-              <Grid Margin="0,0,0,3">
+        <!-- Panel expandido -->
+        <Grid x:Name="SidebarExpanded">
+          <DockPanel Margin="0,0,0,12">
+            <Border DockPanel.Dock="Top" Style="{StaticResource SidebarBrandHeader}">
+              <Grid>
                 <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="Auto"/>
                   <ColumnDefinition Width="Auto"/>
                   <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
-                <Ellipse x:Name="BackendDot" Grid.Column="0" Width="7" Height="7"
-                         Margin="0,0,6,0" Fill="{StaticResource ShellMuted}" VerticalAlignment="Center"/>
-                <TextBlock Grid.Column="1" Text="Backend" Style="{StaticResource SidebarConnectionName}"/>
-                <TextBlock x:Name="BackendLabel" Grid.Column="2" Text="Sin conexión"
-                           Style="{StaticResource SidebarConnectionStatus}"/>
+
+                <Border Grid.Column="0" Style="{StaticResource SidebarBrandMark}">
+                  <TextBlock Style="{StaticResource SidebarBrandMarkText}"/>
+                </Border>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="10,0,0,0"
+                            VerticalAlignment="Center">
+                  <TextBlock Style="{StaticResource SidebarBrandTitle}"/>
+                  <Border Style="{StaticResource SidebarBrandBadge}">
+                    <TextBlock Style="{StaticResource SidebarBrandBadgeText}"/>
+                  </Border>
+                </StackPanel>
               </Grid>
+            </Border>
 
-              <Grid Margin="0,0,0,3"
-                    ToolTip="{Binding ElementName=DbDetail, Path=Text}">
-                <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="Auto"/>
-                  <ColumnDefinition Width="Auto"/>
-                  <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <Ellipse x:Name="DbDot" Grid.Column="0" Width="7" Height="7"
-                         Margin="0,0,6,0" Fill="{StaticResource ShellMuted}" VerticalAlignment="Center"/>
-                <TextBlock Grid.Column="1" Text="BD" Style="{StaticResource SidebarConnectionName}"/>
-                <TextBlock x:Name="DbLabel" Grid.Column="2" Text="Sin comprobar"
-                           Style="{StaticResource SidebarConnectionStatus}"/>
-                <TextBlock x:Name="DbDetail" Visibility="Collapsed"/>
-              </Grid>
+            <StackPanel DockPanel.Dock="Bottom" Margin="0,0,0,0"
+                        TextElement.Foreground="{DynamicResource ShellText}">
+              <Border Style="{StaticResource SidebarConnectionPanel}" Margin="10,0,10,8">
+                <StackPanel>
+                  <TextBlock Text="APARIENCIA" Style="{StaticResource SidebarConnectionTitle}"/>
+                  <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,6,0,0">
+                    <TextBlock Text="Claro" VerticalAlignment="Center" Margin="0,0,8,0"
+                               FontSize="11" Foreground="{DynamicResource ShellMuted}"/>
+                    <ToggleButton x:Name="ThemeToggle" Style="{StaticResource ThemeSunMoonToggle}"
+                                  Checked="ThemeToggle_Changed" Unchecked="ThemeToggle_Changed"/>
+                    <TextBlock Text="Oscuro" VerticalAlignment="Center" Margin="8,0,0,0"
+                               FontSize="11" Foreground="{DynamicResource ShellMuted}"/>
+                  </StackPanel>
+                </StackPanel>
+              </Border>
 
-              <Grid Margin="0,0,0,2"
-                    ToolTip="{Binding ElementName=SftpDetail, Path=Text}">
-                <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="Auto"/>
-                  <ColumnDefinition Width="Auto"/>
-                  <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <Ellipse x:Name="SftpDot" Grid.Column="0" Width="7" Height="7"
-                         Margin="0,0,6,0" Fill="{StaticResource ShellMuted}" VerticalAlignment="Center"/>
-                <TextBlock Grid.Column="1" Text="SFTP" Style="{StaticResource SidebarConnectionName}"/>
-                <TextBlock x:Name="SftpLabel" Grid.Column="2" Text="Sin comprobar"
-                           Style="{StaticResource SidebarConnectionStatus}"/>
-                <TextBlock x:Name="SftpDetail" Visibility="Collapsed"/>
-              </Grid>
+              <Border Style="{StaticResource SidebarConnectionPanel}">
+                <StackPanel>
+                  <TextBlock Text="CONEXIONES" Style="{StaticResource SidebarConnectionTitle}"/>
 
-              <TextBlock x:Name="HostLabel" Style="{StaticResource SidebarConnectionHost}"/>
+                  <Grid Margin="0,0,0,3">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="Auto"/>
+                      <ColumnDefinition Width="Auto"/>
+                      <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Ellipse x:Name="BackendDot" Grid.Column="0" Width="7" Height="7"
+                             Margin="0,0,6,0" Fill="{DynamicResource ShellMuted}" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="1" Text="Backend" Style="{StaticResource SidebarConnectionName}"/>
+                    <TextBlock x:Name="BackendLabel" Grid.Column="2" Text="Sin conexión"
+                               Style="{StaticResource SidebarConnectionStatus}"/>
+                  </Grid>
 
-              <Button Content="Comprobar conexiones" Style="{StaticResource SidebarCheckButton}"
-                      Click="CheckConnections_Click"
-                      ToolTip="Comprueba Backend, BD y SFTP (misma config que Mapas/Contenido · solo lectura)"/>
+                  <Grid Margin="0,0,0,3"
+                        ToolTip="{Binding ElementName=DbDetail, Path=Text}">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="Auto"/>
+                      <ColumnDefinition Width="Auto"/>
+                      <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Ellipse x:Name="DbDot" Grid.Column="0" Width="7" Height="7"
+                             Margin="0,0,6,0" Fill="{DynamicResource ShellMuted}" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="1" Text="BD" Style="{StaticResource SidebarConnectionName}"/>
+                    <TextBlock x:Name="DbLabel" Grid.Column="2" Text="Sin comprobar"
+                               Style="{StaticResource SidebarConnectionStatus}"/>
+                    <TextBlock x:Name="DbDetail" Visibility="Collapsed"/>
+                  </Grid>
+
+                  <Grid Margin="0,0,0,2"
+                        ToolTip="{Binding ElementName=SftpDetail, Path=Text}">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="Auto"/>
+                      <ColumnDefinition Width="Auto"/>
+                      <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Ellipse x:Name="SftpDot" Grid.Column="0" Width="7" Height="7"
+                             Margin="0,0,6,0" Fill="{DynamicResource ShellMuted}" VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="1" Text="SFTP" Style="{StaticResource SidebarConnectionName}"/>
+                    <TextBlock x:Name="SftpLabel" Grid.Column="2" Text="Sin comprobar"
+                               Style="{StaticResource SidebarConnectionStatus}"/>
+                    <TextBlock x:Name="SftpDetail" Visibility="Collapsed"/>
+                  </Grid>
+
+                  <TextBlock x:Name="HostLabel" Style="{StaticResource SidebarConnectionHost}"/>
+
+                  <Button Content="Comprobar conexiones" Style="{StaticResource SidebarCheckButton}"
+                          Click="CheckConnections_Click"
+                          ToolTip="Comprueba Backend, BD y SFTP (misma config que Mapas/Contenido · solo lectura)"/>
+                </StackPanel>
+              </Border>
             </StackPanel>
-          </Border>
 
-        </StackPanel>
+            <ScrollViewer VerticalScrollBarVisibility="Auto" TextElement.Foreground="{DynamicResource ShellText}">
+              <StackPanel>
+                <TextBlock Text="MAPAS" Style="{StaticResource NavGroupLabel}"/>
+                <RadioButton Content="Mapas" Style="{StaticResource NavButton}"
+                             IsChecked="True" Checked="Nav_Checked" Tag="Maps"/>
 
-        <ScrollViewer VerticalScrollBarVisibility="Auto" TextElement.Foreground="{DynamicResource ShellText}">
-          <StackPanel>
-            <TextBlock Text="MAPAS" Style="{StaticResource NavGroupLabel}"/>
-            <RadioButton Content="Mapas" Style="{StaticResource NavButton}"
-                         Checked="Nav_Checked" Tag="Maps"/>
+                <TextBlock Text="CONTENIDO" Style="{StaticResource NavGroupLabel}"/>
+                <RadioButton Content="NPC y diálogos" Style="{StaticResource NavButton}"
+                             Checked="Nav_Checked" Tag="Content"/>
+                <RadioButton Content="Misiones" Style="{StaticResource NavButton}"
+                             Checked="Nav_Checked" Tag="Missions" Visibility="Collapsed"/>
 
-            <TextBlock Text="CONTENIDO" Style="{StaticResource NavGroupLabel}"/>
-            <RadioButton Content="NPC y diálogos" Style="{StaticResource NavButton}"
-                         Checked="Nav_Checked" Tag="Content"/>
-            <RadioButton Content="Misiones" Style="{StaticResource NavButton}"
-                         Checked="Nav_Checked" Tag="Missions" Visibility="Collapsed"/>
+                <TextBlock Text="SISTEMA" Style="{StaticResource NavGroupLabel}"/>
+                <RadioButton x:Name="NavSettings" Content="Ajustes" Style="{StaticResource NavButton}"
+                             Checked="Nav_Checked" Tag="Settings"/>
+              </StackPanel>
+            </ScrollViewer>
+          </DockPanel>
 
-            <TextBlock Text="GESTIÓN" Style="{StaticResource NavGroupLabel}"/>
-            <RadioButton x:Name="NavLicenses" Content="Licencias" Style="{StaticResource NavButton}"
-                         IsChecked="True" Checked="Nav_Checked" Tag="Licenses"/>
-            <RadioButton Content="Uso IA" Style="{StaticResource NavButton}"
-                         Checked="Nav_Checked" Tag="AiUsage"/>
-
-            <TextBlock Text="SISTEMA" Style="{StaticResource NavGroupLabel}"/>
-            <RadioButton x:Name="NavSettings" Content="Ajustes" Style="{StaticResource NavButton}"
-                         Checked="Nav_Checked" Tag="Settings"/>
-          </StackPanel>
-        </ScrollViewer>
-      </DockPanel>
+          <!-- Flecha grande centrada a la derecha para cerrar -->
+          <Button x:Name="SidebarCollapseButton"
+                  Width="36"
+                  HorizontalAlignment="Right"
+                  VerticalAlignment="Center"
+                  Background="Transparent"
+                  BorderThickness="0"
+                  Cursor="Hand"
+                  ToolTip="Cerrar menú"
+                  Click="SidebarToggle_Click"
+                  Focusable="False"
+                  Panel.ZIndex="5">
+            <TextBlock Text="‹"
+                       FontSize="42"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource Accent}"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       Margin="0,-4,0,0"/>
+          </Button>
+        </Grid>
+      </Grid>
     </Border>
 
-    <!-- Main content (full height) -->
-    <Grid Grid.Column="1">
+    <!-- Contenido -->
+    <Grid Grid.Column="1" Background="{DynamicResource Panel}">
       <Border Background="{DynamicResource Panel}">
-        <ContentControl x:Name="ContentHost" Margin="28" Foreground="{StaticResource Text}"/>
+        <ContentControl x:Name="ContentHost"
+                        HorizontalContentAlignment="Stretch"
+                        VerticalContentAlignment="Stretch"
+                        Margin="28" Foreground="{DynamicResource Text}"/>
       </Border>
 
       <Grid Visibility="Collapsed" Width="0" Height="0" IsHitTestVisible="False">

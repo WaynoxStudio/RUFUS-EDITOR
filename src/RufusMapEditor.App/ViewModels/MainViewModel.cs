@@ -45,6 +45,15 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     private readonly AutosaveStore _autosave = new();
     private readonly DispatcherTimer _autosaveTimer;
     private readonly MapPickerFilterState _mapListFilter = new();
+    private string _loadMapFromDatabaseIdText = "";
+    private string _loadMapsByFechaKeywordText = "";
+    private bool _isIslaImportInProgress;
+    private double _islaImportProgress;
+    private string _islaImportProgressText = "";
+    private string _islaFechaPreviewStatusText = "";
+    private CancellationTokenSource? _islaFechaPreviewCts;
+    private bool _islaFechaPreviewSuppressed;
+    private const int IslaFechaPreviewThumbLimit = 24;
     private FileSystemWatcher? _imagesWatcher;
     private DispatcherTimer? _imagesReloadDebounce;
     private int _imagesReloadGeneration;
@@ -132,6 +141,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     private string? _selectedFolder;
     private GfxCategory _selectedCategory = GfxCategory.Ground;
     private bool _showUnifiedFavorites;
+    private string _catalogGfxIdSearchText = "";
     private bool _brushFlip;
     private int _brushRotation;
     private int _cellModeOverlayRevision;
@@ -201,6 +211,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         _mapListFilter.Changed += OnMapListFilterChangedFromPicker;
         MapIds = new ObservableCollection<int>();
         MapListItems = new ObservableCollection<MapPickerItemVm>();
+        IslaFechaPreviewItems = new ObservableCollection<IslaFechaPreviewItemVm>();
         FolderTree = new ObservableCollection<FolderNodeVm>();
         VisibleGfxRows = new ObservableCollection<GfxRowVm>();
         MovementDisplayOptions = new ObservableCollection<MovementDisplayItem>(MovementDisplayItem.StandardOptions);
@@ -211,6 +222,13 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         OpenMapDialogCommand = new RelayCommand(OpenMapDialog, () => HasLibrary);
         NewMapCommand = new RelayCommand(() => _ = NewMapAsync(), () => HasLibrary);
         ClearMapListFilterCommand = new RelayCommand(ClearMapListFilter);
+        LoadMapFromDatabaseCommand = new RelayCommand(() => _ = LoadMapFromDatabaseAsync(), () => HasLibrary);
+        LoadMapsByFechaKeywordCommand = new RelayCommand(
+            () => _ = LoadMapsByFechaKeywordAsync(),
+            () => HasLibrary && !IsLoading && !IsIslaImportInProgress);
+        PushWorldCoordinatesToDatabaseCommand = new RelayCommand(
+            () => _ = PushWorldCoordinatesToDatabaseAsync(),
+            () => CanPushWorldCoordinatesToDatabase);
         CloseMapCommand = new RelayCommand(
             () =>
             {
@@ -351,10 +369,15 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         CopyCellMapDataCodeCommand = new RelayCommand(CopyCellMapDataCode, () => CanCopyCellMapData);
         CopyFullMapDataCommand = new RelayCommand(CopyFullMapData, () => CurrentMap is not null);
 
-        OpenBackgroundPickerCommand = new RelayCommand(() => _ = OpenBackgroundPickerAsync(), () => CurrentMap is not null && HasLibrary);
+        OpenBackgroundPickerCommand = new RelayCommand(
+            () => _ = OpenBackgroundPickerAsync(),
+            () => HasLibrary && GetBackgroundEditTarget() is not null);
         OpenAppearanceCommand = new RelayCommand(OpenAppearance);
         OpenDatabaseSettingsCommand = new RelayCommand(OpenDatabaseSettings);
         PublishToDatabaseCommand = new RelayCommand(() => _ = PublishToDatabaseAsync(), () => CurrentMap is not null);
+        QuickUpdateMapIdToDatabaseCommand = new RelayCommand(
+            () => _ = QuickUpdateMapIdToDatabaseAsync(),
+            () => CurrentMap is not null && CurrentMap.Id > 0);
         SyncMetadataFromDatabaseCommand = new RelayCommand(() => _ = SyncMetadataFromDatabaseAsync(), () => CurrentMap is not null);
         GenerateLocalLangMapsCommand = new RelayCommand(OpenGenerateLocalLangMaps, () => CurrentMap is not null);
         OpenLangSftpSettingsCommand = new RelayCommand(OpenLangSftpSettings);
@@ -378,8 +401,6 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             reportStatus: msg => StatusText = msg);
 
         ThemeService.ThemeChanged += OnAppThemeChanged;
-        if (App.License is not null)
-            App.License.StatusChanged += OnLicenseStatusChanged;
         SoloBackgroundCommand = new RelayCommand(() => SoloLayer(SoloLayerTarget.Background));
         SoloGroundCommand = new RelayCommand(() => SoloLayer(SoloLayerTarget.Ground));
         SoloObject1Command = new RelayCommand(() => SoloLayer(SoloLayerTarget.Object1));
@@ -435,6 +456,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
         RecentProjects = new ObservableCollection<string>(_settings.RecentProjects);
 
+        _worldThumbs.AttachMapPreviewCache(_mapPreviews);
         MultiMap = new MultiMapEditService(_library, _worldThumbs);
 
         _worldShell = CreateWorldViewModel();
@@ -493,12 +515,28 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             RedoCommand.RaiseCanExecuteChanged();
             CopyCommand.RaiseCanExecuteChanged();
             PasteCommand.RaiseCanExecuteChanged();
-            if (value == 1 && _worldEditingDocumentKey is not null)
-                World.NotifyMapEdited(_worldEditingDocumentKey);
+            OpenBackgroundPickerCommand.RaiseCanExecuteChanged();
+            if (value == 1)
+            {
+                if (_worldEditingDocumentKey is not null)
+                    World.NotifyMapEdited(_worldEditingDocumentKey);
+                if (World.HasSingleSelection)
+                    FocusOpenMapFromWorldDocumentKey(World.SelectedKeys.First());
+                else
+                    RefreshMapInspector();
+            }
         }
     }
 
     public bool IsWorldTab => WorkspaceTabIndex == 1;
+
+    /// <summary>
+    /// Active doc is inspector-only (MUNDO / combinado) — must not spawn a floating MAPA window
+    /// when the map list SelectedMapId syncs to match it.
+    /// </summary>
+    public bool IsSilentBoundDocumentActive =>
+        _activeDocument is not null
+        && (IsWorldBoundDocument(_activeDocument) || IsMosaicBoundDocument(_activeDocument));
 
     private bool _isMapCombinedMode;
     private bool _isMapCombinedMinimized;
@@ -696,6 +734,16 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     public RelayCommand ExportCombinedWorldCommand { get; }
     public RelayCommand OpenGfxVisualSearchCommand { get; }
     public RelayCommand ClearMapListFilterCommand { get; }
+    public RelayCommand LoadMapFromDatabaseCommand { get; }
+    public RelayCommand LoadMapsByFechaKeywordCommand { get; }
+    public RelayCommand PushWorldCoordinatesToDatabaseCommand { get; }
+
+    public bool CanPushWorldCoordinatesToDatabase =>
+        HasLibrary
+        && !IsLoading
+        && !IsIslaImportInProgress
+        && World.HasPushableWorldCoordinates;
+
     public RelayCommand SetToolSelectCommand { get; }
     public RelayCommand SetToolRectSelectCommand { get; }
     public RelayCommand SetToolPaintCommand { get; }
@@ -743,6 +791,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     public RelayCommand OpenAppearanceCommand { get; }
     public RelayCommand OpenDatabaseSettingsCommand { get; }
     public RelayCommand PublishToDatabaseCommand { get; }
+    public RelayCommand QuickUpdateMapIdToDatabaseCommand { get; }
     public RelayCommand SyncMetadataFromDatabaseCommand { get; }
     public RelayCommand GenerateLocalLangMapsCommand { get; }
     public RelayCommand OpenLangSftpSettingsCommand { get; }
@@ -1069,8 +1118,10 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         get => _isLoading;
         private set
         {
-            if (SetProperty(ref _isLoading, value))
-                OnPropertyChanged(nameof(IsIdle));
+            if (!SetProperty(ref _isLoading, value)) return;
+            OnPropertyChanged(nameof(IsIdle));
+            LoadMapsByFechaKeywordCommand.RaiseCanExecuteChanged();
+            PushWorldCoordinatesToDatabaseCommand.RaiseCanExecuteChanged();
         }
     }
 
@@ -1087,9 +1138,12 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         get => _hasLibrary;
         private set
         {
-            if (SetProperty(ref _hasLibrary, value))
-                OpenMapDialogCommand.RaiseCanExecuteChanged();
-                NewMapCommand.RaiseCanExecuteChanged();
+            if (!SetProperty(ref _hasLibrary, value)) return;
+            OpenMapDialogCommand.RaiseCanExecuteChanged();
+            NewMapCommand.RaiseCanExecuteChanged();
+            LoadMapFromDatabaseCommand.RaiseCanExecuteChanged();
+            LoadMapsByFechaKeywordCommand.RaiseCanExecuteChanged();
+            PushWorldCoordinatesToDatabaseCommand.RaiseCanExecuteChanged();
         }
     }
 
@@ -1164,6 +1218,9 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         set
         {
             if (!SetProperty(ref _showUnwalkableMarkers, value)) return;
+            // Visibilidad ≠ herramienta: al ocultar marcas, salir de la herramienta de pintarlas.
+            if (!value && Tool == EditorTool.Unwalkable)
+                Tool = EditorTool.Select;
             BumpCellModeOverlayRevision();
             PersistMapViewVisibility();
         }
@@ -1175,6 +1232,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         set
         {
             if (!SetProperty(ref _showLosBlockMarkers, value)) return;
+            if (!value && Tool == EditorTool.LineOfSight)
+                Tool = EditorTool.Select;
             BumpCellModeOverlayRevision();
             PersistMapViewVisibility();
         }
@@ -1186,6 +1245,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         set
         {
             if (!SetProperty(ref _showFightMarkers, value)) return;
+            if (!value && Tool is EditorTool.FightCell1 or EditorTool.FightCell2)
+                Tool = EditorTool.Select;
             BumpCellModeOverlayRevision();
             PersistMapViewVisibility();
         }
@@ -1472,6 +1533,105 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         }
     }
 
+    /// <summary>Filter catalog GFX thumbnails by ID substring (sidebar under Favoritos/Suelos/Objetos).</summary>
+    public string CatalogGfxIdSearchText
+    {
+        get => _catalogGfxIdSearchText;
+        set
+        {
+            var v = value ?? "";
+            if (_catalogGfxIdSearchText == v) return;
+            _catalogGfxIdSearchText = v;
+            OnPropertyChanged();
+            RefreshVisibleGfx(force: true);
+        }
+    }
+
+    /// <summary>Map ID to fetch from <c>estaticos.mapas</c> and materialize under Library.</summary>
+    public string LoadMapFromDatabaseIdText
+    {
+        get => _loadMapFromDatabaseIdText;
+        set
+        {
+            var v = value ?? "";
+            if (_loadMapFromDatabaseIdText == v) return;
+            _loadMapFromDatabaseIdText = v;
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>Exact <c>fecha</c> keyword (e.g. VULKANIA) to bulk-import maps into Mundo.</summary>
+    public string LoadMapsByFechaKeywordText
+    {
+        get => _loadMapsByFechaKeywordText;
+        set
+        {
+            var v = value ?? "";
+            if (_loadMapsByFechaKeywordText == v) return;
+            _loadMapsByFechaKeywordText = v;
+            _islaFechaPreviewSuppressed = false;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(ShowIslaFechaPreview));
+            ScheduleIslaFechaPreviewRefresh();
+        }
+    }
+
+    /// <summary>Live preview strip under Mundo toolbar for «Cargar isla BD».</summary>
+    public ObservableCollection<IslaFechaPreviewItemVm> IslaFechaPreviewItems { get; }
+
+    public string IslaFechaPreviewStatusText
+    {
+        get => _islaFechaPreviewStatusText;
+        private set => SetProperty(ref _islaFechaPreviewStatusText, value);
+    }
+
+    public bool ShowIslaFechaPreview =>
+        !_islaFechaPreviewSuppressed
+        && !string.IsNullOrWhiteSpace(_loadMapsByFechaKeywordText);
+
+    public bool IsIslaImportInProgress
+    {
+        get => _isIslaImportInProgress;
+        private set
+        {
+            if (!SetProperty(ref _isIslaImportInProgress, value)) return;
+            LoadMapsByFechaKeywordCommand.RaiseCanExecuteChanged();
+            PushWorldCoordinatesToDatabaseCommand.RaiseCanExecuteChanged();
+        }
+    }
+
+    /// <summary>0–100 progress for «Cargar isla BD».</summary>
+    public double IslaImportProgress
+    {
+        get => _islaImportProgress;
+        private set => SetProperty(ref _islaImportProgress, value);
+    }
+
+    public string IslaImportProgressText
+    {
+        get => _islaImportProgressText;
+        private set => SetProperty(ref _islaImportProgressText, value);
+    }
+
+    private void SetIslaImportProgress(double percent, string text)
+    {
+        IslaImportProgress = Math.Clamp(percent, 0, 100);
+        IslaImportProgressText = text;
+    }
+
+    private void BeginIslaImportProgress(string text)
+    {
+        IsIslaImportInProgress = true;
+        SetIslaImportProgress(0, text);
+    }
+
+    private void EndIslaImportProgress()
+    {
+        IsIslaImportInProgress = false;
+        IslaImportProgress = 0;
+        IslaImportProgressText = "";
+    }
+
     public string MapListRangeFromText
     {
         get => _mapListFilter.RangeFromText;
@@ -1616,13 +1776,69 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     public void SelectSelectionGfxItem(SelectionGfxItemVm item)
     {
         ArgumentNullException.ThrowIfNull(item);
-        if (CurrentMap is null || _session is null)
-            return;
 
         var gfxId = item.Id;
         var layer = item.Layer;
         _pinnedSelectionGfxId = gfxId;
         _pinnedSelectionGfxLayer = layer;
+
+        // Clic en el ítem = ese GFX queda como pincel activo en su capa (para pintar / rellenar).
+        if (PaintLayer != layer)
+            PaintLayer = layer;
+        if (SelectedGfxId != gfxId)
+            SelectedGfxId = gfxId;
+        if (Tool is not (EditorTool.Paint or EditorTool.Erase))
+            Tool = EditorTool.Paint;
+
+        // Multimap (MUNDO / combinado): acotar selección a celdas con ese GFX.
+        if (MultiMap.IsActive && MultiMap.Selection.Count > 0)
+        {
+            var mmMatching = new List<WorldCellRef>();
+            foreach (var cell in MultiMap.Selection)
+            {
+                var doc = MultiMap.GetDocument(cell.DocumentKey);
+                if (doc is null || cell.CellId < 0 || cell.CellId >= doc.Cells.Count) continue;
+                if (GetLayerGfx(doc.Cells[cell.CellId], layer) == gfxId)
+                    mmMatching.Add(cell);
+            }
+
+            if (mmMatching.Count == 0)
+            {
+                StatusText = $"No hay GFX {gfxId} en {UiDisplayLabels.LayerTarget(layer)} dentro de la selección";
+                RaiseFocusGfxUi();
+                return;
+            }
+
+            MultiMap.SetSelection(mmMatching);
+            SyncUiFromMultiMapSelection(mmMatching[^1].DocumentKey);
+            MarkSelectionGfxRowSelected(gfxId, layer);
+            if (CurrentMap is not null && PrimarySelectedCellId is int pid
+                && pid >= 0 && pid < CurrentMap.Cells.Count)
+                ApplyBrushTransformFromCell(CurrentMap.Cells[pid], layer);
+            HighlightedInspectorLayer = layer switch
+            {
+                PaintLayer.Ground => InspectorLayerHighlight.Ground,
+                PaintLayer.Object1 => InspectorLayerHighlight.Object1,
+                _ => InspectorLayerHighlight.Object2,
+            };
+            RaiseFocusGfxUi();
+            RaiseSelectionCommands();
+            ApplyBrushToSelectionCommand.RaiseCanExecuteChanged();
+            StatusText =
+                mmMatching.Count == 1
+                    ? $"Pincel GFX {gfxId} · {UiDisplayLabels.LayerTarget(layer)} · listo para rellenar / pintar"
+                    : $"Pincel GFX {gfxId} · {UiDisplayLabels.LayerTarget(layer)} · {mmMatching.Count} celdas";
+            return;
+        }
+
+        if (CurrentMap is null || _session is null)
+        {
+            MarkSelectionGfxRowSelected(gfxId, layer);
+            RaiseFocusGfxUi();
+            ApplyBrushToSelectionCommand.RaiseCanExecuteChanged();
+            StatusText = $"Pincel GFX {gfxId} · {UiDisplayLabels.LayerTarget(layer)}";
+            return;
+        }
 
         // Solo las celdas de la selección actual que tienen este GFX en su capa.
         var matching = new List<int>();
@@ -1639,11 +1855,6 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        if (PaintLayer != layer)
-            PaintLayer = layer;
-        if (SelectedGfxId != gfxId)
-            SelectedGfxId = gfxId;
-
         _session.SetSelection(matching);
         PrimarySelectedCellId = matching[^1];
         SyncSelectionFromSession();
@@ -1659,6 +1870,19 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             _ => InspectorLayerHighlight.Object2,
         };
 
+        MarkSelectionGfxRowSelected(gfxId, layer);
+        RaiseFocusGfxUi();
+        RefreshCellInspector();
+        RequestFocusLayersPanel?.Invoke();
+        ApplyBrushToSelectionCommand.RaiseCanExecuteChanged();
+        StatusText =
+            matching.Count == 1
+                ? $"Pincel GFX {gfxId} · {UiDisplayLabels.LayerTarget(layer)} · celda {primaryId}"
+                : $"Pincel GFX {gfxId} · {UiDisplayLabels.LayerTarget(layer)} · {matching.Count} celdas";
+    }
+
+    private void MarkSelectionGfxRowSelected(int gfxId, PaintLayer layer)
+    {
         _suppressSelectionGfxSelect = true;
         try
         {
@@ -1676,14 +1900,6 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         {
             _suppressSelectionGfxSelect = false;
         }
-
-        RaiseFocusGfxUi();
-        RefreshCellInspector();
-        RequestFocusLayersPanel?.Invoke();
-        StatusText =
-            matching.Count == 1
-                ? $"Ítem GFX {gfxId} · {UiDisplayLabels.LayerTarget(layer)} · celda {primaryId}"
-                : $"Ítem GFX {gfxId} · {UiDisplayLabels.LayerTarget(layer)} · {matching.Count} celdas";
     }
 
     private void RebuildSelectionGfxList()
@@ -1794,6 +2010,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
                 FitMapCommand.RaiseCanExecuteChanged();
                 Zoom100Command.RaiseCanExecuteChanged();
                 ReloadOriginalCommand.RaiseCanExecuteChanged();
+                QuickUpdateMapIdToDatabaseCommand.RaiseCanExecuteChanged();
+                OpenBackgroundPickerCommand.RaiseCanExecuteChanged();
                 OnPropertyChanged(nameof(HasMap));
                 RefreshMapInspector();
                 UpdateTitle();
@@ -1888,6 +2106,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
                 if ((value is EditorTool.FightCell1 or EditorTool.FightCell2) &&
                     PaintLayer != PaintLayer.Ground)
                     PaintLayer = PaintLayer.Ground;
+                // Cell-mode tools: auto-enable matching visibility overlays (top bar toggles).
+                EnsureCellModeVisibilityForTool(value);
                 StatusText = value switch
                 {
                     EditorTool.Paint => BuildPaintBrushStatus(),
@@ -1907,6 +2127,30 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
                 OnPropertyChanged(nameof(ActiveToolLabel));
                 RequestMosaicOverlayRefresh();
             }
+        }
+    }
+
+    /// <summary>
+    /// Selecting No transitable / Bloquear visión / Combate turns on the matching
+    /// "Mostrar …" toggle so the overlay is visible while placing.
+    /// </summary>
+    private void EnsureCellModeVisibilityForTool(EditorTool tool)
+    {
+        switch (tool)
+        {
+            case EditorTool.Unwalkable:
+                if (!ShowUnwalkableMarkers)
+                    ShowUnwalkableMarkers = true;
+                break;
+            case EditorTool.LineOfSight:
+                if (!ShowLosBlockMarkers)
+                    ShowLosBlockMarkers = true;
+                break;
+            case EditorTool.FightCell1:
+            case EditorTool.FightCell2:
+                if (!ShowFightMarkers)
+                    ShowFightMarkers = true;
+                break;
         }
     }
 
@@ -1949,25 +2193,69 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     public bool IsUnwalkableTool
     {
         get => Tool == EditorTool.Unwalkable;
-        set { if (value) Tool = EditorTool.Unwalkable; }
+        set
+        {
+            if (value)
+            {
+                Tool = EditorTool.Unwalkable; // also turns on ShowUnwalkableMarkers
+            }
+            else if (Tool == EditorTool.Unwalkable)
+            {
+                // Salir de la herramienta = ocultar celdas rojas (mismo botón CELDA).
+                if (ShowUnwalkableMarkers)
+                    ShowUnwalkableMarkers = false; // setter also switches Tool → Select
+                else
+                    Tool = EditorTool.Select;
+            }
+        }
     }
 
     public bool IsLineOfSightTool
     {
         get => Tool == EditorTool.LineOfSight;
-        set { if (value) Tool = EditorTool.LineOfSight; }
+        set
+        {
+            if (value) Tool = EditorTool.LineOfSight;
+            else if (Tool == EditorTool.LineOfSight)
+            {
+                if (ShowLosBlockMarkers)
+                    ShowLosBlockMarkers = false;
+                else
+                    Tool = EditorTool.Select;
+            }
+        }
     }
 
     public bool IsFightCell1Tool
     {
         get => Tool == EditorTool.FightCell1;
-        set { if (value) Tool = EditorTool.FightCell1; }
+        set
+        {
+            if (value) Tool = EditorTool.FightCell1;
+            else if (Tool == EditorTool.FightCell1)
+            {
+                if (ShowFightMarkers)
+                    ShowFightMarkers = false;
+                else
+                    Tool = EditorTool.Select;
+            }
+        }
     }
 
     public bool IsFightCell2Tool
     {
         get => Tool == EditorTool.FightCell2;
-        set { if (value) Tool = EditorTool.FightCell2; }
+        set
+        {
+            if (value) Tool = EditorTool.FightCell2;
+            else if (Tool == EditorTool.FightCell2)
+            {
+                if (ShowFightMarkers)
+                    ShowFightMarkers = false;
+                else
+                    Tool = EditorTool.Select;
+            }
+        }
     }
 
     public bool IsMobCellTool
@@ -2026,6 +2314,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             TryAutoMigrateFocusGfxToPaintLayer(value);
             RaiseFocusGfxUi();
             RaiseMassGfxCommands();
+            EnsurePaintLayerVisible();
         }
     }
 
@@ -2170,7 +2459,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         get => _editBackground;
         set
         {
-            if (_suppressProp || CurrentMap is null || _session is null)
+            var target = GetBackgroundEditTarget();
+            if (_suppressProp || target is null)
             {
                 SetProperty(ref _editBackground, value ?? "");
                 return;
@@ -2188,7 +2478,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             if (!int.TryParse(trimmed, System.Globalization.NumberStyles.Integer,
                     System.Globalization.CultureInfo.InvariantCulture, out var next) || next < 0)
             {
-                _editBackground = CurrentMap.BackgroundId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                _editBackground = target.BackgroundId.ToString(System.Globalization.CultureInfo.InvariantCulture);
                 OnPropertyChanged(nameof(EditBackground));
                 return;
             }
@@ -2784,6 +3074,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             return;
         }
 
+        EnsurePaintLayerVisible();
+
         var layer = PaintLayer.ToEditorLayer();
         var rot = PaintLayer == PaintLayer.Object2 ? (int?)null : BrushRotation;
         var flip = BrushFlip;
@@ -3199,35 +3491,47 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
     private bool SaveBlocking() => SaveOfficialMapAsync().GetAwaiter().GetResult();
 
+    /// <summary>
+    /// Crash-recovery files are flushed into Library (when possible) and deleted — no popup.
+    /// Edits already auto-save to Library; this only cleans leftovers from older sessions.
+    /// </summary>
     public void CheckRecoverableAutosavesOnStartup()
     {
         var list = _autosave.ListRecoverable();
         if (list.Count == 0)
             return;
 
-        var entry = list[0];
-        var info =
-            $"Map ID: {entry.Meta.MapId}\n" +
-            $"Nombre: {entry.Meta.DisplayName ?? "—"}\n" +
-            $"Autosave: {entry.Meta.SavedUtc.ToLocalTime():g}\n" +
-            (entry.Meta.HadProjectFile ? $"Proyecto: {entry.Meta.ProjectPath}" : "Sin .rufmap (nunca guardado)");
+        foreach (var entry in list)
+            SilentCommitOrDiscardAutosave(entry);
+    }
 
-        var choice = MessageBox.Show(
-            "Se encontró una sesión recuperable.\n\n" + info +
-            "\n\nSí = Recuperar\nNo = Descartar\nCancelar = Ignorar ahora",
-            "Recuperación",
-            MessageBoxButton.YesNoCancel,
-            MessageBoxImage.Question);
-
-        if (choice == MessageBoxResult.Cancel)
-            return;
-        if (choice == MessageBoxResult.No)
+    private void SilentCommitOrDiscardAutosave(RecoverableAutosave entry)
+    {
+        try
+        {
+            if (_library.IsLoaded
+                && _library.Renderer is not null
+                && !string.IsNullOrWhiteSpace(_library.RootPath)
+                && entry.Meta.MapId > 0
+                && File.Exists(entry.AutosavePath))
+            {
+                var (map, _) = ProjectPersistence.OpenAutosave(entry.AutosavePath, entry.Meta);
+                _ = new OfficialMapSave(_library.Renderer).Save(map, new OfficialMapSaveOptions
+                {
+                    LibraryRoot = _library.RootPath!,
+                    DocumentId = entry.Meta.DocumentId,
+                    ProjectName = entry.Meta.MapId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                });
+            }
+        }
+        catch
+        {
+            /* still discard below */
+        }
+        finally
         {
             _autosave.Delete(entry.Meta.DocumentId);
-            return;
         }
-
-        _ = RecoverAutosaveAsync(entry);
     }
 
     private async Task RecoverAutosaveAsync(RecoverableAutosave entry)
@@ -3856,6 +4160,33 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
         try
         {
+            // Prefer real Library save so we never leave a "recoverable session" popup.
+            if (_library.IsLoaded
+                && _library.Renderer is not null
+                && !string.IsNullOrWhiteSpace(_library.RootPath)
+                && CurrentMap.Id > 0)
+            {
+                var result = new OfficialMapSave(_library.Renderer).Save(CurrentMap, new OfficialMapSaveOptions
+                {
+                    LibraryRoot = _library.RootPath!,
+                    DocumentId = _session.DocumentId,
+                    ProjectName = CurrentMap.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                });
+                if (result.Success)
+                {
+                    _session.MarkSaved();
+                    _autosave.Delete(_session.DocumentId);
+                    if (MosaicHost.IsMultiMapEditMode)
+                    {
+                        var key = FindWorldDocumentKeyForMap(CurrentMap);
+                        if (key is not null)
+                            MosaicHost.NotifyMapEdited(key);
+                    }
+
+                    return;
+                }
+            }
+
             var json = ProjectPersistence.BuildJson(_session);
             _autosave.Write(_session.DocumentId, json, new AutosaveMeta
             {
@@ -3866,9 +4197,6 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
                 SavedUtc = DateTimeOffset.UtcNow,
                 HadProjectFile = !string.IsNullOrWhiteSpace(_session.FilePath),
             });
-            // Discrete status — don't spam; only if not already showing save message
-            if (!StatusText.StartsWith("Proyecto guardado", StringComparison.Ordinal))
-                StatusText = $"Autosave: {DateTime.Now:HH:mm}";
         }
         catch
         {
@@ -4795,14 +5123,17 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     }
 
     public OpenMapDocument? FindOpenDocument(int mapId) =>
-        _openDocuments.FirstOrDefault(d => d.MapId == mapId && !IsMosaicBoundDocument(d))
-        ?? _openDocuments.FirstOrDefault(d => d.MapId == mapId);
+        _openDocuments.FirstOrDefault(d =>
+            d.MapId == mapId && !IsMosaicBoundDocument(d) && !IsWorldBoundDocument(d));
 
     private static bool IsMosaicBoundDocument(OpenMapDocument doc) =>
         doc.DocumentId.StartsWith("mosaic-", StringComparison.Ordinal);
 
+    private static bool IsWorldBoundDocument(OpenMapDocument doc) =>
+        doc.DocumentId.StartsWith("world-", StringComparison.Ordinal);
+
     /// <summary>
-    /// Ensures the inspector / ESTE ÍTEM use the mosaic MapDocument instance, never a
+    /// Ensures the inspector / ESTE ÍTEM use the mosaic/world MapDocument instance, never a
     /// floating window that only shares the same numeric MapId.
     /// </summary>
     public void FocusOpenMapFromWorldDocumentKey(string documentKey)
@@ -4820,10 +5151,15 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
                 // Combinado a pantalla: enlazar la instancia del mosaico (sin ventana flotante).
                 open = EnsureMosaicBoundDocument(mosaicMap, documentKey);
             }
+            else if (IsWorldTab)
+            {
+                // MUNDO: enlazar el documento de la casilla para el inspector / Cambiar fondo.
+                open = EnsureWorldBoundDocument(mosaicMap, documentKey);
+                _worldEditingDocumentKey = documentKey;
+            }
             else
             {
-                open = _openDocuments.FirstOrDefault(d => d.MapId == mosaicMap.Id && !IsMosaicBoundDocument(d))
-                       ?? _openDocuments.FirstOrDefault(d => d.MapId == mosaicMap.Id);
+                open = FindOpenDocument(mosaicMap.Id);
             }
         }
 
@@ -4832,7 +5168,61 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
         if (open is not null)
             ActivateDocument(open);
+        OpenBackgroundPickerCommand.RaiseCanExecuteChanged();
         RaiseCombineCommands();
+    }
+
+    /// <summary>Called when the MUNDO grid selection changes (single map → bind inspector).</summary>
+    public void NotifyWorldViewportSelectionChanged(WorldViewModel source)
+    {
+        if (source.IsScratchCombined)
+            return;
+        if (!ReferenceEquals(source, World))
+            return;
+        if (!IsWorldTab)
+            return;
+
+        if (source.HasSingleSelection)
+            FocusOpenMapFromWorldDocumentKey(source.SelectedKeys.First());
+        else
+        {
+            RefreshMapInspector();
+            OpenBackgroundPickerCommand.RaiseCanExecuteChanged();
+        }
+    }
+
+    private OpenMapDocument EnsureWorldBoundDocument(MapDocument map, string documentKey)
+    {
+        var existing = _openDocuments.FirstOrDefault(d => ReferenceEquals(d.Map, map));
+        if (existing is not null)
+            return existing;
+
+        var hit = new IsoHitTester(map.Width, map.Height);
+        var linkedPath = World.World?.Documents.TryGetValue(documentKey, out var entry) == true
+            ? entry.LinkedRufmapPath
+            : null;
+        var session = new MapEditSession(map, hit)
+        {
+            DocumentId = $"world-{documentKey}",
+            CreatedUtc = DateTimeOffset.UtcNow,
+            Source = new RufmapSourceDto
+            {
+                Kind = "WorldBound",
+                OriginalMapId = map.Id,
+                LibraryPathHint = _library.RootPath,
+            },
+            ProjectName = World.World?.Name,
+            FilePath = linkedPath,
+        };
+        session.CaptureLoadBaseline();
+
+        var openDoc = new OpenMapDocument(map, session, hit, mapImage: null, swfMeta: null)
+        {
+            CascadeIndex = _nextCascadeIndex++,
+        };
+        _openDocuments.Add(openDoc);
+        // Sin DocumentOpened: no crear ventana flotante en MAPA.
+        return openDoc;
     }
 
     private OpenMapDocument EnsureMosaicBoundDocument(MapDocument map, string documentKey)
@@ -4920,6 +5310,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             s => StatusText = s,
             _mapListFilter);
         vm.SetEditorHost(this);
+        vm.PresentationChanged += () => PushWorldCoordinatesToDatabaseCommand.RaiseCanExecuteChanged();
         return vm;
     }
 
@@ -5036,6 +5427,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         _activeWorldSession = session;
         _worldShell = CreateWorldViewModel();
         OnPropertyChanged(nameof(World));
+        PushWorldCoordinatesToDatabaseCommand.RaiseCanExecuteChanged();
         WorldSessionOpened?.Invoke(session);
         WorldSessionActivated?.Invoke(session);
     }
@@ -5056,11 +5448,13 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         {
             WorldSessionActivated?.Invoke(session);
             OnPropertyChanged(nameof(World));
+            PushWorldCoordinatesToDatabaseCommand.RaiseCanExecuteChanged();
             return;
         }
 
         _activeWorldSession = session;
         OnPropertyChanged(nameof(World));
+        PushWorldCoordinatesToDatabaseCommand.RaiseCanExecuteChanged();
         WorldSessionActivated?.Invoke(session);
         RaiseCombineCommands();
     }
@@ -6635,15 +7029,35 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
     private void ApplyBrushToSelection()
     {
-        if (_session is null || !HasSelection) return;
+        // Prefer the clicked ESTE ÍTEM (pinned) layer+id, else catalog brush.
+        if (TryResolveFocusGfx(out var focusId, out var focusLayer))
+        {
+            if (PaintLayer != focusLayer)
+                PaintLayer = focusLayer;
+            SelectedGfxId = focusId;
+        }
+
         if ((SelectedGfxId ?? FocusGfxId) is not int gfxId) return;
-        // Align brush with the GFX we are about to paint so subsequent tools stay consistent.
         SelectedGfxId = gfxId;
+        if (Tool is not (EditorTool.Paint or EditorTool.Erase))
+            Tool = EditorTool.Paint;
+
         if (!ValidateSelectedGfxForActiveLayer(out var error))
         {
             StatusText = error;
             return;
         }
+
+        EnsurePaintLayerVisible();
+
+        // MUNDO / combinado: rellenar todas las celdas de la selección multimapa.
+        if (MultiMap.IsActive && MultiMap.Selection.Count > 0)
+        {
+            ApplyBrushToMultiMapSelection(gfxId);
+            return;
+        }
+
+        if (_session is null || !HasSelection) return;
 
         var layer = PaintLayer.ToEditorLayer();
         var rot = PaintLayer == PaintLayer.Object2 ? (int?)null : BrushRotation;
@@ -6661,10 +7075,65 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             PushRecent(CategoryKey(PaintLayer.ToGfxCategory()), gfxId);
             AfterHistoryChange();
             _ = RerenderAsync();
-            // MAP-PAINT.1 / MAP-AREA.1 — keep active GFX after mass fill.
             StatusText = $"Rellenadas {count} celdas · GFX {gfxId} sigue activo";
             OnPropertyChanged(nameof(FillSelectionTooltip));
         }
+    }
+
+    private void ApplyBrushToMultiMapSelection(int gfxId)
+    {
+        var paintLayer = PaintLayer;
+        var rot = paintLayer == PaintLayer.Object2 ? 0 : BrushRotation;
+        var flip = BrushFlip;
+        var markBlocked = PaintMarksUnwalkable;
+        var cells = MultiMap.Selection.ToList();
+        if (cells.Count == 0) return;
+
+        MultiMap.BeginStroke(EditorTool.Paint, paintLayer);
+        foreach (var cell in cells)
+        {
+            MultiMap.EnsureEditable(cell.DocumentKey);
+            MultiMap.HandleCellClick(
+                cell,
+                EditorTool.Paint,
+                paintLayer,
+                gfxId,
+                flip,
+                rot,
+                isDrag: true,
+                ctrl: false,
+                paintMarksUnwalkable: markBlocked,
+                paintSeam: PaintSeam && IsMapCombinedMode);
+        }
+        MultiMap.FinishStroke();
+        var dirtyKeys = cells.Select(c => c.DocumentKey).Distinct(StringComparer.Ordinal).ToList();
+        MultiMap.SaveModifiedMaps();
+        foreach (var key in dirtyKeys)
+        {
+            if (MosaicHost.World?.Documents.TryGetValue(key, out var entry) == true)
+            {
+                var open = _openDocuments.FirstOrDefault(d => ReferenceEquals(d.Map, entry.Document));
+                if (open is not null)
+                {
+                    open.Session.MarkSaved();
+                    _autosave.Delete(open.Session.DocumentId);
+                    open.NotifyDirtyChanged();
+                }
+            }
+
+            MosaicHost.NotifyMapEdited(key);
+        }
+
+        MosaicHost.FlushWorldPersist();
+        PushRecent(CategoryKey(paintLayer.ToGfxCategory()), gfxId);
+        AfterHistoryChange();
+        SyncUiFromMultiMapSelection();
+        RaiseFocusGfxUi();
+        UndoCommand.RaiseCanExecuteChanged();
+        RedoCommand.RaiseCanExecuteChanged();
+        MosaicHost.SaveModifiedMapsCommand.RaiseCanExecuteChanged();
+        StatusText = $"Rellenadas {cells.Count} celdas · GFX {gfxId} sigue activo en {UiDisplayLabels.LayerTarget(paintLayer)}";
+        OnPropertyChanged(nameof(FillSelectionTooltip));
     }
 
     private void ClearSelectedLayer(PaintLayer layer)
@@ -6720,6 +7189,9 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     private void CommitSelection(string name, Action<int, CellData> mutate)
     {
         if (_session is null || !HasSelection) return;
+        // Inspector ComboBox/TextBox can re-enter after SyncSelectionFromSession and
+        // Commit() ends the open stroke — that killed paint/erase while dragging.
+        if (_session.IsStrokeOpen) return;
         if (_session.Commit(name, SelectedCellIds, mutate))
         {
             AfterHistoryChange();
@@ -7387,22 +7859,32 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     }
 
     private string BuildVisibleGfxFilterKey() =>
-        $"{_showUnifiedFavorites}|{SelectedCategory}|{SelectedFolder}|cols:{GfxColumns}";
+        $"{_showUnifiedFavorites}|{SelectedCategory}|{SelectedFolder}|id:{_catalogGfxIdSearchText}|cols:{GfxColumns}";
 
     private IEnumerable<GfxResource> QueryVisibleResources()
     {
         if (_library.Catalog is null)
             yield break;
 
+        var idQuery = (_catalogGfxIdSearchText ?? "").Trim();
+
         if (_showUnifiedFavorites)
         {
-            foreach (var res in QueryUnifiedFavorites())
+            foreach (var res in FilterByGfxIdQuery(QueryUnifiedFavorites(), idQuery))
                 yield return res;
             yield break;
         }
 
         var category = SelectedCategory;
         var catKey = CategoryKey(category);
+
+        // ID search spans the whole category (ignore folder) for faster lookup.
+        if (idQuery.Length > 0)
+        {
+            foreach (var res in FilterByGfxIdQuery(GetCategoryResources(category).OrderBy(r => r.Id), idQuery))
+                yield return res;
+            yield break;
+        }
 
         if (string.Equals(SelectedFolder, RecentsFolder, StringComparison.OrdinalIgnoreCase))
         {
@@ -7435,6 +7917,13 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
         foreach (var res in source.OrderBy(r => r.Id))
             yield return res;
+    }
+
+    private static IEnumerable<GfxResource> FilterByGfxIdQuery(IEnumerable<GfxResource> source, string idQuery)
+    {
+        if (idQuery.Length == 0)
+            return source;
+        return source.Where(r => r.Id.ToString().Contains(idQuery, StringComparison.Ordinal));
     }
 
     private IEnumerable<GfxResource> QueryUnifiedFavorites()
@@ -7961,6 +8450,64 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         _ = EnsureMapThumbnailAsync(item);
     }
 
+    /// <summary>Delete an official map folder from the Library and remove it from the MAPAS list.</summary>
+    public void DeleteLibraryMap(int mapId)
+    {
+        if (mapId <= 0 || !HasLibrary)
+            return;
+
+        var libraryRoot = _library.RootPath ?? _effectiveLibraryPath;
+        if (string.IsNullOrWhiteSpace(libraryRoot))
+        {
+            MessageBox.Show("No hay biblioteca RUFUS cargada.", "Eliminar mapa",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        var confirm = MessageBox.Show(
+            $"¿Eliminar el mapa {mapId} de la biblioteca?\n\nSe borrará la carpeta Library\\Maps\\{mapId}.",
+            "Eliminar mapa",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning,
+            MessageBoxResult.No);
+        if (confirm != MessageBoxResult.Yes)
+            return;
+
+        // Close any open document for this map.
+        foreach (var doc in _openDocuments.Where(d => d.Map.Id == mapId).ToList())
+        {
+            if (doc.IsDirty && !ConfirmDiscardMapOnly())
+                return;
+            CloseDocument(doc);
+        }
+
+        var dir = LibraryMapPaths.GetOfficialMapDirectory(libraryRoot, mapId);
+        try
+        {
+            if (Directory.Exists(dir))
+                Directory.Delete(dir, recursive: true);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"No se pudo eliminar la carpeta:\n{ex.Message}", "Eliminar mapa",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+
+        MapIds.Remove(mapId);
+        if (SelectedMapId == mapId)
+            SelectedMapId = null;
+        _mapPreviews.Invalidate(mapId);
+        ApplyMapListFilter();
+
+        var label = _librarySource == LibrarySource.SiblingExecutable
+            ? "Biblioteca RUFUS (portable)"
+            : "Biblioteca RUFUS";
+        LibraryStatusMessage =
+            $"{label}\n{_effectiveLibraryPath}\n{MapIds.Count} mapas · Catálogo: {_library.Catalog?.TotalCount ?? 0} GFX.";
+        StatusText = $"{MapIds.Count} mapas";
+    }
+
     public string FormatCatalogHoverDetails(GfxItemVm item)
     {
         var dims = GfxResourceResolver.GetNativeDimensions(item.Resource);
@@ -8263,7 +8810,8 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
     private void RefreshMapInspector()
     {
-        if (CurrentMap is null)
+        var m = GetBackgroundEditTarget();
+        if (m is null)
         {
             InfoMapId = InfoWidth = InfoHeight = InfoCellCount = InfoBackground = "—";
             InfoMusic = InfoAmbiance = InfoCapabilities = InfoOutdoor = "—";
@@ -8275,21 +8823,15 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         }
         else
         {
-            var m = CurrentMap;
             InfoMapId = m.Id.ToString();
             InfoWidth = m.Width.ToString();
             InfoHeight = m.Height.ToString();
             InfoCellCount = m.Cells.Count.ToString();
             InfoBackground = m.BackgroundId.ToString();
-            if (CurrentMap is not null)
-            {
-                InfoMusic = CurrentMap.MusicId.ToString();
-                InfoAmbiance = CurrentMap.AmbianceId.ToString();
-                InfoCapabilities = CurrentMap.Capabilities.ToString();
-                InfoOutdoor = CurrentMap.Outdoor is null ? "—" : (CurrentMap.Outdoor.Value ? "Sí" : "No");
-            }
-            else
-                InfoMusic = InfoAmbiance = InfoCapabilities = InfoOutdoor = "—";
+            InfoMusic = m.MusicId.ToString();
+            InfoAmbiance = m.AmbianceId.ToString();
+            InfoCapabilities = m.Capabilities.ToString();
+            InfoOutdoor = m.Outdoor is null ? "—" : (m.Outdoor.Value ? "Sí" : "No");
 
             _suppressProp = true;
             EditRevision = m.DateMap ?? "";
@@ -8299,9 +8841,9 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             _suppressProp = false;
         }
 
-        if (CurrentMap is not null)
-            MapCellEditor.SyncMapDataString(CurrentMap);
-        InfoMapDataLength = CurrentMap?.MapData is { Length: > 0 } md
+        if (m is not null)
+            MapCellEditor.SyncMapDataString(m);
+        InfoMapDataLength = m?.MapData is { Length: > 0 } md
             ? md.Length.ToString()
             : "—";
 
@@ -8315,6 +8857,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(InfoCapabilities));
         OnPropertyChanged(nameof(InfoOutdoor));
         OnPropertyChanged(nameof(InfoMapDataLength));
+        OpenBackgroundPickerCommand.RaiseCanExecuteChanged();
     }
 
     private void RefreshCellInspector()
@@ -8518,14 +9061,55 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
                 CombinedMaps.InvalidateThumbnail(p.DocumentKey);
             RequestMosaicFullRefresh();
         }
+        else if (MosaicHost.IsMultiMapEditMode && MosaicHost.World is { } worldEdit)
+        {
+            foreach (var p in worldEdit.Placements)
+                MosaicHost.InvalidateThumbnail(p.DocumentKey);
+            RequestMosaicFullRefresh();
+        }
         else
             _ = RerenderAsync();
     }
 
     private void PersistMapViewVisibility()
     {
-        _settings.MapViewVisibility = CaptureMapViewVisibility();
+        // Solo-layer temporarily hides other layers. Never write that transient state to disk
+        // or a restart leaves Suelo/Fondo/Capa off while Capas still shows IDs (paints "invisible").
+        if (_visibilityRestore is not null)
+        {
+            var snap = _visibilityRestore.Clone();
+            snap.ShowGrid = ShowGrid;
+            snap.ShowCellIds = ShowCellIds;
+            snap.ShowUnwalkableMarkers = ShowUnwalkableMarkers;
+            snap.ShowLosBlockMarkers = ShowLosBlockMarkers;
+            snap.ShowFightMarkers = ShowFightMarkers;
+            _settings.MapViewVisibility = snap;
+        }
+        else
+        {
+            _settings.MapViewVisibility = CaptureMapViewVisibility();
+        }
+
         AppSettingsStore.Save(_settings);
+    }
+
+    /// <summary>
+    /// Painting into a hidden layer looks like "suelos no se pintan". Re-enable the active paint layer.
+    /// </summary>
+    private void EnsurePaintLayerVisible()
+    {
+        switch (PaintLayer)
+        {
+            case PaintLayer.Ground when !ShowGroundLayer:
+                ShowGroundLayer = true;
+                break;
+            case PaintLayer.Object1 when !ShowObject1Layer:
+                ShowObject1Layer = true;
+                break;
+            case PaintLayer.Object2 when !ShowObject2Layer:
+                ShowObject2Layer = true;
+                break;
+        }
     }
 
     private void ApplyMapViewVisibilityFromSettings(MapViewVisibilitySettings s)
@@ -8637,23 +9221,16 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
     public void OpenLicenseStatus()
     {
-        var lic = App.License;
-        var dlg = new Licensing.LicenseStatusWindow(lic?.CurrentSession, lic?.StatusLabel ?? "Licencia: —", lic)
-        {
-            Owner = Application.Current.MainWindow,
-        };
-        dlg.ShowDialog();
+        MessageBox.Show(
+            "El estado de licencia no está disponible en esta build.",
+            "RUFUS Map Editor",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
     }
 
-    public bool LicenseStatusVisible => App.License is not null;
+    public bool LicenseStatusVisible => false;
 
-    public string LicenseStatusText => App.License?.StatusLabel ?? "";
-
-    private void OnLicenseStatusChanged()
-    {
-        OnPropertyChanged(nameof(LicenseStatusText));
-        OnPropertyChanged(nameof(LicenseStatusVisible));
-    }
+    public string LicenseStatusText => "";
 
     public void OpenPublishRemoteLang()
     {
@@ -8746,6 +9323,95 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
         var dlg = new LangRemoteSyncWindow(result) { Owner = Application.Current.MainWindow };
         dlg.ShowDialog();
+    }
+
+    public async Task QuickUpdateMapIdToDatabaseAsync()
+    {
+        if (CurrentMap is null || CurrentMap.Id <= 0)
+            return;
+
+        _settings.Database ??= new DatabaseSettings();
+        var db = _settings.Database;
+        if (string.IsNullOrWhiteSpace(db.Host) || string.IsNullOrWhiteSpace(db.User))
+        {
+            MessageBox.Show(
+                "Configure primero la conexión MySQL (Archivo → Configuración BD…).",
+                "Actualizar Map ID",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            OpenDatabaseSettings();
+            return;
+        }
+
+        string password;
+        try
+        {
+            password = DatabasePasswordProtector.Unprotect(db.PasswordProtectedBase64);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                "No se pudo descifrar la contraseña guardada.\n" + DatabaseSettingsWindow.FriendlyDbError(ex),
+                "Actualizar Map ID",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
+        var backupDir = Path.Combine(AppSettingsStore.SettingsDirectory, "db-backups");
+        var label = $"{db.Database}.{db.Table}";
+        IMapasRepository repo = new MysqlMapasRepository(db, password);
+        var service = new MapPublishService(repo, backupDir, label);
+
+        try
+        {
+            IsLoading = true;
+            StatusText = $"Actualizando mapa {CurrentMap.Id} en BD…";
+            var outcome = await service.QuickUpdateExistingAsync(CurrentMap).ConfigureAwait(true);
+            if (!outcome.Success)
+            {
+                MessageBox.Show(
+                    outcome.Error ?? "No se pudo actualizar.",
+                    "Actualizar Map ID",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                StatusText = "Actualización BD fallida";
+                return;
+            }
+
+            RefreshMapInspector();
+
+            // Persist Library + clear dirty so closing the map does not ask to save again.
+            // (Same expectation as full "Publicar en BD", which saves the official map first.)
+            var savedLocal = await SaveOfficialMapAsync().ConfigureAwait(true);
+            if (!savedLocal && _session is not null)
+            {
+                _session.MarkSaved();
+                _autosave.Delete(_session.DocumentId);
+                AfterHistoryChange();
+                RevertToSavedCommand.RaiseCanExecuteChanged();
+            }
+
+            MapPublishQueue.SyncFingerprintAfterSave(CurrentMap.Id);
+            StatusText =
+                $"Mapa {CurrentMap.Id} actualizado en BD · revisión {outcome.CurrentFecha} → {outcome.NewFecha}";
+            RufusLog.Ok(
+                $"Actualizar Map ID · {CurrentMap.Id} · {outcome.CurrentFecha} → {outcome.NewFecha} · {label}");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                DatabaseSettingsWindow.FriendlyDbError(ex),
+                "Actualizar Map ID",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            StatusText = "Actualización BD fallida";
+            RufusLog.Error("Actualizar Map ID: " + DatabaseSettingsWindow.FriendlyDbError(ex));
+        }
+        finally
+        {
+            IsLoading = false;
+        }
     }
 
     public async Task PublishToDatabaseAsync()
@@ -8917,6 +9583,974 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(IsDarkTheme));
     }
 
+    /// <summary>
+    /// World empty-cell click: ask for Map ID, materialize from BD, place at (worldX, worldY).
+    /// Also offers creating a brand-new blank map with the next free ID.
+    /// </summary>
+    public async Task PromptLoadMapIdFromDatabaseAtAsync(int worldX, int worldY)
+    {
+        if (!HasLibrary || IsLoading)
+            return;
+        if (World.World is null)
+        {
+            MessageBox.Show(
+                "Abre o crea un mundo primero.",
+                "Cargar desde BD",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var suggested = 0;
+        _ = int.TryParse(LoadMapFromDatabaseIdText?.Trim(), System.Globalization.NumberStyles.Integer,
+            System.Globalization.CultureInfo.InvariantCulture, out suggested);
+
+        var nextNewId = ProposeNextFreeMapId();
+        var dlg = new MapIdInputWindow(
+            $"Cargar mapa desde BD en la casilla ({worldX},{worldY}):",
+            suggested,
+            hint: "Lee mapData de estaticos.mapas, crea Library\\Maps\\{id}\\ y lo coloca aquí.\n"
+                  + "O crea un mapa nuevo en blanco con la siguiente ID libre.",
+            title: "Cargar Map ID en casilla",
+            allowCreateNew: true,
+            createNewLabel: $"Crear mapa nuevo (ID {nextNewId})…")
+        {
+            Owner = Application.Current.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive)
+                    ?? Application.Current.MainWindow,
+        };
+        if (dlg.ShowDialog() != true)
+            return;
+
+        if (dlg.CreateNewRequested)
+        {
+            await CreateNewMapAtWorldCellAsync(worldX, worldY, suggestedNextId: nextNewId);
+            return;
+        }
+
+        if (dlg.ResultMapId is not int mapId)
+            return;
+
+        LoadMapFromDatabaseIdText = mapId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        await LoadMapFromDatabaseAsync(worldX, worldY);
+    }
+
+    /// <summary>
+    /// Creates a blank map with the next free ID, saves it under Library\Maps\{id}\, and places it
+    /// on the world grid at (worldX, worldY).
+    /// </summary>
+    public async Task CreateNewMapAtWorldCellAsync(int worldX, int worldY, int? suggestedNextId = null)
+    {
+        if (!HasLibrary || IsLoading)
+            return;
+        if (World.World is null)
+        {
+            MessageBox.Show(
+                "Abre o crea un mundo primero.",
+                "Nuevo mapa",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var owner = Application.Current.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive)
+                    ?? Application.Current.MainWindow;
+
+        int? lockW = null;
+        int? lockH = null;
+        string? lockReason = null;
+        if (World.GetWorkingMapSize() is { } working)
+        {
+            lockW = working.Width;
+            lockH = working.Height;
+            var label = World.GetWorkingMapSizeLabel() ?? $"{working.Width}×{working.Height}";
+            lockReason =
+                $"Este mundo ya usa mapas {label}. El nuevo mapa se creará con ese tamaño.";
+        }
+
+        var sizeDlg = new NewMapSizeWindow(lockW, lockH, lockReason) { Owner = owner };
+        if (sizeDlg.ShowDialog() != true)
+            return;
+
+        var reserved = CollectReservedMapIdsForAllocation();
+        var proposed = suggestedNextId is int s && s > 0 && new LocalMapIdAllocator().IsAvailable(s, reserved)
+            ? s
+            : new LocalMapIdAllocator().ProposeNextId(
+                reserved.Count > 0 ? reserved.Max() : 30000,
+                reserved);
+
+        var idDlg = new SaveMapIdWindow(proposed, sizeDlg.ResultWidth, sizeDlg.ResultHeight)
+        {
+            Owner = owner,
+        };
+        if (idDlg.ShowDialog() != true)
+            return;
+
+        var mapId = idDlg.ResultMapId;
+        if (!new LocalMapIdAllocator().IsAvailable(mapId, reserved))
+        {
+            MessageBox.Show(
+                $"El Map ID {mapId} ya existe. Elige otro.",
+                "Nuevo mapa",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
+        var libraryRoot = _library.RootPath ?? _effectiveLibraryPath;
+        if (string.IsNullOrWhiteSpace(libraryRoot) || _library.Renderer is null)
+        {
+            MessageBox.Show(
+                "Configure una biblioteca RUFUS (Library) antes de crear mapas.",
+                "Nuevo mapa",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
+        if (LibraryMapPaths.HasOfficialSave(libraryRoot, mapId))
+        {
+            MessageBox.Show(
+                $"Ya existe Library\\Maps\\{mapId}. Elige otro Map ID.",
+                "Nuevo mapa",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
+        try
+        {
+            IsLoading = true;
+            StatusText = $"Creando mapa {mapId} ({sizeDlg.ResultWidth}×{sizeDlg.ResultHeight})…";
+
+            var map = BlankMapFactory.Create(mapId, sizeDlg.ResultWidth, sizeDlg.ResultHeight);
+            TryCopyWorldAmbientDefaults(map);
+
+            var renderer = _library.Renderer;
+            var root = libraryRoot;
+            var saveResult = await Task.Run(() =>
+            {
+                var saver = new OfficialMapSave(renderer);
+                return saver.Save(map, new OfficialMapSaveOptions
+                {
+                    LibraryRoot = root,
+                    DocumentId = Guid.NewGuid().ToString("D"),
+                    ProjectName = mapId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    Source = new RufmapSourceDto
+                    {
+                        Kind = "NewMapFromWorld",
+                        OriginalMapId = mapId,
+                        LibraryPathHint = root,
+                    },
+                });
+            }).ConfigureAwait(true);
+
+            if (!saveResult.Success)
+            {
+                MessageBox.Show(
+                    saveResult.ErrorMessage ?? "No se pudo crear la carpeta del mapa en Library.",
+                    "Nuevo mapa",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+                StatusText = "Creación fallida";
+                return;
+            }
+
+            if (!MapIds.Contains(mapId))
+            {
+                MapIds.Add(mapId);
+                var sorted = MapIds.OrderBy(x => x).ToList();
+                MapIds.Clear();
+                foreach (var id in sorted)
+                    MapIds.Add(id);
+            }
+
+            SyncMapListItems();
+            _mapPreviews.Invalidate(mapId);
+            RefreshMapListThumbnail(mapId);
+            LoadMapFromDatabaseIdText = mapId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+            var placed = World.PlaceLibraryMapAt(mapId, worldX, worldY);
+            if (!placed)
+            {
+                StatusText = $"Mapa {mapId} creado en Library, pero no se pudo colocar en ({worldX},{worldY})";
+                return;
+            }
+
+            StatusText = $"Mapa nuevo {mapId} colocado en ({worldX},{worldY})";
+            RufusLog.Info($"Mapa nuevo {mapId} desde Mundo → {saveResult.OfficialDirectory} @ ({worldX},{worldY})");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"No se pudo crear el mapa:\n{ex.Message}", "Nuevo mapa",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+            StatusText = "Error al crear mapa";
+            RufusLog.Error($"Error nuevo mapa desde Mundo: {ex.Message}");
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    private int ProposeNextFreeMapId()
+    {
+        var reserved = CollectReservedMapIdsForAllocation();
+        var maxId = reserved.Count > 0 ? reserved.Max() : 30000;
+        return new LocalMapIdAllocator().ProposeNextId(maxId, reserved);
+    }
+
+    private HashSet<int> CollectReservedMapIdsForAllocation()
+    {
+        var reserved = new HashSet<int>(MapIds);
+        foreach (var doc in _openDocuments)
+        {
+            if (doc.MapId > 0)
+                reserved.Add(doc.MapId);
+        }
+
+        if (World.World is { } world)
+        {
+            foreach (var entry in world.Documents.Values)
+            {
+                if (entry.Document.Id > 0)
+                    reserved.Add(entry.Document.Id);
+            }
+        }
+
+        return reserved;
+    }
+
+    private void TryCopyWorldAmbientDefaults(MapDocument map)
+    {
+        if (World.World is null)
+            return;
+
+        foreach (var p in World.World.Placements.OrderBy(p => p.WorldY).ThenBy(p => p.WorldX))
+        {
+            if (!World.World.Documents.TryGetValue(p.DocumentKey, out var entry))
+                continue;
+            var sample = entry.Document;
+            if (sample.Width != map.Width || sample.Height != map.Height)
+                continue;
+
+            if (sample.BackgroundDefined)
+            {
+                map.BackgroundId = sample.BackgroundId;
+                map.BackgroundDefined = true;
+            }
+
+            if (sample.AmbianceDefined)
+            {
+                map.AmbianceId = sample.AmbianceId;
+                map.AmbianceDefined = true;
+            }
+
+            map.Outdoor = sample.Outdoor;
+            return;
+        }
+    }
+
+    public Task LoadMapFromDatabaseAsync() => LoadMapFromDatabaseAsync(null, null);
+
+    public async Task LoadMapFromDatabaseAsync(int? placeWorldX, int? placeWorldY)
+    {
+        if (!HasLibrary || IsLoading)
+            return;
+
+        if (!int.TryParse(LoadMapFromDatabaseIdText?.Trim(), System.Globalization.NumberStyles.Integer,
+                System.Globalization.CultureInfo.InvariantCulture, out var mapId) || mapId <= 0)
+        {
+            MessageBox.Show(
+                "Introduce un Map ID válido (número > 0).",
+                "Cargar desde BD",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        _settings.Database ??= new DatabaseSettings();
+        var db = _settings.Database;
+        if (string.IsNullOrWhiteSpace(db.Host) || string.IsNullOrWhiteSpace(db.User))
+        {
+            MessageBox.Show(
+                "Configure primero la conexión MySQL (Archivo → Configuración BD…).",
+                "Cargar desde BD",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            OpenDatabaseSettings();
+            return;
+        }
+
+        string password;
+        try
+        {
+            password = DatabasePasswordProtector.Unprotect(db.PasswordProtectedBase64);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                "No se pudo descifrar la contraseña guardada.\n" + DatabaseSettingsWindow.FriendlyDbError(ex),
+                "Cargar desde BD",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
+        var libraryRoot = _library.RootPath ?? _effectiveLibraryPath;
+        if (string.IsNullOrWhiteSpace(libraryRoot) || _library.Renderer is null)
+        {
+            MessageBox.Show(
+                "Configure una biblioteca RUFUS (Library) antes de cargar mapas desde BD.",
+                "Cargar desde BD",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
+        var openDoc = FindOpenDocument(mapId);
+        if (openDoc is not null)
+        {
+            if (openDoc.IsDirty)
+            {
+                var discard = MessageBox.Show(
+                    $"El mapa {mapId} está abierto con cambios sin guardar.\n¿Cerrarlo y reemplazarlo con la BD?",
+                    "Cargar desde BD",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning);
+                if (discard != MessageBoxResult.Yes)
+                    return;
+            }
+
+            CloseDocument(openDoc);
+        }
+
+        var label = $"{db.Database}.{db.Table}";
+        IMapasRepository repo = new MysqlMapasRepository(db, password);
+
+        try
+        {
+            IsLoading = true;
+            StatusText = $"Leyendo mapa {mapId} desde BD…";
+
+            var row = await repo.TryGetAsync(mapId).ConfigureAwait(true);
+            if (row is null)
+            {
+                MessageBox.Show(
+                    $"No hay fila con id={mapId} en {label}.",
+                    "Cargar desde BD",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                StatusText = "Mapa no encontrado en BD";
+                return;
+            }
+
+            if (!MapImportFromDatabaseLogic.TryCreateDocument(row, out var document, out var importError))
+            {
+                MessageBox.Show(importError ?? "No se pudo importar el mapa.", "Cargar desde BD",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                StatusText = "Importación fallida";
+                return;
+            }
+
+            StatusText = $"Creando carpeta Library\\Maps\\{mapId}…";
+            var renderer = _library.Renderer;
+            var root = libraryRoot;
+            var saveResult = await Task.Run(() =>
+            {
+                var saver = new OfficialMapSave(renderer);
+                return saver.Save(document, new OfficialMapSaveOptions
+                {
+                    LibraryRoot = root,
+                    DocumentId = Guid.NewGuid().ToString("D"),
+                    ProjectName = mapId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                });
+            }).ConfigureAwait(true);
+
+            if (!saveResult.Success)
+            {
+                MessageBox.Show(
+                    saveResult.ErrorMessage ?? "No se pudo crear la carpeta del mapa en Library.",
+                    "Cargar desde BD",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+                StatusText = "Materialización fallida";
+                return;
+            }
+
+            if (!MapIds.Contains(mapId))
+            {
+                MapIds.Add(mapId);
+                var sorted = MapIds.OrderBy(x => x).ToList();
+                MapIds.Clear();
+                foreach (var id in sorted)
+                    MapIds.Add(id);
+            }
+
+            SyncMapListItems();
+            _mapPreviews.Invalidate(mapId);
+            RefreshMapListThumbnail(mapId);
+
+            StatusText = $"Mapa {mapId} materializado desde BD";
+            RufusLog.Info($"Mapa {mapId} cargado desde {label} → {saveResult.OfficialDirectory}");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                DatabaseSettingsWindow.FriendlyDbError(ex),
+                "Cargar desde BD",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            StatusText = "Carga desde BD fallida";
+            RufusLog.Error($"Cargar desde BD {mapId}: {DatabaseSettingsWindow.FriendlyDbError(ex)}");
+            return;
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+
+        await OpenMapAfterDatabaseLoadAsync(mapId, placeWorldX, placeWorldY);
+    }
+
+    /// <summary>
+    /// After materializing (or reusing) a Library map from BD: open in MAPA, or place on the
+    /// active world grid when the MUNDO tab is selected (optionally at a specific cell).
+    /// </summary>
+    private async Task OpenMapAfterDatabaseLoadAsync(int mapId, int? placeWorldX = null, int? placeWorldY = null)
+    {
+        if (IsWorldTab || (placeWorldX is not null && placeWorldY is not null))
+        {
+            if (World.World is null)
+            {
+                MessageBox.Show(
+                    "Abre o crea un mundo primero.\n\nLuego «Cargar BD» colocará el mapa en la cuadrícula.",
+                    "Cargar desde BD",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                StatusText = $"Mapa {mapId} en Library — falta mundo abierto";
+                return;
+            }
+
+            var placed = placeWorldX is int x && placeWorldY is int y
+                ? World.PlaceLibraryMapAt(mapId, x, y)
+                : World.PlaceLibraryMapAt(mapId);
+            if (!placed)
+            {
+                StatusText = $"No se pudo colocar el mapa {mapId} en el mundo";
+                return;
+            }
+
+            StatusText = placeWorldX is int px && placeWorldY is int py
+                ? $"Mapa {mapId} colocado en ({px},{py})"
+                : $"Mapa {mapId} colocado en el mundo";
+            return;
+        }
+
+        await LoadMapAsync(mapId);
+    }
+
+    private void DismissIslaFechaPreview()
+    {
+        _islaFechaPreviewCts?.Cancel();
+        _islaFechaPreviewCts?.Dispose();
+        _islaFechaPreviewCts = null;
+        _islaFechaPreviewSuppressed = true;
+        IslaFechaPreviewItems.Clear();
+        IslaFechaPreviewStatusText = "";
+        OnPropertyChanged(nameof(ShowIslaFechaPreview));
+    }
+
+    private void ScheduleIslaFechaPreviewRefresh()
+    {
+        _islaFechaPreviewCts?.Cancel();
+        _islaFechaPreviewCts?.Dispose();
+        _islaFechaPreviewCts = null;
+
+        var keyword = (_loadMapsByFechaKeywordText ?? "").Trim();
+        if (keyword.Length == 0 || _islaFechaPreviewSuppressed)
+        {
+            IslaFechaPreviewItems.Clear();
+            IslaFechaPreviewStatusText = "";
+            return;
+        }
+
+        IslaFechaPreviewStatusText = "Buscando…";
+        var cts = new CancellationTokenSource();
+        _islaFechaPreviewCts = cts;
+        _ = RefreshIslaFechaPreviewAsync(keyword, cts.Token);
+    }
+
+    private async Task RefreshIslaFechaPreviewAsync(string keyword, CancellationToken ct)
+    {
+        try
+        {
+            await Task.Delay(350, ct).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        _settings.Database ??= new DatabaseSettings();
+        var db = _settings.Database;
+        if (string.IsNullOrWhiteSpace(db.Host) || string.IsNullOrWhiteSpace(db.User))
+        {
+            if (ct.IsCancellationRequested) return;
+            IslaFechaPreviewItems.Clear();
+            IslaFechaPreviewStatusText = "Sin conexión";
+            return;
+        }
+
+        string password;
+        try
+        {
+            password = DatabasePasswordProtector.Unprotect(db.PasswordProtectedBase64);
+        }
+        catch
+        {
+            if (ct.IsCancellationRequested) return;
+            IslaFechaPreviewItems.Clear();
+            IslaFechaPreviewStatusText = "Sin conexión";
+            return;
+        }
+
+        IReadOnlyList<MapasFechaPreviewRow> rows;
+        try
+        {
+            IMapasRepository repo = new MysqlMapasRepository(db, password);
+            rows = await repo.ListFechaPreviewByContainingAsync(keyword, ct).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch
+        {
+            if (ct.IsCancellationRequested) return;
+            IslaFechaPreviewItems.Clear();
+            IslaFechaPreviewStatusText = "Sin conexión";
+            return;
+        }
+
+        if (ct.IsCancellationRequested) return;
+
+        var shown = Math.Min(rows.Count, IslaFechaPreviewThumbLimit);
+        IslaFechaPreviewStatusText = rows.Count > IslaFechaPreviewThumbLimit
+            ? $"{rows.Count} mapas con «{keyword}» · mostrando {shown}"
+            : $"{rows.Count} mapas con «{keyword}»";
+        IslaFechaPreviewItems.Clear();
+        var thumbIds = new List<int>();
+        foreach (var row in rows.Take(IslaFechaPreviewThumbLimit))
+        {
+            var item = new IslaFechaPreviewItemVm(row.Id, row.Fecha, row.X, row.Y);
+            IslaFechaPreviewItems.Add(item);
+            thumbIds.Add(row.Id);
+        }
+
+        foreach (var id in thumbIds)
+            _ = LoadIslaFechaPreviewThumbnailAsync(id, ct);
+    }
+
+    private async Task LoadIslaFechaPreviewThumbnailAsync(int mapId, CancellationToken ct)
+    {
+        var item = IslaFechaPreviewItems.FirstOrDefault(x => x.MapId == mapId);
+        if (item is null || ct.IsCancellationRequested)
+            return;
+
+        var cached = _mapPreviews.TryGetCached(mapId);
+        if (cached?.Image is not null)
+        {
+            item.Thumbnail = cached.Image;
+            item.IsLoading = false;
+            return;
+        }
+
+        if (!HasLibrary)
+        {
+            item.IsLoading = false;
+            return;
+        }
+
+        item.IsLoading = true;
+        try
+        {
+            var preview = await _mapPreviews.GetOrRenderAsync(_library, mapId).ConfigureAwait(true);
+            if (ct.IsCancellationRequested) return;
+            item = IslaFechaPreviewItems.FirstOrDefault(x => x.MapId == mapId);
+            if (item is null) return;
+            item.Thumbnail = preview?.Image;
+        }
+        catch
+        {
+            // Preview is best-effort; ID chip remains usable without thumb.
+        }
+        finally
+        {
+            item = IslaFechaPreviewItems.FirstOrDefault(x => x.MapId == mapId);
+            if (item is not null)
+                item.IsLoading = false;
+        }
+    }
+
+    /// <summary>
+    /// Bulk-import: all <c>estaticos.mapas</c> rows with exact <c>fecha</c> match → overwrite Library
+    /// and place on Mundo at each row's X/Y (preview / staging world).
+    /// </summary>
+    public async Task LoadMapsByFechaKeywordAsync()
+    {
+        if (!HasLibrary || IsLoading)
+            return;
+
+        var keyword = LoadMapsByFechaKeywordText?.Trim() ?? "";
+        if (keyword.Length == 0)
+        {
+            MessageBox.Show(
+                "Introduce la palabra de fecha (ej. VULKANIA).\nIncluye variantes que la contengan con la misma capitalización (VULKANIA1, VULKANIAEXTRA…).",
+                "Cargar isla BD",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        WorkspaceTabIndex = 1;
+
+        _settings.Database ??= new DatabaseSettings();
+        var db = _settings.Database;
+        if (string.IsNullOrWhiteSpace(db.Host) || string.IsNullOrWhiteSpace(db.User))
+        {
+            MessageBox.Show(
+                "Configure primero la conexión MySQL (Archivo → Configuración BD…).",
+                "Cargar isla BD",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            OpenDatabaseSettings();
+            return;
+        }
+
+        string password;
+        try
+        {
+            password = DatabasePasswordProtector.Unprotect(db.PasswordProtectedBase64);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                "No se pudo descifrar la contraseña guardada.\n" + DatabaseSettingsWindow.FriendlyDbError(ex),
+                "Cargar isla BD",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
+        var libraryRoot = _library.RootPath ?? _effectiveLibraryPath;
+        if (string.IsNullOrWhiteSpace(libraryRoot) || _library.Renderer is null)
+        {
+            MessageBox.Show(
+                "Configure una biblioteca RUFUS (Library) antes de cargar mapas desde BD.",
+                "Cargar isla BD",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
+        var label = $"{db.Database}.{db.Table}";
+        IMapasRepository repo = new MysqlMapasRepository(db, password);
+        IReadOnlyList<MapasRow> rows;
+        try
+        {
+            BeginIslaImportProgress($"Buscando fecha que contenga \"{keyword}\" en BD…");
+            StatusText = IslaImportProgressText;
+            rows = await repo.ListByFechaContainingAsync(keyword).ConfigureAwait(true);
+            SetIslaImportProgress(5, $"Encontrados {rows.Count} mapa(s)…");
+        }
+        catch (Exception ex)
+        {
+            EndIslaImportProgress();
+            MessageBox.Show(
+                DatabaseSettingsWindow.FriendlyDbError(ex),
+                "Cargar isla BD",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            StatusText = "Carga isla BD fallida";
+            return;
+        }
+
+        if (rows.Count == 0)
+        {
+            EndIslaImportProgress();
+            MessageBox.Show(
+                $"No hay filas cuya fecha contenga \"{keyword}\" (mayúsculas/minúsculas exactas) en {label}.",
+                "Cargar isla BD",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            StatusText = "Ningún mapa con esa fecha";
+            return;
+        }
+
+        var placements = new List<(int MapId, int X, int Y)>();
+        var failures = new List<string>();
+        var renderer = _library.Renderer!;
+        var root = libraryRoot;
+
+        try
+        {
+            SetIslaImportProgress(5, $"Importando 0/{rows.Count}…");
+            StatusText = IslaImportProgressText;
+
+            // Materialize = 5% → 90%; place in world = 90% → 100%.
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var row = rows[i];
+                var pct = 5 + (85.0 * i / rows.Count);
+                SetIslaImportProgress(pct, $"Materializando {i + 1}/{rows.Count} · mapa {row.Id}…");
+                StatusText = IslaImportProgressText;
+
+                var openDoc = FindOpenDocument(row.Id);
+                if (openDoc is not null)
+                    CloseDocument(openDoc);
+
+                if (!MapImportFromDatabaseLogic.TryCreateDocument(row, out var document, out var importError))
+                {
+                    failures.Add($"{row.Id}: {importError}");
+                    continue;
+                }
+
+                var saveResult = await Task.Run(() =>
+                {
+                    var saver = new OfficialMapSave(renderer);
+                    return saver.Save(document, new OfficialMapSaveOptions
+                    {
+                        LibraryRoot = root,
+                        DocumentId = Guid.NewGuid().ToString("D"),
+                        ProjectName = row.Id.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    });
+                }).ConfigureAwait(true);
+
+                if (!saveResult.Success)
+                {
+                    failures.Add($"{row.Id}: {saveResult.ErrorMessage ?? "fallo al guardar"}");
+                    continue;
+                }
+
+                if (!MapIds.Contains(row.Id))
+                    MapIds.Add(row.Id);
+
+                _mapPreviews.Invalidate(row.Id);
+                placements.Add((row.Id, row.X, row.Y));
+
+                SetIslaImportProgress(
+                    5 + (85.0 * (i + 1) / rows.Count),
+                    $"Materializados {i + 1}/{rows.Count}…");
+            }
+
+            SyncMapListItems();
+            var sorted = MapIds.OrderBy(x => x).ToList();
+            MapIds.Clear();
+            foreach (var id in sorted)
+                MapIds.Add(id);
+
+            SetIslaImportProgress(92, $"Colocando {placements.Count} mapas en Mundo…");
+            StatusText = IslaImportProgressText;
+            var placed = World.PlaceLibraryMapsAtCoordinates(
+                placements,
+                createWorldIfNeeded: true,
+                resetWorldToBounds: true);
+            EnsureActiveWorldSessionOpen();
+            WorkspaceTabIndex = 1;
+            // Maps are on the world grid — dismiss the BD preview strip.
+            DismissIslaFechaPreview();
+
+            SetIslaImportProgress(100, $"Listo · {placed}/{rows.Count} mapas");
+            StatusText = IslaImportProgressText;
+            await Task.Delay(350).ConfigureAwait(true);
+
+            RufusLog.Info(
+                $"Isla fecha=\"{keyword}\": {placed} colocados / {rows.Count} filas BD · fallos={failures.Count}");
+
+            if (failures.Count > 0)
+            {
+                var preview = string.Join("\n", failures.Take(12));
+                if (failures.Count > 12)
+                    preview += $"\n… y {failures.Count - 12} más";
+                MessageBox.Show(
+                    $"Colocados {placed} de {rows.Count}.\n\nFallos ({failures.Count}):\n{preview}",
+                    "Cargar isla BD",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+            }
+
+            StatusText = placed > 0
+                ? $"Isla \"{keyword}\": {placed} mapas en Mundo (coords BD)"
+                : "No se pudo colocar ningún mapa en Mundo";
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                DatabaseSettingsWindow.FriendlyDbError(ex),
+                "Cargar isla BD",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            StatusText = "Carga isla BD fallida";
+            RufusLog.Error($"Cargar isla fecha={keyword}: {DatabaseSettingsWindow.FriendlyDbError(ex)}");
+        }
+        finally
+        {
+            EndIslaImportProgress();
+            PushWorldCoordinatesToDatabaseCommand.RaiseCanExecuteChanged();
+        }
+    }
+
+    public async Task PushWorldCoordinatesToDatabaseAsync()
+    {
+        if (!CanPushWorldCoordinatesToDatabase)
+            return;
+
+        var coords = World.CollectPushableWorldCoordinates();
+        if (coords.Count == 0)
+        {
+            MessageBox.Show(
+                "No hay mapas colocados con coordenadas BD definidas.",
+                "Subir coordenadas BD",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var confirm = MessageBox.Show(
+            $"¿Actualizar solo X/Y de {coords.Count} mapa(s) en la base de datos?\n\n" +
+            "No se modifica mapData ni fecha.",
+            "Subir coordenadas BD",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+        if (confirm != MessageBoxResult.Yes)
+            return;
+
+        _settings.Database ??= new DatabaseSettings();
+        var db = _settings.Database;
+        if (string.IsNullOrWhiteSpace(db.Host) || string.IsNullOrWhiteSpace(db.User))
+        {
+            MessageBox.Show(
+                "Configure primero la conexión MySQL (Archivo → Configuración BD…).",
+                "Subir coordenadas BD",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            OpenDatabaseSettings();
+            return;
+        }
+
+        string password;
+        try
+        {
+            password = DatabasePasswordProtector.Unprotect(db.PasswordProtectedBase64);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                "No se pudo descifrar la contraseña guardada.\n" + DatabaseSettingsWindow.FriendlyDbError(ex),
+                "Subir coordenadas BD",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
+        var label = $"{db.Database}.{db.Table}";
+        IMapasRepository repo = new MysqlMapasRepository(db, password);
+        var ok = 0;
+        var skipped = 0;
+        var failures = new List<string>();
+
+        try
+        {
+            BeginIslaImportProgress($"Subiendo coordenadas 0/{coords.Count}…");
+            StatusText = IslaImportProgressText;
+
+            for (var i = 0; i < coords.Count; i++)
+            {
+                var (mapId, x, y) = coords[i];
+                SetIslaImportProgress(
+                    100.0 * (i + 1) / coords.Count,
+                    $"Subiendo coordenadas {i + 1}/{coords.Count} · mapa {mapId}…");
+                StatusText = IslaImportProgressText;
+
+                try
+                {
+                    var row = await repo.TryGetAsync(mapId).ConfigureAwait(true);
+                    if (row is null)
+                    {
+                        failures.Add($"{mapId}: no existe en BD");
+                        continue;
+                    }
+
+                    if (row.X == x && row.Y == y)
+                    {
+                        skipped++;
+                        continue;
+                    }
+
+                    // Synthetic document for the X/Y-only UPDATE path.
+                    var stub = new MapDocument
+                    {
+                        Id = mapId,
+                        WorldX = x,
+                        WorldY = y,
+                        WorldCoordinatesSet = true,
+                    };
+                    if (!MapCoordinatesUpdateLogic.TryBuildValues(stub, row, out var values, out var buildError))
+                    {
+                        failures.Add($"{mapId}: {buildError}");
+                        continue;
+                    }
+
+                    var affected = await repo.UpdateExistingAsync(values).ConfigureAwait(true);
+                    if (affected == 1)
+                        ok++;
+                    else
+                        failures.Add($"{mapId}: UPDATE affected={affected}");
+                }
+                catch (Exception ex)
+                {
+                    failures.Add($"{mapId}: {DatabaseSettingsWindow.FriendlyDbError(ex)}");
+                }
+            }
+
+            StatusText = $"Coordenadas BD: {ok} actualizados · {skipped} ya iguales · {failures.Count} fallos ({label})";
+            if (failures.Count > 0)
+            {
+                var preview = string.Join("\n", failures.Take(12));
+                if (failures.Count > 12)
+                    preview += $"\n… y {failures.Count - 12} más";
+                MessageBox.Show(
+                    $"Actualizados {ok}/{coords.Count} (omitidos sin cambio: {skipped}).\n\nFallos ({failures.Count}):\n{preview}",
+                    "Subir coordenadas BD",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+            }
+            else
+            {
+                MessageBox.Show(
+                    $"Listo: {ok} mapa(s) con X/Y actualizados en BD" +
+                    (skipped > 0 ? $" ({skipped} ya estaban iguales)." : "."),
+                    "Subir coordenadas BD",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(
+                DatabaseSettingsWindow.FriendlyDbError(ex),
+                "Subir coordenadas BD",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            StatusText = "Subida de coordenadas fallida";
+        }
+        finally
+        {
+            EndIslaImportProgress();
+            PushWorldCoordinatesToDatabaseCommand.RaiseCanExecuteChanged();
+        }
+    }
+
     public async Task SyncMetadataFromDatabaseAsync()
     {
         if (CurrentMap is null)
@@ -9000,11 +10634,13 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
     public async Task OpenBackgroundPickerAsync()
     {
-        if (CurrentMap is null || !HasLibrary) return;
+        var target = GetBackgroundEditTarget();
+        if (target is null || !HasLibrary) return;
         await SoftReloadGfxCatalogAsync("selector de fondo", waitIfBusy: true).ConfigureAwait(true);
-        if (CurrentMap is null || !HasLibrary) return;
+        target = GetBackgroundEditTarget();
+        if (target is null || !HasLibrary) return;
 
-        var dlg = new BackgroundPickerWindow(_library, CurrentMap.BackgroundId)
+        var dlg = new BackgroundPickerWindow(_library, target.BackgroundId)
         {
             Owner = Application.Current.MainWindow,
         };
@@ -9014,10 +10650,22 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
     public void OpenBackgroundPicker() => _ = OpenBackgroundPickerAsync();
 
+    /// <summary>
+    /// Map whose background the strip edits: current MAPA doc, or the single selected MUNDO cell.
+    /// </summary>
+    private MapDocument? GetBackgroundEditTarget()
+    {
+        if (IsWorldTab &&
+            World.World is not null &&
+            World.HasSingleSelection &&
+            World.World.Documents.TryGetValue(World.SelectedKeys.First(), out var entry))
+            return entry.Document;
+
+        return CurrentMap;
+    }
+
     public void ApplyBackgroundId(int backgroundId)
     {
-        if (_session is null || CurrentMap is null) return;
-
         // Combinado: aplicar a todos los mapas marcados (bordes amarillos / chips).
         if (IsMapCombinedMode &&
             CombinedMaps.World is not null &&
@@ -9026,6 +10674,17 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             ApplyBackgroundIdToCombinedSelection(backgroundId);
             return;
         }
+
+        // MUNDO: aplicar al mapa de la casilla seleccionada (aunque no esté abierto en MAPA).
+        if (IsWorldTab &&
+            World.World is not null &&
+            World.SelectedKeys.Count > 0)
+        {
+            ApplyBackgroundIdToWorldSelection(backgroundId);
+            return;
+        }
+
+        if (_session is null || CurrentMap is null) return;
 
         var before = CurrentMap.BackgroundId;
         var beforeDefined = CurrentMap.BackgroundDefined;
@@ -9036,6 +10695,60 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         AfterHistoryChange();
         RefreshMapInspector();
         _ = RerenderAsync();
+    }
+
+    private void ApplyBackgroundIdToWorldSelection(int backgroundId)
+    {
+        if (World.World is null) return;
+
+        var keys = World.SelectedKeys.ToList();
+        var changed = 0;
+        foreach (var key in keys)
+        {
+            if (!World.World.Documents.TryGetValue(key, out var entry))
+                continue;
+
+            var map = entry.Document;
+            var before = map.BackgroundId;
+            var beforeDefined = map.BackgroundDefined;
+            if (before == backgroundId && beforeDefined)
+                continue;
+
+            map.BackgroundId = backgroundId;
+            map.BackgroundDefined = true;
+
+            var open = _openDocuments.FirstOrDefault(d => ReferenceEquals(d.Map, map));
+            if (open is null && keys.Count == 1)
+                open = EnsureWorldBoundDocument(map, key);
+            open ??= FindOpenDocument(map.Id);
+
+            if (open is not null)
+            {
+                if (!ReferenceEquals(_activeDocument, open))
+                    ActivateDocument(open);
+                open.Session.History.PushExecuted(
+                    new MapMetadataEditCommand("Cambiar fondo", before, backgroundId, beforeDefined));
+                open.NotifyDirtyChanged();
+            }
+
+            World.NotifyMapEdited(key);
+            changed++;
+        }
+
+        if (changed == 0)
+        {
+            StatusText = "Los mapas seleccionados ya tienen ese fondo";
+            RefreshMapInspector();
+            return;
+        }
+
+        AfterHistoryChange();
+        RefreshMapInspector();
+        World.RequestViewRedraw();
+        OpenBackgroundPickerCommand.RaiseCanExecuteChanged();
+        StatusText = backgroundId == 0
+            ? $"Sin fondo en {changed} mapa(s) del mundo — Ctrl+S para guardar"
+            : $"Fondo {backgroundId} en {changed} mapa(s) del mundo — Ctrl+S para guardar";
     }
 
     private void ApplyBackgroundIdToCombinedSelection(int backgroundId)
@@ -9196,8 +10909,29 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
         _multiMapStrokeIsErase = false;
         _multiMapCellModeErase = false;
         _multiMapEraseMatchBrush = false;
-        foreach (var key in MultiMap.DirtyDocumentKeys)
-            MarkOpenDocumentDirtyFromMultiMap(key);
+
+        // Persist touched maps to Library immediately — no crash-recovery popup later.
+        var dirtyKeys = MultiMap.DirtyDocumentKeys.ToList();
+        var saved = MultiMap.SaveModifiedMaps();
+        foreach (var key in dirtyKeys)
+        {
+            if (MosaicHost.World?.Documents.TryGetValue(key, out var entry) == true)
+            {
+                var open = _openDocuments.FirstOrDefault(d => ReferenceEquals(d.Map, entry.Document));
+                if (open is not null)
+                {
+                    open.Session.MarkSaved();
+                    _autosave.Delete(open.Session.DocumentId);
+                    open.NotifyDirtyChanged();
+                }
+            }
+
+            MosaicHost.NotifyMapEdited(key);
+        }
+
+        if (saved > 0)
+            MosaicHost.FlushWorldPersist();
+
         UndoCommand.RaiseCanExecuteChanged();
         RedoCommand.RaiseCanExecuteChanged();
         MosaicHost.SaveModifiedMapsCommand.RaiseCanExecuteChanged();
@@ -9600,9 +11334,10 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     public void Dispose()
     {
         ThemeService.ThemeChanged -= OnAppThemeChanged;
-        if (App.License is not null)
-            App.License.StatusChanged -= OnLicenseStatusChanged;
         _mapListFilter.Changed -= OnMapListFilterChangedFromPicker;
+        _islaFechaPreviewCts?.Cancel();
+        _islaFechaPreviewCts?.Dispose();
+        _islaFechaPreviewCts = null;
         DisposeImagesWatcher();
         _autosaveTimer.Stop();
         Logs.Dispose();

@@ -22,6 +22,9 @@ public interface IContentPublishStore
     Task InsertMisionAsync(MisionInsertRow row, CancellationToken ct = default);
     Task InsertEtapaAsync(MisionEtapaInsertRow row, CancellationToken ct = default);
     Task InsertObjetivoAsync(MisionObjetivoInsertRow row, CancellationToken ct = default);
+    Task UpdateMisionAsync(MisionInsertRow row, CancellationToken ct = default);
+    Task UpdateEtapaAsync(MisionEtapaInsertRow row, CancellationToken ct = default);
+    Task UpdateObjetivoAsync(MisionObjetivoInsertRow row, CancellationToken ct = default);
 
     Task<int> CountByIdsAsync(string table, string idColumn, IReadOnlyList<int> ids, CancellationToken ct = default);
     Task<int> CountUbicacionesByNpcIdsAsync(IReadOnlyList<int> npcIds, CancellationToken ct = default);

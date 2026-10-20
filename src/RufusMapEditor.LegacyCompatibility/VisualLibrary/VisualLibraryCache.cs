@@ -82,6 +82,30 @@ public static class VisualLibraryCache
         }
     }
 
+    /// <summary>Loads the newest usable on-disk item catalog without contacting SFTP.</summary>
+    public static ItemCachePayload? TryReadLatestItems(string? directory = null)
+    {
+        try
+        {
+            var dir = string.IsNullOrWhiteSpace(directory) ? DefaultDirectory : directory!;
+            if (!Directory.Exists(dir)) return null;
+
+            foreach (var path in Directory.EnumerateFiles(dir, "items_v*.json")
+                         .OrderByDescending(File.GetLastWriteTimeUtc))
+            {
+                var payload = TryReadItems(path);
+                if (payload?.Entries.Count > 0)
+                    return payload;
+            }
+        }
+        catch
+        {
+            // Cache is best-effort; the normal remote loader remains the fallback.
+        }
+
+        return null;
+    }
+
     public static void WriteMonsters(string path, MonsterCachePayload payload)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);

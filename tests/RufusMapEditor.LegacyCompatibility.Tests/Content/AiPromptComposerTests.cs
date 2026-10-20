@@ -107,14 +107,15 @@ public sealed class AiPromptComposerTests
     }
 
     [Fact]
-    public void Generar_conversacion_asks_opening_and_three_player_replies()
+    public void Generar_conversacion_asks_opening_and_one_player_reply()
     {
         var package = AiPromptComposer.Compose(BaseRequest(AiCreativeAction.GenerarConversacion, name: "Nia"));
-        Assert.Contains("texto inicial", package.TaskInstructions, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("3 respuestas", package.TaskInstructions, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("neutra", package.TaskInstructions, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("amable", package.TaskInstructions, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("humorística", package.TaskInstructions, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("textoNpc", package.TaskInstructions, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("textoIncompleta", package.TaskInstructions, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("textoCompletada", package.TaskInstructions, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("1 respuesta", package.TaskInstructions, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("3 respuestas", package.TaskInstructions, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(AiMissionSnapshotBuilder.AntiInventionRule, package.TaskInstructions, StringComparison.Ordinal);
         Assert.Contains("NO asignar acciones técnicas", package.TaskInstructions, StringComparison.Ordinal);
     }
 

@@ -3,12 +3,44 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:RufusMapEditor.App.ViewModels"
         xmlns:ctrl="clr-namespace:RufusMapEditor.App.Controls"
+        xmlns:app="clr-namespace:RufusMapEditor.App"
         xmlns:content="clr-namespace:RufusMapEditor.LegacyCompatibility.Content;assembly=RufusMapEditor.LegacyCompatibility"
         Background="{DynamicResource WindowBackground}"
         Foreground="{DynamicResource TextPrimary}"
         FontFamily="{DynamicResource AppFontFamily}">
   <UserControl.Resources>
     <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+    <Style x:Key="LibraryModeChip" TargetType="RadioButton">
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondary}"/>
+      <Setter Property="Background" Value="{DynamicResource SecondaryButtonBackground}"/>
+      <Setter Property="Padding" Value="14,8"/>
+      <Setter Property="Margin" Value="0,0,8,4"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="RadioButton">
+            <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="8"
+                    BorderBrush="{DynamicResource Border}" BorderThickness="1"
+                    Padding="{TemplateBinding Padding}">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                TextElement.Foreground="{TemplateBinding Foreground}"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="bd" Property="Background" Value="{DynamicResource Accent}"/>
+                <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Accent}"/>
+                <Setter Property="Foreground" Value="{DynamicResource HeaderForeground}"/>
+              </Trigger>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="bd" Property="BorderBrush" Value="{DynamicResource Accent}"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
     <Style x:Key="FieldLabel" TargetType="TextBlock">
       <Setter Property="VerticalAlignment" Value="Center"/>
       <Setter Property="Foreground" Value="{DynamicResource TextSecondary}"/>
@@ -31,9 +63,57 @@
       <Setter Property="CornerRadius" Value="4"/>
       <Setter Property="Padding" Value="10,7"/>
     </Style>
+    <Style x:Key="GfxPickerImageButton" TargetType="Button">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="Bd" Background="Transparent" CornerRadius="6" Padding="0">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SecondaryButtonBackground}"/>
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.5"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style x:Key="GfxIdLinkButton" TargetType="Button">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="HorizontalAlignment" Value="Left"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextSecondary}"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+      <Style.Triggers>
+        <Trigger Property="IsMouseOver" Value="True">
+          <Setter Property="Foreground" Value="{DynamicResource BrandAccent}"/>
+        </Trigger>
+        <Trigger Property="IsEnabled" Value="False">
+          <Setter Property="Opacity" Value="0.5"/>
+        </Trigger>
+      </Style.Triggers>
+    </Style>
   </UserControl.Resources>
 
-  <Grid Margin="14">
+  <Grid Margin="10">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="*"/>
@@ -41,29 +121,52 @@
     </Grid.RowDefinitions>
 
     <Border Grid.Row="0" Background="{DynamicResource DialogHeaderBackground}" CornerRadius="4"
-            BorderBrush="{DynamicResource Border}" BorderThickness="1" Padding="12,10" Margin="0,0,0,10">
-      <DockPanel>
-        <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Top">
+            BorderBrush="{DynamicResource Border}" BorderThickness="1" Padding="10,8" Margin="0,0,0,8"
+            TextElement.Foreground="{DynamicResource HeaderForeground}">
+      <DockPanel LastChildFill="True">
+        <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
+          <TextBlock Text="{Binding ClientPublishStatusLabel}" FontSize="11" VerticalAlignment="Center"
+                     Margin="0,0,10,0" Foreground="{DynamicResource HeaderOnBrownSubtle}"
+                     Visibility="{Binding ShowClientPublishStatus, Converter={StaticResource BoolToVis}}"/>
+          <TextBlock Text="{Binding BdPublishStatusLabel}" FontSize="11" VerticalAlignment="Center"
+                     Margin="0,0,10,0" Foreground="{DynamicResource HeaderOnBrownSubtle}"
+                     Visibility="{Binding ShowBdPublishStatus, Converter={StaticResource BoolToVis}}"/>
           <Button Content="Leer MAX" Command="{Binding RefreshMaxCommand}" Style="{StaticResource SecondaryButton}"
-                  Padding="10,4" Margin="0,0,8,0" ToolTip="SELECT MAX (solo lectura)"/>
+                  Padding="8,4" Margin="0,0,6,0"
+                  ToolTip="SELECT MAX(id) · npcs_modelo / npc_preguntas / npc_respuestas / misiones / mision_etapas / mision_objetivos. Muestra un aviso si MySQL falla."/>
           <Button Content="Publicar cliente" Command="{Binding PublishClientCommand}" Style="{StaticResource PrimaryButton}"
-                  Padding="12,5" Margin="0,0,8,0"
-                  ToolTip="CONT.8 · dialog_es + npc_es N+1 por SFTP · una sola actualización versions_es · no escribe BD"/>
+                  Padding="10,4" Margin="0,0,6,0"
+                  Visibility="{Binding ShowPublishClientButton, Converter={StaticResource BoolToVis}}"
+                  IsEnabled="{Binding EnablePublishClientButton}"
+                  ToolTip="Sube SWF (dialog_es / npc_es / quests_es) por SFTP. Con diálogo simple nuevo: haz esto ANTES que BD."/>
           <Button Content="Publicar contenido en BD" Command="{Binding PublishCommand}" Style="{StaticResource PrimaryButton}"
-                  Padding="12,5" Margin="0,0,8,0"
-                  ToolTip="CONT.5 · NPC/diálogos/ubicaciones. Publicación segura de misiones nuevas: ADMIN.UI.4C (pendiente)."/>
+                  Padding="10,4" Margin="0,0,6,0"
+                  Visibility="{Binding ShowPublishBdButton, Converter={StaticResource BoolToVis}}"
+                  IsEnabled="{Binding EnablePublishBdButton}"
+                  ToolTip="Escribe NPC/diálogos/misiones en MySQL. Si está deshabilitado (BD requiere revisión), publica primero el cliente (dialog_es)."/>
           <Button x:Name="CloseButton" Content="✕" Style="{StaticResource DeleteButton}"
-                  IsCancel="True" Padding="10,4" MinWidth="32" Click="Close_Click" ToolTip="Cerrar"/>
+                  IsCancel="True" Padding="8,3" MinWidth="28" Click="Close_Click" ToolTip="Cerrar"/>
         </StackPanel>
-        <StackPanel>
-          <TextBlock Text="Contenido" FontWeight="SemiBold" FontSize="16"
-                     Foreground="{DynamicResource HeaderForeground}"/>
-          <TextBlock Text="{Binding StatusText}" FontSize="11"
-                     Foreground="{DynamicResource HeaderForeground}" Opacity="0.85"
-                     TextWrapping="Wrap" Margin="0,2,0,8"/>
+        <StackPanel VerticalAlignment="Center">
+          <DockPanel Margin="0,0,0,2">
+            <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+              <TextBlock Text="Contenido" FontWeight="SemiBold" FontSize="15"
+                         Foreground="{DynamicResource HeaderForeground}" VerticalAlignment="Center"/>
+              <Button Content="Editor" Command="{Binding ShowEditorCommand}" Style="{StaticResource SecondaryButton}"
+                      Padding="8,3" Margin="12,0,4,0" ToolTip="Editor del NPC seleccionado"/>
+              <Button Content="Biblioteca" Command="{Binding ShowLibraryCommand}" Style="{StaticResource SecondaryButton}"
+                      Padding="8,3" ToolTip="Todo el workspace local (workspace.json)"/>
+            </StackPanel>
+            <TextBlock Text="{Binding StatusText}" FontSize="11"
+                       Foreground="{DynamicResource HeaderOnBrownSubtle}"
+                       TextTrimming="CharacterEllipsis" Margin="12,2,0,0"
+                       VerticalAlignment="Center" DockPanel.Dock="Left"
+                       Visibility="{Binding ShowEditor, Converter={StaticResource BoolToVis}}"/>
+          </DockPanel>
           <WrapPanel x:Name="LocalConnectionPanel">
             <Border BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="4"
-                    Padding="10,6" Margin="0,0,10,6" Background="{DynamicResource PanelBackground}">
+                    Padding="10,6" Margin="0,0,10,6" Background="{DynamicResource PanelBackground}"
+                    TextElement.Foreground="{DynamicResource TextPrimary}">
               <StackPanel Orientation="Horizontal">
                 <TextBlock Text="BD" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,10,0"
                            Foreground="{DynamicResource TextPrimary}"/>
@@ -74,7 +177,8 @@
               </StackPanel>
             </Border>
             <Border BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="4"
-                    Padding="10,6" Margin="0,0,0,6" Background="{DynamicResource PanelBackground}">
+                    Padding="10,6" Margin="0,0,0,6" Background="{DynamicResource PanelBackground}"
+                    TextElement.Foreground="{DynamicResource TextPrimary}">
               <StackPanel Orientation="Horizontal">
                 <TextBlock Text="SFTP" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,10,0"
                            Foreground="{DynamicResource TextPrimary}"/>
@@ -86,9 +190,9 @@
             </Border>
           </WrapPanel>
           <StackPanel x:Name="LocalConnectionDetails">
-            <TextBlock FontSize="10" Foreground="{DynamicResource HeaderForeground}" Opacity="0.7"
+            <TextBlock FontSize="10" Foreground="{DynamicResource HeaderOnBrownSubtle}"
                        TextWrapping="Wrap" Margin="0,2,0,0" Text="{Binding DatabaseDetail}"/>
-            <TextBlock FontSize="10" Foreground="{DynamicResource HeaderForeground}" Opacity="0.7"
+            <TextBlock FontSize="10" Foreground="{DynamicResource HeaderOnBrownSubtle}"
                        TextWrapping="Wrap" Text="{Binding SftpDetail}"/>
           </StackPanel>
         </StackPanel>
@@ -96,14 +200,247 @@
     </Border>
 
     <Grid Grid.Row="1">
+      <!-- Biblioteca — proyección de workspace.json -->
+      <Border Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource Border}"
+              BorderThickness="1" CornerRadius="4" Padding="10"
+              DataContext="{Binding Library}">
+        <Border.Style>
+          <Style TargetType="Border">
+            <Setter Property="Visibility" Value="Collapsed"/>
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding DataContext.ShowLibrary, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                <Setter Property="Visibility" Value="Visible"/>
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </Border.Style>
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+          </Grid.RowDefinitions>
+
+          <DockPanel Grid.Row="0" Margin="0,0,0,8">
+            <TextBlock Text="Biblioteca" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center"
+                       DockPanel.Dock="Left" Foreground="{DynamicResource TextPrimary}"/>
+            <Button Content="Actualizar" Command="{Binding RefreshCommand}" Style="{StaticResource SecondaryButton}"
+                    Padding="8,3" DockPanel.Dock="Right" Margin="8,0,0,0"/>
+            <TextBox Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}" Padding="8,4"
+                     VerticalContentAlignment="Center" Margin="16,0,0,0"
+                     ToolTip="Nombre · NPC ID · Quest ID"/>
+          </DockPanel>
+
+          <StackPanel Grid.Row="1" Margin="0,0,0,8">
+            <TextBlock Text="{Binding CountersLine}" FontSize="11" Margin="0,0,0,6"
+                       Foreground="{DynamicResource TextMuted}"/>
+            <WrapPanel Margin="0,0,0,4">
+              <RadioButton Content="NPC + Diálogo" GroupName="LibraryMode" IsChecked="{Binding IsNpcAndDialogMode, Mode=OneWay}"
+                           Style="{StaticResource LibraryModeChip}"
+                           Command="{Binding SetModeCommand}" CommandParameter="NpcAndDialog"
+                           ToolTip="Un bloque por NPC · diálogo incluido · no aparece en Misiones"/>
+              <RadioButton Content="Misiones" GroupName="LibraryMode" IsChecked="{Binding IsMissionsMode, Mode=OneWay}"
+                           Style="{StaticResource LibraryModeChip}"
+                           Command="{Binding SetModeCommand}" CommandParameter="Missions"
+                           ToolTip="Solo misiones · NPC+diálogo no se listan aquí"/>
+            </WrapPanel>
+            <WrapPanel>
+              <Button Content="Todos" Command="{Binding SetFilterCommand}" CommandParameter="All"
+                      Style="{StaticResource SecondaryButton}" Padding="8,3" Margin="0,0,6,4"/>
+              <Button Content="Borradores" Command="{Binding SetFilterCommand}" CommandParameter="Drafts"
+                      Style="{StaticResource SecondaryButton}" Padding="8,3" Margin="0,0,6,4"/>
+              <Button Content="Cambios pendientes" Command="{Binding SetFilterCommand}" CommandParameter="PendingChanges"
+                      Style="{StaticResource SecondaryButton}" Padding="8,3" Margin="0,0,6,4"/>
+              <Button Content="Publicados" Command="{Binding SetFilterCommand}" CommandParameter="Published"
+                      Style="{StaticResource SecondaryButton}" Padding="8,3" Margin="0,0,6,4"/>
+              <Button Content="{Binding EmptyLinkFilterLabel}" Command="{Binding SetFilterCommand}"
+                      CommandParameter="WithoutStartNpc"
+                      Style="{StaticResource SecondaryButton}" Padding="8,3" Margin="0,0,6,4"/>
+            </WrapPanel>
+            <DockPanel Margin="0,4,0,0">
+              <TextBlock Text="{Binding SelectionLine}" FontSize="11" VerticalAlignment="Center"
+                         Foreground="{DynamicResource TextMuted}" DockPanel.Dock="Left"/>
+              <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Seleccionar borradores" Command="{Binding SelectVisibleDraftsCommand}"
+                        Style="{StaticResource SecondaryButton}" Padding="8,3" Margin="0,0,6,0" FontSize="11"
+                        ToolTip="Marca solo borradores no publicados visibles"/>
+                <Button Content="Limpiar selección" Command="{Binding ClearSelectionCommand}"
+                        Style="{StaticResource SecondaryButton}" Padding="8,3" Margin="0,0,6,0" FontSize="11"/>
+                <Button Content="{Binding RemoveCheckedLabel}" Command="{Binding RemoveCheckedCommand}"
+                        Style="{StaticResource DeleteButton}" Padding="8,3" FontSize="11"
+                        ToolTip="Elimina borradores / quita copias locales seleccionadas · sin tocar producción"/>
+              </StackPanel>
+            </DockPanel>
+          </StackPanel>
+
+          <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto"
+                        HorizontalScrollBarVisibility="Disabled" Padding="0,0,4,0">
+            <ItemsControl ItemsSource="{Binding Sections}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="{x:Type vm:ContentLibrarySectionVm}">
+                  <StackPanel Margin="0,0,0,10">
+                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold"
+                               Margin="0,8,0,6" TextTrimming="CharacterEllipsis">
+                      <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                          <Setter Property="FontSize" Value="13"/>
+                          <Setter Property="Foreground" Value="{DynamicResource TextPrimary}"/>
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsSubSection}" Value="True">
+                              <Setter Property="FontSize" Value="12"/>
+                              <Setter Property="Margin" Value="8,4,0,6"/>
+                              <Setter Property="Foreground" Value="{DynamicResource TextSecondary}"/>
+                            </DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </TextBlock.Style>
+                    </TextBlock>
+                    <ItemsControl ItemsSource="{Binding Cards}">
+                      <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                          <WrapPanel Orientation="Horizontal"/>
+                        </ItemsPanelTemplate>
+                      </ItemsControl.ItemsPanel>
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:ContentLibraryCardVm}">
+                          <Border Width="280" MinHeight="128" Margin="0,0,12,12" Padding="0"
+                                  CornerRadius="10" BorderThickness="1"
+                                  Background="{DynamicResource PanelElevated}"
+                                  TextElement.Foreground="{DynamicResource TextPrimary}"
+                                  Cursor="Hand"
+                                  ToolTipService.InitialShowDelay="400"
+                                  ToolTipService.ShowDuration="60000"
+                                  ToolTipService.BetweenShowDelay="100"
+                                  MouseLeftButtonDown="LibraryCard_MouseLeftButtonDown">
+                            <Border.Effect>
+                              <DropShadowEffect BlurRadius="14" ShadowDepth="2" Opacity="0.10" Direction="270"/>
+                            </Border.Effect>
+                            <Border.ToolTip>
+                              <ToolTip MaxWidth="380">
+                                <TextBlock Text="{Binding Entry.HoverTooltip}" TextWrapping="Wrap"
+                                           FontSize="12" LineHeight="18"
+                                           Foreground="{DynamicResource TextPrimary}"/>
+                              </ToolTip>
+                            </Border.ToolTip>
+                            <Border.Style>
+                              <Style TargetType="Border">
+                                <Setter Property="BorderBrush" Value="{DynamicResource Border}"/>
+                                <Style.Triggers>
+                                  <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="BorderBrush" Value="{DynamicResource BrandAccent}"/>
+                                  </Trigger>
+                                  <DataTrigger Binding="{Binding IsChecked}" Value="True">
+                                    <Setter Property="BorderBrush" Value="{DynamicResource BrandAccent}"/>
+                                    <Setter Property="BorderThickness" Value="2"/>
+                                  </DataTrigger>
+                                </Style.Triggers>
+                              </Style>
+                            </Border.Style>
+                            <Grid>
+                              <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="4"/>
+                                <ColumnDefinition Width="*"/>
+                              </Grid.ColumnDefinitions>
+                              <Border Grid.Column="0" Background="{DynamicResource BrandAccent}"
+                                      CornerRadius="10,0,0,10"/>
+                              <Grid Grid.Column="1" Margin="12,10,12,10">
+                              <Grid.RowDefinitions>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                              </Grid.RowDefinitions>
+                              <DockPanel LastChildFill="True">
+                                <CheckBox DockPanel.Dock="Left" Margin="0,0,8,0" VerticalAlignment="Top"
+                                          IsChecked="{Binding IsChecked}"
+                                          Visibility="{Binding CanMultiSelect, Converter={StaticResource BoolToVis}}"
+                                          ToolTip="Incluir en eliminación múltiple"/>
+                                <StackPanel>
+                                  <TextBlock Text="{Binding Entry.Title}" FontWeight="SemiBold" FontSize="14"
+                                             TextTrimming="CharacterEllipsis" MaxHeight="40"
+                                             TextWrapping="Wrap" Foreground="{DynamicResource TextPrimary}"/>
+                                  <TextBlock Text="{Binding Entry.Status}" FontSize="11" Margin="0,5,0,0"
+                                             FontWeight="SemiBold"
+                                             Foreground="{DynamicResource BrandAccent}"/>
+                                  <TextBlock Text="{Binding Entry.CardIdLine}" FontSize="12" Margin="0,5,0,0"
+                                             Foreground="{DynamicResource TextSecondary}"
+                                             Visibility="{Binding Entry.ShowCardIdLine, Converter={StaticResource BoolToVis}}"/>
+                                  <TextBlock Text="{Binding Entry.CardLinkLine}" FontSize="12" Margin="0,3,0,0"
+                                             Foreground="{DynamicResource TextSecondary}"
+                                             TextTrimming="CharacterEllipsis"/>
+                                  <TextBlock Text="{Binding Entry.CardStatsLine}" FontSize="12" Margin="0,3,0,0"
+                                             Foreground="{DynamicResource TextMuted}"
+                                             Visibility="{Binding Entry.ShowCardStatsLine, Converter={StaticResource BoolToVis}}"/>
+                                </StackPanel>
+                              </DockPanel>
+                              <DockPanel Grid.Row="1" Margin="0,10,0,0" LastChildFill="False"
+                                         DataContext="{Binding Entry}">
+                                <Button Content="Abrir" Style="{StaticResource PrimaryButton}"
+                                        Padding="12,5" Margin="0,0,6,0" FontSize="12"
+                                        Click="LibraryOpen_Click"/>
+                                <Button Content="Duplicar" Style="{StaticResource SecondaryButton}"
+                                        Padding="12,5" Margin="0,0,6,0" FontSize="12"
+                                        Visibility="{Binding CanDuplicate, Converter={StaticResource BoolToVis}}"
+                                        Click="LibraryDuplicate_Click"/>
+                                <Button Content="⋯" Style="{StaticResource SecondaryButton}"
+                                        Padding="10,5" MinWidth="34" FontSize="13"
+                                        Visibility="{Binding CanRemove, Converter={StaticResource BoolToVis}}"
+                                        Click="LibraryMore_Click" ToolTip="Más acciones">
+                                  <Button.ContextMenu>
+                                    <ContextMenu>
+                                      <MenuItem Header="{Binding RemoveActionLabel}"
+                                                Click="LibraryRemoveMenu_Click"/>
+                                    </ContextMenu>
+                                  </Button.ContextMenu>
+                                </Button>
+                              </DockPanel>
+                              </Grid>
+                            </Grid>
+                          </Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+
+          <TextBlock Grid.Row="3" Margin="0,8,0,0" FontSize="11"
+                     Foreground="{DynamicResource TextMuted}" Text="{Binding StatusLine}"/>
+        </Grid>
+      </Border>
+
+      <Grid>
+        <Grid.Style>
+          <Style TargetType="Grid">
+            <Setter Property="Visibility" Value="Visible"/>
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding ShowLibrary}" Value="True">
+                <Setter Property="Visibility" Value="Collapsed"/>
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </Grid.Style>
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="250"/>
-        <ColumnDefinition Width="12"/>
+        <ColumnDefinition Width="Auto"/>
+        <ColumnDefinition Width="8"/>
         <ColumnDefinition Width="*"/>
       </Grid.ColumnDefinitions>
 
-      <Border Grid.Column="0" Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource Border}"
+      <!-- Lista NPCs — expandida -->
+      <Border Grid.Column="0" Width="236"
+              Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource Border}"
               BorderThickness="1" CornerRadius="4" Padding="0">
+        <Border.Style>
+          <Style TargetType="Border">
+            <Setter Property="Visibility" Value="Visible"/>
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding NpcListExpanded}" Value="False">
+                <Setter Property="Visibility" Value="Collapsed"/>
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </Border.Style>
         <Grid DataContext="{Binding Npc}">
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -115,58 +452,95 @@
           </Grid.RowDefinitions>
 
           <Border Grid.Row="0" Style="{StaticResource BrownHeaderBar}" CornerRadius="4,4,0,0">
-            <TextBlock Text="Lista de NPCs" Style="{StaticResource BrownHeaderText}"/>
+            <DockPanel>
+              <Button DockPanel.Dock="Right" Content="«" Style="{StaticResource SecondaryButton}"
+                      Padding="6,2" Margin="6,0,0,0" FontSize="11" Click="CollapseNpcList_Click"
+                      ToolTip="Plegar lista de NPCs"/>
+              <TextBlock Text="Lista de NPCs" Style="{StaticResource BrownHeaderText}" VerticalAlignment="Center"/>
+            </DockPanel>
           </Border>
 
-          <DockPanel Grid.Row="1" Margin="8,8,8,6">
+          <DockPanel Grid.Row="1" Margin="6,6,6,4">
             <Button DockPanel.Dock="Right" Content="+ Nuevo NPC" Style="{StaticResource PrimaryButton}"
                     Command="{Binding DataContext.NewNpcCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                    Padding="10,5" Margin="8,0,0,0"/>
+                    Padding="8,4" Margin="6,0,0,0"/>
             <TextBox Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
-                     Padding="8,5" VerticalContentAlignment="Center"
+                     Padding="6,4" VerticalContentAlignment="Center"
                      ToolTip="buscar..."/>
           </DockPanel>
 
-          <Grid Grid.Row="2" Margin="8,0,8,4">
+          <Grid Grid.Row="2" Margin="6,0,6,2">
             <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="52"/>
+              <ColumnDefinition Width="48"/>
               <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" Text="Estado" Style="{StaticResource ListColumnHeader}"/>
+            <TextBlock Grid.Column="0" Text="ID" Style="{StaticResource ListColumnHeader}"/>
             <TextBlock Grid.Column="1" Text="Nombre" Style="{StaticResource ListColumnHeader}"/>
+            <TextBlock Grid.Column="2" Text="Mapa" Style="{StaticResource ListColumnHeader}" Margin="6,0,0,0"/>
           </Grid>
 
           <ListBox Grid.Row="3" ItemsSource="{Binding FilteredItems}" SelectedItem="{Binding Selected}"
-                   BorderThickness="0" Background="Transparent" Margin="4,0">
+                   BorderThickness="0" Background="Transparent" Margin="2,0">
             <ListBox.ItemTemplate>
               <DataTemplate DataType="{x:Type vm:NpcDraftItemViewModel}">
                 <Grid>
                   <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="52"/>
+                    <ColumnDefinition Width="48"/>
                     <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
                   </Grid.ColumnDefinitions>
                   <TextBlock Grid.Column="0" FontFamily="Consolas" FontSize="11" VerticalAlignment="Center"
                              Text="{Binding Id, Mode=OneWay}"/>
                   <TextBlock Grid.Column="1" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
-                             VerticalAlignment="Center" Text="{Binding Nombre, Mode=OneWay}"/>
+                             VerticalAlignment="Center" Text="{Binding Nombre, Mode=OneWay}" Margin="0,0,6,0"/>
+                  <TextBlock Grid.Column="2" FontFamily="Consolas" FontSize="11" VerticalAlignment="Center"
+                             Foreground="{DynamicResource TextMuted}"
+                             Text="{Binding LocationCoordsLabel, Mode=OneWay}"/>
                 </Grid>
               </DataTemplate>
             </ListBox.ItemTemplate>
           </ListBox>
 
-          <TextBlock Grid.Row="4" HorizontalAlignment="Right" Margin="8,4,8,4"
+          <TextBlock Grid.Row="4" HorizontalAlignment="Right" Margin="6,2,6,2"
                      FontSize="11" Foreground="{DynamicResource TextMuted}"
                      Text="{Binding ItemCountLabel}"/>
 
-          <StackPanel Grid.Row="5" Orientation="Horizontal" Margin="8,0,8,8">
+          <StackPanel Grid.Row="5" Orientation="Horizontal" Margin="6,0,6,6">
             <Button Content="Duplicar" Style="{StaticResource SecondaryButton}"
                     Command="{Binding DataContext.DuplicateCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                    Padding="10,4" Margin="0,0,8,0"/>
+                    Padding="8,3" Margin="0,0,6,0"/>
             <Button Content="Eliminar" Style="{StaticResource DeleteButton}"
                     Command="{Binding DataContext.DeleteCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                    Padding="10,4"/>
+                    Padding="8,3"/>
           </StackPanel>
         </Grid>
+      </Border>
+
+      <!-- Lista NPCs — plegada (barra estrecha) -->
+      <Border Grid.Column="0" Width="36"
+              Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource Border}"
+              BorderThickness="1" CornerRadius="4">
+        <Border.Style>
+          <Style TargetType="Border">
+            <Setter Property="Visibility" Value="Collapsed"/>
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding NpcListExpanded}" Value="False">
+                <Setter Property="Visibility" Value="Visible"/>
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </Border.Style>
+        <Button Style="{StaticResource SecondaryButton}" Padding="0" Margin="4"
+                VerticalAlignment="Stretch" HorizontalAlignment="Stretch"
+                Click="ExpandNpcList_Click" ToolTip="Mostrar lista de NPCs">
+          <TextBlock Text="NPC" FontSize="10" FontWeight="SemiBold"
+                     RenderTransformOrigin="0.5,0.5">
+            <TextBlock.RenderTransform>
+              <RotateTransform Angle="-90"/>
+            </TextBlock.RenderTransform>
+          </TextBlock>
+        </Button>
       </Border>
 
       <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
@@ -186,342 +560,251 @@
                 <TextBlock Text="1. IDENTIDAD" FontWeight="SemiBold" FontSize="13"/>
               </DockPanel>
             </Expander.Header>
-            <Border Padding="12,8,12,12">
+            <Border Padding="10,6,10,8">
               <StackPanel>
-                <!-- ADMIN.UI.4B.2A.2 — Identidad: ID+Nombre, GFX+Sexo, Tamaño+Accesorios+Acciones -->
+                <!-- ADMIN.UI.4B.2A.3G.7 — ID|Nombre|Sexo|Tamaño|Accesorios · GFX|Mapa|Celda|Acciones · Ventas|ObjetoCompra condicional -->
                 <Grid DataContext="{Binding Npc.Selected}">
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="16"/>
-                    <ColumnDefinition Width="*"/>
-                  </Grid.ColumnDefinitions>
                   <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                   </Grid.RowDefinitions>
 
-                  <TextBlock Grid.Row="0" Grid.Column="0" Text="ID" Style="{StaticResource FieldLabel}" Margin="0,0,0,4"/>
-                  <TextBlock Grid.Row="0" Grid.Column="2" Text="Nombre" Style="{StaticResource FieldLabel}" Margin="0,0,0,4"/>
-                  <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding IdDisplay, Mode=OneWay}"
-                             FontFamily="Consolas" FontSize="13" VerticalAlignment="Center"
-                             Foreground="{DynamicResource TextMuted}" Margin="0,0,0,8"
-                             ToolTip="ID provisional · solo lectura · MAX(real)+1"/>
-                  <ctrl:NpcNameAiField Grid.Row="1" Grid.Column="2"
-                                       Margin="0,0,0,8" VerticalAlignment="Center"
-                                       Nombre="{Binding Nombre, UpdateSourceTrigger=PropertyChanged}"
-                                       AiAssistant="{Binding DataContext.AiAssistant, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                       IsEditorEnabled="{Binding DataContext.EditorEnabled, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
-
-                  <TextBlock Grid.Row="2" Grid.Column="0" Text="GFX" Style="{StaticResource FieldLabel}" Margin="0,0,0,4"/>
-                  <TextBlock Grid.Row="2" Grid.Column="2" Text="Sexo" Style="{StaticResource FieldLabel}" Margin="0,0,0,4"/>
-                  <StackPanel Grid.Row="3" Grid.Column="0" Margin="0,0,0,8">
-                    <Border Padding="10" CornerRadius="6"
-                            Background="{DynamicResource ElevatedSurface}"
-                            BorderBrush="{DynamicResource Border}" BorderThickness="1">
-                      <DockPanel LastChildFill="True">
-                        <Button DockPanel.Dock="Bottom" Content="Elegir apariencia"
-                                Command="{Binding DataContext.Npc.PickGfxAppearanceCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                Style="{StaticResource SecondaryButton}" Padding="10,5" Margin="0,8,0,0"
-                                HorizontalAlignment="Left"
-                                ToolTip="Galería de apariencias confirmadas en npcs_modelo"/>
-                        <DockPanel>
-                          <ctrl:LazyArtworkImage DockPanel.Dock="Left" GfxId="{Binding GfxId}"
-                                                     UseNpcSpritePreview="False"
-                                                     Width="64" Height="64" Margin="0,0,10,0"/>
-                          <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="{Binding GfxDisplayName, Mode=OneWay}" FontWeight="SemiBold"
-                                       TextTrimming="CharacterEllipsis"/>
-                            <TextBlock Text="{Binding GfxIdTechnicalLabel, Mode=OneWay}" FontFamily="Consolas" FontSize="12"
-                                       Foreground="{DynamicResource TextSecondary}" Margin="0,2,0,0"/>
-                            <TextBlock Text="{Binding GfxUsageHint, Mode=OneWay}" FontSize="11"
-                                       Foreground="{DynamicResource TextMuted}" Margin="0,2,0,0"
-                                       TextTrimming="CharacterEllipsis"/>
-                          </StackPanel>
-                        </DockPanel>
-                      </DockPanel>
-                    </Border>
-                    <Expander Header="Vista técnica · GFX ID" FontSize="11"
-                              Foreground="{DynamicResource TextMuted}" Margin="0,6,0,0">
-                      <TextBox Text="{Binding GfxId, UpdateSourceTrigger=PropertyChanged}"
-                               Margin="0,6,0,0" FontFamily="Consolas" VerticalAlignment="Center"
-                               ToolTip="Edición manual del gfxID (publica a npcs_modelo.gfxID)"/>
-                    </Expander>
-                  </StackPanel>
-                  <ComboBox Grid.Row="3" Grid.Column="2"
-                            ItemsSource="{x:Static vm:NpcDraftItemViewModel.SexoUiOptions}"
-                            SelectedItem="{Binding SexoUi, Mode=TwoWay}"
-                            Margin="0,0,0,8" VerticalAlignment="Center"/>
-
-                  <Grid Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,0,0,4">
+                  <!-- Fila 1: ID | Nombre | Sexo | Tamaño | Accesorios -->
+                  <Grid Grid.Row="0" Margin="0,0,0,6">
                     <Grid.ColumnDefinitions>
-                      <ColumnDefinition Width="72"/>
-                      <ColumnDefinition Width="12"/>
+                      <ColumnDefinition Width="Auto" MinWidth="72"/>
+                      <ColumnDefinition Width="10"/>
+                      <ColumnDefinition Width="2*"/>
+                      <ColumnDefinition Width="10"/>
+                      <ColumnDefinition Width="*" MinWidth="88" MaxWidth="140"/>
+                      <ColumnDefinition Width="10"/>
+                      <ColumnDefinition Width="64"/>
+                      <ColumnDefinition Width="8"/>
                       <ColumnDefinition Width="*"/>
-                      <ColumnDefinition Width="12"/>
-                      <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Grid.Column="0" Text="Tamaño" Style="{StaticResource FieldLabel}"/>
-                    <TextBlock Grid.Column="2" Text="Accesorios" Style="{StaticResource FieldLabel}"/>
-                    <TextBlock Grid.Column="4" Text="Acciones" Style="{StaticResource FieldLabel}"/>
-                  </Grid>
-                  <Grid Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,0,0,4">
-                    <Grid.ColumnDefinitions>
-                      <ColumnDefinition Width="72"/>
-                      <ColumnDefinition Width="12"/>
-                      <ColumnDefinition Width="*"/>
-                      <ColumnDefinition Width="12"/>
-                      <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <TextBox Grid.Column="0"
-                             Text="{Binding Tamaño, UpdateSourceTrigger=PropertyChanged}"
-                             FontFamily="Consolas" VerticalAlignment="Center" MaxWidth="72"/>
-                    <TextBox Grid.Column="2"
-                             Text="{Binding Accesorios, UpdateSourceTrigger=PropertyChanged}"
-                             FontFamily="Consolas" VerticalAlignment="Center"/>
-                    <ctrl:NpcClientActionsPicker Grid.Column="4"
-                                                 Actions="{Binding ClientActions}"
-                                                 DisplayText="{Binding ClientActionsCompactSummary}"/>
-                  </Grid>
-
-                  <TextBlock Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="3"
-                             Text="{Binding UnequalScaleHint}" FontSize="11"
-                             Foreground="{DynamicResource TextMuted}" Margin="0,0,0,4"
-                             Visibility="{Binding ShowUnequalScaleHint, Converter={StaticResource BoolToVis}}"/>
-
-                  <Grid Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="3" Margin="0,0,0,0"
-                        Visibility="{Binding ShowCommerceFields, Converter={StaticResource BoolToVis}}">
-                    <Grid.ColumnDefinitions>
-                      <ColumnDefinition Width="130"/><ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
-                      <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                      <RowDefinition Height="Auto"/>
+                      <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Text="Ventas" Style="{StaticResource FieldLabel}"/>
-                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Ventas, UpdateSourceTrigger=PropertyChanged}"
-                             Margin="0,0,0,6" FontFamily="Consolas"/>
-                    <TextBlock Grid.Row="1" Text="ObjetoCompra" Style="{StaticResource FieldLabel}"/>
-                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ObjetoCompra, UpdateSourceTrigger=PropertyChanged}"
-                             FontFamily="Consolas"/>
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="ID" Style="{StaticResource FieldLabel}" Margin="0,0,0,2"/>
+                    <TextBlock Grid.Row="0" Grid.Column="2" Text="Nombre" Style="{StaticResource FieldLabel}" Margin="0,0,0,2"/>
+                    <TextBlock Grid.Row="0" Grid.Column="4" Text="Sexo" Style="{StaticResource FieldLabel}" Margin="0,0,0,2"/>
+                    <TextBlock Grid.Row="0" Grid.Column="6" Text="Tamaño" Style="{StaticResource FieldLabel}" Margin="0,0,0,2"/>
+                    <TextBlock Grid.Row="0" Grid.Column="8" Text="Accesorios" Style="{StaticResource FieldLabel}" Margin="0,0,0,2"/>
+                    <TextBox Grid.Row="1" Grid.Column="0" Text="{Binding IdDisplay, Mode=OneWay}"
+                             IsReadOnly="True" IsTabStop="False"
+                             FontFamily="Consolas" VerticalAlignment="Center" MinWidth="68"
+                             Padding="6,4"
+                             Background="{DynamicResource InputBackground}"
+                             BorderBrush="{DynamicResource InputBorder}"
+                             Foreground="{DynamicResource TextMuted}"
+                             ToolTip="ID provisional · solo lectura · MAX(real)+1"/>
+                    <ctrl:NpcNameAiField Grid.Row="1" Grid.Column="2" VerticalAlignment="Center"
+                                         Nombre="{Binding Nombre, UpdateSourceTrigger=PropertyChanged}"
+                                         AiAssistant="{Binding DataContext.AiAssistant, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                         IsEditorEnabled="{Binding DataContext.EditorEnabled, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+                    <ComboBox Grid.Row="1" Grid.Column="4"
+                              ItemsSource="{x:Static vm:NpcDraftItemViewModel.SexoUiOptions}"
+                              SelectedItem="{Binding SexoUi, Mode=TwoWay}"
+                              VerticalAlignment="Center" Padding="4,2"/>
+                    <TextBox Grid.Row="1" Grid.Column="6"
+                             Text="{Binding Tamaño, UpdateSourceTrigger=LostFocus}"
+                             FontFamily="Consolas" VerticalAlignment="Center" MaxWidth="64" Padding="4,3"
+                             ToolTip="{Binding ScaleValidationMessage}"/>
+                    <TextBlock Grid.Row="1" Grid.Column="6" VerticalAlignment="Bottom" Margin="0,0,0,-14"
+                               FontSize="10" Foreground="{DynamicResource Error}"
+                               Text="{Binding ScaleValidationMessage}"
+                               TextTrimming="CharacterEllipsis"/>
+                    <TextBox Grid.Row="1" Grid.Column="8"
+                             Text="{Binding Accesorios, UpdateSourceTrigger=PropertyChanged}"
+                             FontFamily="Consolas" VerticalAlignment="Center" Padding="4,3"/>
                   </Grid>
+
+                  <!-- Fila 2: GFX + ubicación (izq) | Acciones (der) -->
+                  <Grid Grid.Row="1" Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="1.6*"/>
+                      <ColumnDefinition Width="10"/>
+                      <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0">
+                      <TextBlock Text="GFX · Ubicación" Style="{StaticResource FieldLabel}" Margin="0,0,0,2"/>
+                      <Border Padding="10" CornerRadius="6"
+                              Background="{DynamicResource ElevatedSurface}"
+                              BorderBrush="{DynamicResource Border}" BorderThickness="1">
+                        <Grid>
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="12"/>
+                            <ColumnDefinition Width="Auto"/>
+                          </Grid.ColumnDefinitions>
+
+                          <StackPanel Grid.Column="0">
+                            <DockPanel>
+                              <Button DockPanel.Dock="Left" Style="{StaticResource GfxPickerImageButton}"
+                                      Margin="0,0,10,0"
+                                      Command="{Binding DataContext.Npc.PickGfxAppearanceCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                      ToolTip="Clic para elegir apariencia">
+                                <ctrl:LazyArtworkImage GfxId="{Binding GfxId}"
+                                                       UseNpcSpritePreview="False"
+                                                       Width="104" Height="104"
+                                                       IsHitTestVisible="False"/>
+                              </Button>
+                              <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{Binding GfxDisplayName, Mode=OneWay}" FontWeight="SemiBold" FontSize="13"
+                                           TextTrimming="CharacterEllipsis"/>
+                                <Button Style="{StaticResource GfxIdLinkButton}" Margin="0,2,0,0"
+                                        Command="{Binding DataContext.Npc.PickGfxAppearanceCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        ToolTip="Clic para elegir apariencia">
+                                  <TextBlock Text="{Binding GfxIdTechnicalLabel, Mode=OneWay}"
+                                             FontFamily="Consolas" FontSize="11"/>
+                                </Button>
+                              </StackPanel>
+                            </DockPanel>
+
+                            <Grid Margin="0,10,0,0" DataContext="{Binding PrimaryLocation}">
+                              <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="88"/>
+                                <ColumnDefinition Width="10"/>
+                                <ColumnDefinition Width="88"/>
+                              </Grid.ColumnDefinitions>
+                              <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                              </Grid.RowDefinitions>
+                              <TextBlock Grid.Row="0" Grid.Column="0" Text="Mapa" Style="{StaticResource FieldLabel}" Margin="0,0,0,2"/>
+                              <TextBlock Grid.Row="0" Grid.Column="2" Text="Celda" Style="{StaticResource FieldLabel}" Margin="0,0,0,2"/>
+                              <TextBox Grid.Row="1" Grid.Column="0"
+                                       Text="{Binding MapId, UpdateSourceTrigger=PropertyChanged}"
+                                       FontFamily="Consolas" VerticalAlignment="Center" Padding="4,3"
+                                       ToolTip="Mapa donde aparece el NPC" TextChanged="LocationField_Changed"
+                                       GotFocus="ZeroDefaultIntField_GotFocus"
+                                       LostFocus="ZeroDefaultIntField_LostFocus"/>
+                              <TextBox Grid.Row="1" Grid.Column="2"
+                                       Text="{Binding CellId, UpdateSourceTrigger=PropertyChanged}"
+                                       FontFamily="Consolas" VerticalAlignment="Center" Padding="4,3"
+                                       ToolTip="Celda en el mapa" TextChanged="LocationField_Changed"
+                                       GotFocus="ZeroDefaultIntField_GotFocus"
+                                       LostFocus="ZeroDefaultIntField_LostFocus"/>
+                            </Grid>
+                          </StackPanel>
+
+                          <StackPanel Grid.Column="2" VerticalAlignment="Top"
+                                      DataContext="{Binding PrimaryLocation}">
+                            <TextBlock Text="Orientación" Style="{StaticResource FieldLabel}" Margin="0,0,0,2"/>
+                            <ctrl:NpcOrientationPicker
+                                   Orientation="{Binding Orientation, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                   OrientationEdited="OrientationPicker_Edited"
+                                   HorizontalAlignment="Left"/>
+                          </StackPanel>
+                        </Grid>
+                      </Border>
+                    </StackPanel>
+
+                    <Grid Grid.Column="2" VerticalAlignment="Top">
+                      <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                      </Grid.RowDefinitions>
+                      <TextBlock Grid.Row="0" Text="Acciones" Style="{StaticResource FieldLabel}" Margin="0,0,0,2"/>
+                      <ctrl:NpcClientActionsPicker Grid.Row="1" Margin="0,0,0,6"
+                                                   Actions="{Binding ClientActions}"
+                                                   DisplayText="{Binding ClientActionsCompactSummary}"/>
+                      <!-- Campos de comercio debajo de Acciones (aparecen al seleccionar acciones relevantes) -->
+                      <Grid Grid.Row="2"
+                            Visibility="{Binding ShowCommerceFields, Converter={StaticResource BoolToVis}}">
+                        <Grid.ColumnDefinitions>
+                          <ColumnDefinition Width="Auto"/>
+                          <ColumnDefinition Width="*"/>
+                          <ColumnDefinition Width="12"/>
+                          <ColumnDefinition Width="Auto"/>
+                          <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                          <RowDefinition Height="Auto"/>
+                          <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Ventas" Style="{StaticResource FieldLabel}"
+                                   Margin="0,0,8,4"/>
+                        <TextBlock Grid.Row="0" Grid.Column="3" Text="ObjetoCompra" Style="{StaticResource FieldLabel}"
+                                   Margin="0,0,8,4"/>
+                        <TextBox Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                                 Text="{Binding Ventas, UpdateSourceTrigger=PropertyChanged}"
+                                 FontFamily="Consolas" VerticalAlignment="Center" Margin="0,0,0,0"/>
+                        <TextBox Grid.Row="1" Grid.Column="3" Grid.ColumnSpan="2"
+                                 Text="{Binding ObjetoCompra, UpdateSourceTrigger=PropertyChanged}"
+                                 FontFamily="Consolas" VerticalAlignment="Center"/>
+                      </Grid>
+                    </Grid>
+                  </Grid>
+
+                  <TextBlock Grid.Row="2"
+                             Text="{Binding UnequalScaleHint}" FontSize="11"
+                             Foreground="{DynamicResource TextMuted}" Margin="0,0,0,6"
+                             Visibility="{Binding ShowUnequalScaleHint, Converter={StaticResource BoolToVis}}"/>
                 </Grid>
               </StackPanel>
             </Border>
           </Expander>
 
-          <!-- 2. INTERACCIONES Y DIÁLOGO -->
+          <!-- 2. INTERACCIONES, DIÁLOGO Y MISIÓN -->
           <Expander Style="{StaticResource ContentAccordionExpander}" IsExpanded="{Binding InteractionsExpanded, Mode=TwoWay}">
             <Expander.Header>
               <DockPanel>
-                <TextBlock DockPanel.Dock="Right" Style="{StaticResource AccordionStatus}"
-                           Text="{Binding InteractionsSectionStatus}"/>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                  <TextBlock Style="{StaticResource AccordionStatus}" Text="{Binding MissionSectionStatus}" Margin="0,0,10,0"/>
+                  <TextBlock Style="{StaticResource AccordionStatus}" Text="{Binding InteractionsSectionStatus}"/>
+                </StackPanel>
                 <StackPanel Orientation="Horizontal">
-                  <TextBlock Text="2. INTERACCIONES Y DIÁLOGO" FontWeight="SemiBold" FontSize="13"/>
+                  <TextBlock Text="2. INTERACCIONES, DIÁLOGO Y MISIÓN" FontWeight="SemiBold" FontSize="13"/>
                   <TextBlock Text="  · OBLIGATORIO" FontWeight="SemiBold" FontSize="12"
                              Foreground="{DynamicResource BrandAccent}" VerticalAlignment="Center"/>
                 </StackPanel>
               </DockPanel>
             </Expander.Header>
-            <Border Padding="12,8,12,12">
+            <Border Padding="10,6,10,8">
               <StackPanel>
-                <TextBlock Text="DIÁLOGO" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                <!-- Editor de conversación — plegable -->
+                <Expander IsExpanded="{Binding DialogConversationExpanded, Mode=TwoWay}"
+                          Style="{StaticResource ContentAccordionExpander}" Margin="0,0,0,8">
+                  <Expander.Header>
+                    <TextBlock Text="EDITOR DE CONVERSACIÓN" FontWeight="SemiBold" FontSize="12"/>
+                  </Expander.Header>
+                  <Border MinHeight="280" BorderBrush="{DynamicResource Border}" BorderThickness="0">
+                    <ctrl:ContentDialogEditorPanel DataContext="{Binding Dialogs}"
+                                                   AiAssistant="{Binding DataContext.AiAssistant, RelativeSource={RelativeSource AncestorType=app:ContentWorkspaceView}}"
+                                                   MissionEditor="{Binding DataContext.Missions, RelativeSource={RelativeSource AncestorType=app:ContentWorkspaceView}}"
+                                                   MissionHost="{Binding DataContext, RelativeSource={RelativeSource AncestorType=app:ContentWorkspaceView}}"/>
+                  </Border>
+                </Expander>
 
-                <!-- ADMIN.UI.3.2 — Generar diálogo / conversación + resultados en sección 2 -->
-                <Border Margin="0,0,0,12" Padding="10"
-                        BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="6"
+                <!-- Misión huérfana: existe draft pero ninguna acción 44 -->
+                <Border Margin="0,0,0,8" Padding="12" CornerRadius="6"
+                        Visibility="{Binding ShowOrphanMissionWarning, Converter={StaticResource BoolToVis}}"
                         Background="{DynamicResource ElevatedSurface}"
-                        DataContext="{Binding AiAssistant}"
-                        Visibility="{Binding DataContext.EditorEnabled, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVis}}">
+                        BorderBrush="{DynamicResource Border}" BorderThickness="1">
                   <StackPanel>
-                    <TextBlock Text="ASISTENTE IA · DIÁLOGO" FontWeight="SemiBold" FontSize="12" Margin="0,0,0,4"/>
-                    <TextBlock FontSize="11" Foreground="{DynamicResource TextMuted}" TextWrapping="Wrap" Margin="0,0,0,8"
-                               Text="Usa la misma configuración creativa de Identidad (actitud, contexto…). Resultados aquí, junto al diálogo del NPC."/>
-                    <WrapPanel Margin="0,0,0,8">
-                      <Button Content="✨ Generar diálogo" Command="{Binding GenerateDialogCommand}"
-                              Padding="12,6" Margin="0,0,8,6"
-                              ToolTip="Genera texto de diálogo simple · aplica al borrador con Usar"/>
-                      <Button Content="✨ Generar conversación" Command="{Binding GenerateConversationCommand}"
-                              Padding="12,6" Margin="0,0,8,6"
-                              ToolTip="1 frase NPC + exactamente 3 respuestas del jugador"/>
-                    </WrapPanel>
-                    <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" Margin="0,0,0,8"
-                               Foreground="{DynamicResource BrandAccent}"
-                               Visibility="{Binding HasStatusMessage, Converter={StaticResource BoolToVis}}"/>
-
-                    <Border Visibility="{Binding ShowInteractionsAiResult, Converter={StaticResource BoolToVis}}"
-                            BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="6"
-                            Padding="10" Margin="0,0,0,8" Background="{DynamicResource PanelBackground}">
-                      <StackPanel>
-                        <TextBlock Text="{Binding ValidationDebugText}" FontSize="11" FontFamily="Consolas"
-                                   Foreground="{DynamicResource TextMuted}" Margin="0,0,0,8" TextWrapping="Wrap"/>
-
-                        <StackPanel Visibility="{Binding HasDialoguePreview, Converter={StaticResource BoolToVis}}" Margin="0,0,0,8">
-                          <TextBlock Text="DIÁLOGO GENERADO" FontWeight="SemiBold" Margin="0,0,0,6"/>
-                          <TextBlock Text="Texto generado" FontSize="11" Foreground="{DynamicResource TextMuted}" Margin="0,0,0,4"/>
-                          <TextBox Text="{Binding DialoguePreviewText, Mode=OneWay}" IsReadOnly="True"
-                                   TextWrapping="Wrap" AcceptsReturn="True" MinHeight="60" Margin="0,0,0,8"/>
-                          <StackPanel Orientation="Horizontal">
-                            <Button Content="Usar" Command="{Binding UseDialogueCommand}"
-                                    Padding="10,4" Margin="0,0,8,0"
-                                    ToolTip="Aplicar texto al diálogo del borrador (no publica · no crea D.q)"/>
-                            <Button Content="Regenerar" Command="{Binding RegenerateCommand}" Padding="10,4"
-                                    ToolTip="Nueva generación · no aplica al NPC"/>
-                          </StackPanel>
-                        </StackPanel>
-
-                        <StackPanel Visibility="{Binding HasConversationPreview, Converter={StaticResource BoolToVis}}">
-                          <TextBlock Text="CONVERSACIÓN GENERADA" FontWeight="SemiBold" Margin="0,0,0,6"/>
-                          <TextBlock Text="NPC:" FontSize="11" Foreground="{DynamicResource TextMuted}"/>
-                          <TextBox Text="{Binding ConversationNpcText, Mode=OneWay}" IsReadOnly="True"
-                                   TextWrapping="Wrap" AcceptsReturn="True" MinHeight="48" Margin="0,0,0,8"/>
-                          <TextBlock Text="RESPUESTAS:" FontWeight="SemiBold" Margin="0,0,0,4"/>
-                          <ItemsControl ItemsSource="{Binding ConversationReplyItems}">
-                            <ItemsControl.ItemTemplate>
-                              <DataTemplate>
-                                <Border Padding="0,0,0,6">
-                                  <StackPanel>
-                                    <TextBlock Text="{Binding Display}" TextWrapping="Wrap"/>
-                                    <TextBlock FontSize="11" Foreground="{DynamicResource TextMuted}">
-                                      <Run Text="tono: "/><Run Text="{Binding Tono, Mode=OneWay}"/>
-                                    </TextBlock>
-                                  </StackPanel>
-                                </Border>
-                              </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                          </ItemsControl>
-                          <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                            <Button Content="Usar conversación" Command="{Binding UseConversationCommand}"
-                                    Padding="10,4" Margin="0,0,8,0"
-                                    ToolTip="Aplicar textos creativos al modo interactivo (preserva acciones técnicas)"/>
-                            <Button Content="Regenerar" Command="{Binding RegenerateCommand}" Padding="10,4"
-                                    ToolTip="Nueva generación · no aplica al NPC"/>
-                          </StackPanel>
-                        </StackPanel>
-                      </StackPanel>
-                    </Border>
+                    <TextBlock Text="Existe una misión sin acción «Iniciar misión» asociada."
+                               TextWrapping="Wrap" Foreground="{DynamicResource TextSecondary}" Margin="0,0,0,10"/>
+                    <Button Content="Vincular a una respuesta" Command="{Binding LinkOrphanMissionCommand}"
+                            Padding="12,6" HorizontalAlignment="Left"
+                            ToolTip="Añade o vincula acción 44 en la respuesta seleccionada del canvas"/>
                   </StackPanel>
                 </Border>
-
-                <Border MinHeight="420" BorderBrush="{DynamicResource Border}" BorderThickness="0">
-                  <ctrl:ContentDialogEditorPanel DataContext="{Binding Dialogs}"/>
-                </Border>
               </StackPanel>
             </Border>
           </Expander>
 
-          <!-- 3. UBICACIONES -->
-          <Expander Style="{StaticResource ContentAccordionExpander}" IsExpanded="{Binding LocationsExpanded, Mode=TwoWay}">
-            <Expander.Header>
-              <DockPanel>
-                <TextBlock DockPanel.Dock="Right" Style="{StaticResource AccordionStatus}"
-                           Text="{Binding LocationsSectionStatus}"/>
-                <TextBlock Text="3. UBICACIONES" FontWeight="SemiBold" FontSize="13"/>
-              </DockPanel>
-            </Expander.Header>
-            <Border Padding="12,8,12,12">
-              <StackPanel DataContext="{Binding Npc.Selected}">
-                <DockPanel Margin="0,0,0,8">
-                  <Button DockPanel.Dock="Right" Content="+ Añadir ubicación"
-                          Command="{Binding DataContext.Npc.AddLocationCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                          Padding="10,5" Click="AddLocation_Click"/>
-                  <TextBlock Text="Mapa · Celda · Orientación · Condición"
-                             FontSize="11" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center"/>
-                </DockPanel>
-                <ItemsControl ItemsSource="{Binding Locations}">
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate DataType="{x:Type content:NpcLocationDraft}">
-                      <Border BorderBrush="{DynamicResource Border}" BorderThickness="1" CornerRadius="6"
-                              Padding="10" Margin="0,0,0,8" Background="{DynamicResource ElevatedSurface}">
-                        <Grid>
-                          <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
-                          </Grid.ColumnDefinitions>
-                          <Grid>
-                            <Grid.ColumnDefinitions>
-                              <ColumnDefinition Width="100"/><ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                              <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-                              <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-                            <TextBlock Grid.Row="0" Text="Mapa ID" Style="{StaticResource FieldLabel}"/>
-                            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding MapId, UpdateSourceTrigger=PropertyChanged}"
-                                     Margin="0,0,0,6" FontFamily="Consolas" TextChanged="LocationField_Changed"/>
-                            <TextBlock Grid.Row="1" Text="Celda" Style="{StaticResource FieldLabel}"/>
-                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding CellId, UpdateSourceTrigger=PropertyChanged}"
-                                     Margin="0,0,0,6" FontFamily="Consolas" TextChanged="LocationField_Changed"/>
-                            <TextBlock Grid.Row="2" Text="Orientación" Style="{StaticResource FieldLabel}"
-                                       VerticalAlignment="Top" Margin="0,8,0,0"/>
-                            <ctrl:NpcOrientationPicker Grid.Row="2" Grid.Column="1" Margin="0,0,0,8"
-                                                         Orientation="{Binding Orientation, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                         OrientationEdited="OrientationPicker_Edited"/>
-                            <TextBlock Grid.Row="3" Text="Condición" Style="{StaticResource FieldLabel}"/>
-                            <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Condition, UpdateSourceTrigger=PropertyChanged}"
-                                     FontFamily="Consolas" TextChanged="LocationField_Changed"/>
-                          </Grid>
-                          <Button Grid.Column="1" Content="Eliminar" VerticalAlignment="Top" Margin="8,0,0,0"
-                                  Padding="8,4" Tag="{Binding}" Click="RemoveLocation_Click"/>
-                        </Grid>
-                      </Border>
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
-                <TextBlock FontSize="11" Foreground="{DynamicResource TextMuted}" TextWrapping="Wrap"
-                           Text="nombre en npcs_ubicacion = nombre del NPC (automático al publicar)."/>
-              </StackPanel>
-            </Border>
-          </Expander>
-
-          <!-- 4. MISIÓN -->
-          <Expander Style="{StaticResource ContentAccordionExpander}" IsExpanded="{Binding MissionExpanded, Mode=TwoWay}">
-            <Expander.Header>
-              <DockPanel>
-                <TextBlock DockPanel.Dock="Right" Style="{StaticResource AccordionStatus}"
-                           Text="{Binding MissionSectionStatus}"/>
-                <StackPanel Orientation="Horizontal">
-                  <TextBlock Text="4. MISIÓN" FontWeight="SemiBold" FontSize="13"/>
-                  <TextBlock Text="  · OPCIONAL" FontSize="12"
-                             Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center"/>
-                </StackPanel>
-              </DockPanel>
-            </Expander.Header>
-            <Border Padding="12,8,12,12">
-              <DockPanel>
-                <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10"
-                            Visibility="{Binding ShowCreateMissionCta, Converter={StaticResource BoolToVis}}">
-                  <TextBlock Text="Configura una misión asociada a este NPC." Margin="0,0,0,10"
-                             Foreground="{DynamicResource TextSecondary}" TextWrapping="Wrap"/>
-                  <Button Content="+ Crear misión" Command="{Binding CreateMissionCommand}"
-                          Padding="14,6" HorizontalAlignment="Left"/>
-                </StackPanel>
-                <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10"
-                            Visibility="{Binding HasMission, Converter={StaticResource BoolToVis}}">
-                  <DockPanel>
-                    <Button DockPanel.Dock="Right" Content="Quitar misión" Command="{Binding RemoveMissionCommand}"
-                            Padding="10,4"/>
-                    <TextBlock Text="Misión del NPC (borrador local · sin escritura BD al editar)"
-                               VerticalAlignment="Center" FontWeight="SemiBold"/>
-                  </DockPanel>
-                </StackPanel>
-                <Grid Visibility="{Binding HasMission, Converter={StaticResource BoolToVis}}" MinHeight="360">
-                  <ctrl:ContentMissionEditorPanel DataContext="{Binding Missions}"/>
-                </Grid>
-              </DockPanel>
-            </Border>
-          </Expander>
-
-          <!-- 5. REVISIÓN Y PUBLICACIÓN -->
+          <!-- 3. REVISIÓN Y PUBLICACIÓN -->
           <Expander Style="{StaticResource ContentAccordionExpander}" IsExpanded="{Binding ReviewExpanded, Mode=TwoWay}">
             <Expander.Header>
               <DockPanel>
                 <TextBlock DockPanel.Dock="Right" Style="{StaticResource AccordionStatus}"
                            Text="{Binding ReviewSectionStatus}"/>
-                <TextBlock Text="5. REVISIÓN Y PUBLICACIÓN" FontWeight="SemiBold" FontSize="13"/>
+                <TextBlock Text="3. REVISIÓN Y PUBLICACIÓN" FontWeight="SemiBold" FontSize="13"/>
               </DockPanel>
             </Expander.Header>
             <Border Padding="12,8,12,12">
@@ -541,24 +824,35 @@
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
                 <TextBlock Margin="0,12,0,0" FontSize="11" Foreground="{DynamicResource TextMuted}" TextWrapping="Wrap"
-                           Text="Borrador ≠ publicado. quests_es pendiente. Publicación segura de misiones BD: ADMIN.UI.4C."/>
+                           Text="Borrador ≠ publicado. quests_es vía Publicar cliente tras BD. Publicación segura BD: ADMIN.UI.4C."/>
                 <WrapPanel Margin="0,12,0,0">
                   <Button Content="Publicar cliente (CONT.8)" Command="{Binding PublishClientCommand}"
                           Padding="12,6" Margin="0,0,8,0"
-                          ToolTip="dialog_es + npc_es · no escribe BD · no quests_es"/>
+                          Visibility="{Binding ShowPublishClientButton, Converter={StaticResource BoolToVis}}"
+                          IsEnabled="{Binding EnablePublishClientButton}"
+                          ToolTip="dialog_es + npc_es + quests_es · no escribe BD"/>
                   <Button Content="Publicar contenido en BD (CONT.5)" Command="{Binding PublishCommand}"
                           Padding="12,6"
+                          Visibility="{Binding ShowPublishBdButton, Converter={StaticResource BoolToVis}}"
+                          IsEnabled="{Binding EnablePublishBdButton}"
                           ToolTip="NPC/diálogos/ubicaciones. Misiones nuevas: fase ADMIN.UI.4C."/>
+                  <TextBlock Text="{Binding ClientPublishStatusLabel}" FontSize="11" VerticalAlignment="Center"
+                             Margin="0,0,12,0" Foreground="{DynamicResource TextMuted}"
+                             Visibility="{Binding ShowClientPublishStatus, Converter={StaticResource BoolToVis}}"/>
+                  <TextBlock Text="{Binding BdPublishStatusLabel}" FontSize="11" VerticalAlignment="Center"
+                             Foreground="{DynamicResource TextMuted}"
+                             Visibility="{Binding ShowBdPublishStatus, Converter={StaticResource BoolToVis}}"/>
                 </WrapPanel>
               </StackPanel>
             </Border>
           </Expander>
         </StackPanel>
       </ScrollViewer>
+      </Grid>
     </Grid>
 
-    <TextBlock Grid.Row="2" Margin="0,10,0,0" FontSize="11"
+    <TextBlock Grid.Row="2" Margin="0,6,0,0" FontSize="11"
                Foreground="{DynamicResource ChromeForegroundMuted}"
-               Text="Flujo · Identidad → Interacciones → Ubicaciones → Misión → Revisión · Cliente = CONT.8 · BD = CONT.5"/>
+               Text="Flujo · Identidad (con ubicaciones) → Interacciones → Misión → Revisión · Cliente = CONT.8 · BD = CONT.5"/>
   </Grid>
 </UserControl>

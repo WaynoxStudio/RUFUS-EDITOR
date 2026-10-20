@@ -56,7 +56,9 @@ public sealed class DialogEsSessionCache
         ArgumentNullException.ThrowIfNull(request);
         lock (_gate)
         {
-            if (!forceRemote && _last is not null)
+            // Only reuse a successful load. Failures must retry (SFTP may have been
+            // fixed, or the first attempt ran before config was ready).
+            if (!forceRemote && _last is { Success: true })
                 return _last;
             _last = DialogEsRemoteLoader.Fetch(request);
             return _last;
@@ -143,6 +145,18 @@ public static class DialogEsRemoteLoader
             Directory.CreateDirectory(workDir);
             var localPath = Path.Combine(workDir, swfName);
             File.WriteAllBytes(localPath, bytes);
+
+            // Also seed lang-cache so DialogEsLocalCache / UI fallback see dialog_es_N.swf.
+            try
+            {
+                var langCache = LangRemoteSyncService.DefaultCacheDirectory;
+                Directory.CreateDirectory(langCache);
+                File.Copy(localPath, Path.Combine(langCache, swfName), overwrite: true);
+            }
+            catch
+            {
+                /* non-fatal — session snapshot still works */
+            }
 
             DialogEsSnapshot snap;
             try

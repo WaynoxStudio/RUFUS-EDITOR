@@ -11,6 +11,8 @@ public sealed class MissionObjectiveUiFields
     public string ItemId { get; set; } = "";
     public string Qty { get; set; } = "1";
     public string MobId { get; set; } = "";
+    /// <summary>Optional multi-pair DefeatMobs; when set, overrides MobId/Qty.</summary>
+    public IReadOnlyList<(int MobId, int Qty)>? MobPairs { get; set; }
     public string MapId { get; set; } = "";
     public string AreaId { get; set; } = "";
     public string Level { get; set; } = "1";
@@ -24,10 +26,31 @@ public sealed class MissionObjectiveUiFields
 
 public static class MissionObjectiveUiSync
 {
+    public const string UnsupportedManualMessage =
+        "El objetivo Manual (tipo 0) no está soportado. Elimínalo o sustitúyelo.";
+
+    public const string UnsupportedManualUiLabel = "Objetivo Manual no soportado";
+
+    /// <summary>Visible UI label only — does not change tipo / args / persistence.</summary>
     public static string UiTypeLabel(int tipo) => tipo switch
     {
-        MissionObjectiveTypes.ShowItemToNpc => "Enseñar objeto",
-        MissionObjectiveTypes.DeliverItemsToNpc => "Entregar objeto",
+        MissionObjectiveTypes.Manual => UnsupportedManualUiLabel,
+        MissionObjectiveTypes.TalkToNpc => "Habla con un NPC",
+        MissionObjectiveTypes.ShowItemToNpc => "Enseña un objeto",
+        MissionObjectiveTypes.DeliverItemsToNpc => "Entrega un objeto",
+        MissionObjectiveTypes.DiscoverMap => "Ve a un mapa",
+        MissionObjectiveTypes.DiscoverArea => "Ve a una zona",
+        MissionObjectiveTypes.DefeatMobs => "Vence a monstruos",
+        MissionObjectiveTypes.UseItem => "Usa un objeto",
+        MissionObjectiveTypes.ReturnToNpc => "Vuelve con un NPC",
+        MissionObjectiveTypes.ReachLevel => "Alcanza un nivel",
+        MissionObjectiveTypes.HaveSpells => "Sube un hechizo",
+        MissionObjectiveTypes.JobLevel => "Sube un oficio",
+        MissionObjectiveTypes.DeliverSouls => "Entregar almas",
+        MissionObjectiveTypes.DefeatMobAlt => "Monstruo (alt.)",
+        MissionObjectiveTypes.Free10 => "Tipo 10 (avanzado)",
+        MissionObjectiveTypes.Free11 => "Tipo 11 (avanzado)",
+        MissionObjectiveTypes.Free13 => "Tipo 13 (avanzado)",
         _ => MissionObjectiveTypes.DisplayName(tipo),
     };
 
@@ -36,6 +59,9 @@ public static class MissionObjectiveUiSync
     {
         ArgumentNullException.ThrowIfNull(draft);
         ArgumentNullException.ThrowIfNull(fields);
+
+        if (fields.Tipo == MissionObjectiveTypes.Manual)
+            return UnsupportedManualMessage;
 
         if (fields.Tipo == MissionObjectiveTypes.DeliverSouls)
             return "Entregar almas aún no está disponible (dato pendiente).";
@@ -71,19 +97,20 @@ public static class MissionObjectiveUiSync
 
     public static string BuildArgs(MissionObjectiveUiFields fields, int? x, int? y) => fields.Tipo switch
     {
-        MissionObjectiveTypes.Manual => MissionObjectiveArgsCodec.BuildManual(fields.ManualText),
+        MissionObjectiveTypes.Manual =>
+            throw new InvalidOperationException(UnsupportedManualMessage),
         MissionObjectiveTypes.TalkToNpc =>
             MissionObjectiveArgsCodec.BuildTalk(RequireInt(fields.NpcId, "Selecciona el NPC de destino."), x, y),
         MissionObjectiveTypes.ReturnToNpc =>
             MissionObjectiveArgsCodec.BuildTalk(RequireInt(fields.NpcId, "Selecciona el NPC."), x, y),
         MissionObjectiveTypes.ShowItemToNpc => MissionObjectiveArgsCodec.BuildShowOrDeliver(
-            RequireInt(fields.NpcId, "Selecciona el NPC de destino."),
-            RequirePositive(fields.ItemId, "Selecciona un objeto."),
+            RequireInt(fields.NpcId, MissionShowDeliverNpcBinding.MissingStartNpcMessage),
+            RequirePositive(fields.ItemId, "Indica un Item ID."),
             RequirePositive(fields.Qty, "La cantidad debe ser mayor que 0."),
             x, y),
         MissionObjectiveTypes.DeliverItemsToNpc => MissionObjectiveArgsCodec.BuildShowOrDeliver(
-            RequireInt(fields.NpcId, "Selecciona el NPC de destino."),
-            RequirePositive(fields.ItemId, "Selecciona un objeto."),
+            RequireInt(fields.NpcId, MissionShowDeliverNpcBinding.MissingStartNpcMessage),
+            RequirePositive(fields.ItemId, "Indica un Item ID."),
             RequirePositive(fields.Qty, "La cantidad debe ser mayor que 0."),
             x, y),
         MissionObjectiveTypes.DiscoverMap =>
@@ -91,8 +118,10 @@ public static class MissionObjectiveUiSync
         MissionObjectiveTypes.DiscoverArea =>
             MissionObjectiveArgsCodec.BuildDiscoverArea(RequirePositive(fields.AreaId, "Selecciona una zona.")),
         MissionObjectiveTypes.DefeatMobs => MissionObjectiveArgsCodec.BuildDefeatMobs(
-            [(RequirePositive(fields.MobId, "Selecciona un monstruo."),
-                RequirePositive(fields.Qty, "La cantidad debe ser mayor que 0."))],
+            fields.MobPairs is { Count: > 0 } pairs
+                ? pairs
+                : [(RequirePositive(fields.MobId, "Indica un Monster ID."),
+                    RequirePositive(fields.Qty, "La cantidad debe ser mayor que 0."))],
             x, y),
         MissionObjectiveTypes.UseItem =>
             MissionObjectiveArgsCodec.BuildUseItem(RequirePositive(fields.ItemId, "Selecciona un objeto.")),

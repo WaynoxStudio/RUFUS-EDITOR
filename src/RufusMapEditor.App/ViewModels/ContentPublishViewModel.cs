@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Text;
 using System.Windows;
 using RufusMapEditor.App.Services;
@@ -13,12 +14,35 @@ public sealed class ContentPublishViewModel : ViewModelBase
     private string _status = "";
     private bool _canPublish;
     private bool _isBusy;
+    private bool _hasNpcChoices;
     private ContentPublishPlan? _plan;
+    private DialogEsSnapshot? _dialogEsSnapshot;
+    private DialogEsIdOccupancy? _dialogOccupancy;
+    private IReadOnlyList<ContentTableEngineInfo> _engines = Array.Empty<ContentTableEngineInfo>();
+    private bool _suppressSelectionRebuild;
 
     public ContentPublishViewModel()
     {
+        NpcChoices = new ObservableCollection<ContentPublishNpcChoiceItem>();
         PublishCommand = new RelayCommand(async () => await PublishAsync(), () => CanPublish && !IsBusy);
         CancelCommand = new RelayCommand(() => RequestClose?.Invoke(false));
+        SelectAllCommand = new RelayCommand(() => SetAllSelected(true), () => HasNpcChoices && !IsBusy);
+        SelectNoneCommand = new RelayCommand(() => SetAllSelected(false), () => HasNpcChoices && !IsBusy);
+    }
+
+    public ObservableCollection<ContentPublishNpcChoiceItem> NpcChoices { get; }
+
+    public bool HasNpcChoices
+    {
+        get => _hasNpcChoices;
+        private set
+        {
+            if (SetProperty(ref _hasNpcChoices, value))
+            {
+                SelectAllCommand.RaiseCanExecuteChanged();
+                SelectNoneCommand.RaiseCanExecuteChanged();
+            }
+        }
     }
 
     public string Summary
@@ -49,16 +73,85 @@ public sealed class ContentPublishViewModel : ViewModelBase
         private set
         {
             if (SetProperty(ref _isBusy, value))
+            {
                 PublishCommand.RaiseCanExecuteChanged();
+                SelectAllCommand.RaiseCanExecuteChanged();
+                SelectNoneCommand.RaiseCanExecuteChanged();
+            }
         }
     }
 
     public RelayCommand PublishCommand { get; }
     public RelayCommand CancelCommand { get; }
+    public RelayCommand SelectAllCommand { get; }
+    public RelayCommand SelectNoneCommand { get; }
 
     public Action<bool>? RequestClose { get; set; }
 
     public async Task InitializeAsync()
+    {
+        IsBusy = true;
+        try
+        {
+            LoadNpcChoices(ContentDraftStore.Current);
+            await RebuildPreviewAsync().ConfigureAwait(true);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private void LoadNpcChoices(ContentDraftWorkspace workspace)
+    {
+        _suppressSelectionRebuild = true;
+        try
+        {
+            NpcChoices.Clear();
+            foreach (var c in ContentPublishNpcSelection.ListBdCandidates(workspace))
+            {
+                NpcChoices.Add(new ContentPublishNpcChoiceItem(c, isSelected: true, OnNpcSelectionChanged));
+            }
+
+            HasNpcChoices = NpcChoices.Count > 0;
+        }
+        finally
+        {
+            _suppressSelectionRebuild = false;
+        }
+    }
+
+    private void OnNpcSelectionChanged()
+    {
+        if (_suppressSelectionRebuild || IsBusy)
+            return;
+        _ = RebuildPreviewAsync();
+    }
+
+    private void SetAllSelected(bool selected)
+    {
+        _suppressSelectionRebuild = true;
+        try
+        {
+            foreach (var c in NpcChoices)
+                c.IsSelected = selected;
+        }
+        finally
+        {
+            _suppressSelectionRebuild = false;
+        }
+
+        _ = RebuildPreviewAsync();
+    }
+
+    private HashSet<int>? CurrentFilter()
+    {
+        if (NpcChoices.Count == 0)
+            return null;
+        return NpcChoices.Where(c => c.IsSelected).Select(c => c.Id).ToHashSet();
+    }
+
+    private async Task RebuildPreviewAsync()
     {
         IsBusy = true;
         try
@@ -73,6 +166,16 @@ public sealed class ContentPublishViewModel : ViewModelBase
 
             try
             {
+                var filter = CurrentFilter();
+                if (NpcChoices.Count > 0 && (filter is null || filter.Count == 0))
+                {
+                    _plan = null;
+                    Summary = "Selecciona al menos un NPC para publicar en BD.";
+                    Status = "Ningún NPC seleccionado.";
+                    CanPublish = false;
+                    return;
+                }
+
                 var svc = new ContentPublishService(store);
                 DialogEsSnapshot? remoteSnap = null;
                 string? remoteStatus = null;
@@ -101,13 +204,36 @@ public sealed class ContentPublishViewModel : ViewModelBase
                 var (plan, engines) = await svc.PreparePreviewAsync(
                     ContentDraftStore.Current,
                     dialogEsSnapshot: remoteSnap,
-                    dialogEsStatusOverride: remoteStatus).ConfigureAwait(true);
+                    dialogEsStatusOverride: remoteStatus,
+                    npcIdFilter: filter).ConfigureAwait(true);
                 _plan = plan;
+                _engines = engines;
+                _dialogEsSnapshot = remoteSnap;
+                _dialogOccupancy = new DialogEsIdOccupancy
+                {
+                    BdQuestionMax = plan.Maxes.NpcPreguntas,
+                    BdResponseMax = plan.Maxes.NpcRespuestas,
+                };
                 Summary = BuildSummary(plan, engines);
                 CanPublish = plan.IsValid;
-                Status = plan.IsValid
-                    ? "Listo. Confirma para escribir SOLO contenido nuevo en estaticos."
-                    : "Publicación bloqueada:\n" + string.Join("\n", plan.Errors);
+                if (plan.IsValid)
+                {
+                    Status = plan.ClientWarnings.Count == 0
+                        ? "Listo. Confirma para escribir SOLO el contenido de los NPCs seleccionados."
+                        : "Listo para publicar BD.\n\nADVERTENCIA CLIENTE:\n"
+                          + "Hay textos de dialog_es no representables en Latin1.\n"
+                          + "El contenido de BD puede publicarse, pero el cliente aún no está listo.\n"
+                          + string.Join("\n", plan.ClientWarnings);
+                }
+                else if (!plan.HasWork)
+                {
+                    Status = "Nada que publicar con la selección actual.";
+                    CanPublish = false;
+                }
+                else
+                {
+                    Status = "Publicación bloqueada:\n" + string.Join("\n", plan.Errors);
+                }
             }
             finally
             {
@@ -130,8 +256,17 @@ public sealed class ContentPublishViewModel : ViewModelBase
     private async Task PublishAsync()
     {
         if (!CanPublish) return;
+        var filter = CurrentFilter();
+        if (NpcChoices.Count > 0 && (filter is null || filter.Count == 0))
+        {
+            Status = "Selecciona al menos un NPC.";
+            return;
+        }
+
         var confirm = MessageBox.Show(
-            "¿PUBLICAR contenido nuevo en estaticos?\n\nNo se modificará SWF/SFTP/Mapas.\nSolo INSERT de borradores pendientes.",
+            "¿PUBLICAR contenido nuevo en estaticos?\n\n" +
+            $"NPCs seleccionados: {(filter?.Count ?? 0)}\n" +
+            "No se modificará SWF/SFTP/Mapas.\nSolo INSERT/UPDATE de los NPCs elegidos.",
             "Confirmar publicación BD",
             MessageBoxButton.OKCancel,
             MessageBoxImage.Warning);
@@ -152,7 +287,11 @@ public sealed class ContentPublishViewModel : ViewModelBase
             {
                 var svc = new ContentPublishService(store);
                 Status = "Publicando…";
-                var outcome = await svc.PublishAsync(ContentDraftStore.Current).ConfigureAwait(true);
+                var outcome = await svc.PublishAsync(
+                    ContentDraftStore.Current,
+                    dialogEsSnapshot: _dialogEsSnapshot,
+                    dialogEsOccupancy: _dialogOccupancy,
+                    npcIdFilter: filter).ConfigureAwait(true);
                 if (outcome.Success)
                 {
                     ContentDraftStore.Save();
@@ -212,6 +351,21 @@ public sealed class ContentPublishViewModel : ViewModelBase
             : "Modo: LOCK TABLES (MyISAM / mixto)");
         sb.AppendLine();
         sb.Append(plan.FormatDialogEsPreviewBlock());
+        var missionPreview = plan.FormatMissionWritePreview();
+        if (!string.IsNullOrWhiteSpace(missionPreview))
+        {
+            sb.AppendLine();
+            sb.AppendLine(missionPreview);
+        }
+        if (plan.ClientWarnings.Count > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine("ADVERTENCIA CLIENTE:");
+            sb.AppendLine("Hay textos de dialog_es pendientes / no representables en Latin1.");
+            sb.AppendLine("El contenido de BD puede publicarse, pero el cliente aún no está listo.");
+            foreach (var w in plan.ClientWarnings)
+                sb.AppendLine("  · " + w);
+        }
         return sb.ToString();
     }
 

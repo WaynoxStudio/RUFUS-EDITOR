@@ -178,4 +178,113 @@ public sealed class LangMapsPhase11ATests
             try { Directory.Delete(outDir, true); } catch { /* ignore */ }
         }
     }
+
+    [Fact]
+    public void Dual_variants_same_coords_are_kept()
+    {
+        var outDir = TempDir();
+        try
+        {
+            var result = LangMapsSwfService.GenerateBatch(new LangMapsBatchGenerateRequest
+            {
+                SourceSwfPath = FixturePath(),
+                OutputDirectory = outDir,
+                Entries =
+                [
+                    new LangMapsBatchEntry { MapId = 30017, X = -44, Y = -38, SubArea = 30, Ep = 2 },
+                    new LangMapsBatchEntry { MapId = 30017, X = -44, Y = -38, SubArea = 612, Ep = 18 },
+                ],
+            });
+            Assert.True(result.Success, result.Error);
+            Assert.Equal(1283, result.TargetVersion);
+
+            var re = LangMapsSwfService.Inspect(result.OutputPath!);
+            var hits = re.Entries.Where(e => e.MapId == 30017).OrderBy(e => e.Ep).ToList();
+            Assert.Equal(2, hits.Count);
+            Assert.All(hits, e =>
+            {
+                Assert.Equal(-44, e.X);
+                Assert.Equal(-38, e.Y);
+            });
+            Assert.Contains(hits, e => e.SubArea == 30 && e.Ep == 2);
+            Assert.Contains(hits, e => e.SubArea == 612 && e.Ep == 18);
+        }
+        finally
+        {
+            try { Directory.Delete(outDir, true); } catch { /* ignore */ }
+        }
+    }
+
+    [Fact]
+    public void Dual_variants_divergent_coords_are_rejected()
+    {
+        var outDir = TempDir();
+        try
+        {
+            var result = LangMapsSwfService.GenerateBatch(new LangMapsBatchGenerateRequest
+            {
+                SourceSwfPath = FixturePath(),
+                OutputDirectory = outDir,
+                Entries =
+                [
+                    new LangMapsBatchEntry { MapId = 30017, X = -44, Y = -38, SubArea = 30, Ep = 2 },
+                    new LangMapsBatchEntry { MapId = 30017, X = -47, Y = -35, SubArea = 612, Ep = 18 },
+                ],
+            });
+            Assert.False(result.Success);
+            Assert.Contains("coords divergentes", result.Error!, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            try { Directory.Delete(outDir, true); } catch { /* ignore */ }
+        }
+    }
+
+    [Fact]
+    public void Batch_can_remove_mapids_in_same_bump()
+    {
+        var outDir = TempDir();
+        try
+        {
+            // Insert a throwaway id, then regenerate from that SWF removing it while updating another.
+            var step1 = LangMapsSwfService.Generate(new LangMapsGenerateRequest
+            {
+                SourceSwfPath = FixturePath(),
+                OutputDirectory = outDir,
+                MapId = 30012,
+                X = -43,
+                Y = -34,
+                SubArea = 30,
+                Ep = 2,
+            });
+            Assert.True(step1.Success, step1.Error);
+
+            var step2Dir = TempDir();
+            try
+            {
+                var step2 = LangMapsSwfService.GenerateBatch(new LangMapsBatchGenerateRequest
+                {
+                    SourceSwfPath = step1.OutputPath!,
+                    OutputDirectory = step2Dir,
+                    Entries =
+                    [
+                        new LangMapsBatchEntry { MapId = 31324, X = 0, Y = -4, SubArea = 684, Ep = 2 },
+                    ],
+                    RemoveMapIds = [30012],
+                });
+                Assert.True(step2.Success, step2.Error);
+                var re = LangMapsSwfService.Inspect(step2.OutputPath!);
+                Assert.DoesNotContain(re.Entries, e => e.MapId == 30012);
+                Assert.Contains(re.Entries, e => e.MapId == 31324);
+            }
+            finally
+            {
+                try { Directory.Delete(step2Dir, true); } catch { /* ignore */ }
+            }
+        }
+        finally
+        {
+            try { Directory.Delete(outDir, true); } catch { /* ignore */ }
+        }
+    }
 }

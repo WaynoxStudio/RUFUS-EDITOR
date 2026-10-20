@@ -3,38 +3,30 @@ using System.Text;
 using System.Text.Json;
 using RufusMapEditor.AiBackend.OpenAi;
 using RufusMapEditor.LegacyCompatibility.Content.Ai;
-using RufusMapEditor.Licensing.Contracts;
-using RufusMapEditor.Licensing.Services;
 
 namespace RufusMapEditor.AiBackend;
 
 /// <summary>
-/// AI.4B / LIC.6 — orchestrates Editor request → quota → OpenAI Structured Output → validation.
+/// Orchestrates Editor request → OpenAI Structured Output → validation.
 /// </summary>
 public sealed class AiGenerateOrchestrator
 {
     private readonly OpenAiOptions _options;
     private readonly IOpenAiResponsesClient _openAi;
-    private readonly AiQuotaService _quota;
 
-    public AiGenerateOrchestrator(OpenAiOptions options, IOpenAiResponsesClient openAi, AiQuotaService quota)
+    public AiGenerateOrchestrator(OpenAiOptions options, IOpenAiResponsesClient openAi)
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _openAi = openAi ?? throw new ArgumentNullException(nameof(openAi));
-        _quota = quota ?? throw new ArgumentNullException(nameof(quota));
     }
 
     public Task<AiBackendHttpResponse> GenerateAsync(
         AiBackendGenerateRequest? request,
-        LicenseAiAuthContext? licenseAi,
-        bool legacyAuth,
         CancellationToken cancellationToken) =>
-        GenerateAsync(request, licenseAi, legacyAuth, adminAuth: false, cancellationToken);
+        GenerateAsync(request, adminAuth: false, cancellationToken);
 
     public async Task<AiBackendHttpResponse> GenerateAsync(
         AiBackendGenerateRequest? request,
-        LicenseAiAuthContext? licenseAi,
-        bool legacyAuth,
         bool adminAuth,
         CancellationToken cancellationToken)
     {
@@ -71,75 +63,59 @@ public sealed class AiGenerateOrchestrator
             if (adminAuth)
                 AiBackendSafeLog.Info($"AI ADMIN → {wire}");
 
-            // Quota only for license session auth (legacy / admin = no USER license quota).
-            if (licenseAi is not null && !legacyAuth && !adminAuth)
-            {
-                var (allowed, denyCode) = await _quota.TryConsumeForGenerationAsync(licenseAi, cancellationToken)
-                    .ConfigureAwait(false);
-                if (!allowed)
-                {
-                    AiBackendSafeLog.Info("IA QUOTA → denegado");
-                    var (code, msg) = MapQuota(denyCode);
-                    return Fail(wire, code, msg);
-                }
-
-                AiBackendSafeLog.Info("IA QUOTA → permitido");
-            }
-
             var (schemaName, schemaObj) = AiOpenAiStrictSchema.ForAction(action);
             using var schemaDoc = JsonDocument.Parse(schemaObj.ToJsonString());
             var input = BuildModelInput(request.Prompt);
+            var openAiTimeout = _options.ResolveTimeout(wire);
+            var inputBytes = Encoding.UTF8.GetByteCount(input);
 
-            AiBackendSafeLog.Info($"acción={wire} modelo={_options.Model} → OpenAI Responses");
+            AiBackendSafeLog.Info(
+                $"acción={wire} modelo={_options.Model} inputBytes={inputBytes} " +
+                $"openAiTimeoutSec={openAiTimeout.TotalSeconds:0} → OpenAI Responses");
 
+            var openAiSw = Stopwatch.StartNew();
             var openAi = await _openAi.CreateStructuredAsync(
                     _options.Model,
                     input,
                     schemaName,
                     schemaDoc.RootElement.Clone(),
+                    openAiTimeout,
                     cancellationToken)
                 .ConfigureAwait(false);
+            openAiSw.Stop();
 
-            if (licenseAi is not null && !legacyAuth && !adminAuth)
-            {
-                try
-                {
-                    await _quota.RecordUsageEventAsync(
-                            licenseAi,
-                            wire,
-                            _options.Model,
-                            openAi.InputTokens,
-                            openAi.OutputTokens,
-                            openAi.Success,
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                }
-                catch
-                {
-                    // Telemetry must not fail the user response after OpenAI already ran.
-                }
-            }
+            AiBackendSafeLog.Info(
+                $"acción={wire} fase=openaiMs={openAiSw.ElapsedMilliseconds} " +
+                $"ok={openAi.Success} code={openAi.ErrorCode ?? "-"}" +
+                FormatTokens(openAi.InputTokens, openAi.OutputTokens));
 
             if (!openAi.Success)
             {
                 var code = openAi.ErrorCode ?? AiBackendErrorCodes.OpenAiError;
                 AiBackendSafeLog.Error(
-                    $"acción={wire} modelo={_options.Model} duraciónMs={sw.ElapsedMilliseconds} resultado={code}");
+                    $"acción={wire} modelo={_options.Model} duraciónMs={sw.ElapsedMilliseconds} " +
+                    $"openaiMs={openAiSw.ElapsedMilliseconds} resultado={code}");
                 return Fail(wire, code, openAi.ErrorMessage ?? "Error OpenAI.");
             }
 
+            var validateSw = Stopwatch.StartNew();
             var validated = AiResponseValidator.ParseAndValidate(action, openAi.OutputJson!);
+            validateSw.Stop();
             if (!validated.IsValid)
             {
                 AiBackendSafeLog.Error(
-                    $"acción={wire} modelo={_options.Model} duraciónMs={sw.ElapsedMilliseconds} resultado=INVALID_AI_RESPONSE");
+                    $"acción={wire} modelo={_options.Model} duraciónMs={sw.ElapsedMilliseconds} " +
+                    $"validateMs={validateSw.ElapsedMilliseconds} outChars={openAi.OutputJson?.Length ?? 0} " +
+                    "resultado=INVALID_AI_RESPONSE");
                 return Fail(wire, AiBackendErrorCodes.InvalidAiResponse, "Respuesta IA no válida tras validación backend.");
             }
 
             var resultElement = ToResultElement(validated);
             var tokenInfo = FormatTokens(openAi.InputTokens, openAi.OutputTokens);
             AiBackendSafeLog.Info(
-                $"acción={wire} modelo={_options.Model} duraciónMs={sw.ElapsedMilliseconds} resultado=OK{tokenInfo}");
+                $"acción={wire} modelo={_options.Model} duraciónMs={sw.ElapsedMilliseconds} " +
+                $"openaiMs={openAiSw.ElapsedMilliseconds} validateMs={validateSw.ElapsedMilliseconds} " +
+                $"outChars={openAi.OutputJson?.Length ?? 0} resultado=OK{tokenInfo}");
 
             return new AiBackendHttpResponse
             {
@@ -159,19 +135,6 @@ public sealed class AiGenerateOrchestrator
             return Fail(request?.Action, AiBackendErrorCodes.InternalError, "Error interno del backend.");
         }
     }
-
-    private static (string Code, string Message) MapQuota(string? denyCode) => denyCode switch
-    {
-        LicenseErrorCodes.AiQuotaDailyExceeded => (
-            AiBackendErrorCodes.AiQuotaDailyExceeded,
-            "Has alcanzado el límite diario de generaciones IA de tu licencia."),
-        LicenseErrorCodes.AiQuotaMonthlyExceeded => (
-            AiBackendErrorCodes.AiQuotaMonthlyExceeded,
-            "Has alcanzado el límite mensual de generaciones IA de tu licencia."),
-        _ => (
-            AiBackendErrorCodes.AiQuotaExceeded,
-            "Has alcanzado el límite de generaciones IA de tu licencia."),
-    };
 
     private static string BuildModelInput(AiBackendPromptDto prompt)
     {

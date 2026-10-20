@@ -1,7 +1,6 @@
-# Publishes Release test builds:
-#   - artifacts/RufusMapEditor/  (framework-dependent, multi-file, for debugging)
-#   - RufusMapEditor.exe           (self-contained single-file launcher at repo root)
-# Param: -RufusEdition User | Development (default Development)
+# Publishes the only desktop product: RufusAdmin.exe
+#   - artifacts/RufusAdmin/       (framework-dependent, for debugging)
+#   - RufusAdmin.exe at repo root (optional single-file copy via build-admin-dist)
 param(
     [ValidateSet("User", "Development")]
     [string]$RufusEdition = "Development"
@@ -11,14 +10,16 @@ $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $repoRoot
 
-Write-Host "RufusEdition=$RufusEdition"
+Write-Host "RufusEdition=$RufusEdition (hosted UI only — RufusAdmin)"
+Write-Host "Use scripts\build-admin-dist.ps1 for the distributable RufusAdmin.exe package."
 
-dotnet restore src/RufusMapEditor.App/RufusMapEditor.App.csproj -r win-x64 | Out-Null
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+$out = Join-Path $repoRoot "artifacts\RufusAdmin"
+New-Item -ItemType Directory -Path $out -Force | Out-Null
 
-dotnet msbuild src/RufusMapEditor.App/RufusMapEditor.App.csproj -t:PublishReleaseTest -p:RufusEdition=$RufusEdition -v:m
+dotnet publish "src\RufusMapEditor.Admin\RufusMapEditor.Admin.csproj" `
+    -c Release -r win-x64 --self-contained false `
+    -o $out
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host ""
-Write-Host "Artifacts (debug):" (Join-Path $repoRoot "artifacts\RufusMapEditor\RufusMapEditor.exe")
-Write-Host "Root launcher:" (Join-Path $repoRoot "RufusMapEditor.exe")
+Write-Host "Artifacts:" (Join-Path $out "RufusAdmin.exe")

@@ -34,7 +34,8 @@
 
     <!-- Header -->
     <Border Grid.Row="0" Background="{DynamicResource DialogHeaderBackground}" CornerRadius="6"
-            BorderBrush="{DynamicResource Border}" BorderThickness="1" Padding="12,10" Margin="0,0,0,12">
+            BorderBrush="{DynamicResource Border}" BorderThickness="1" Padding="12,10" Margin="0,0,0,12"
+            TextElement.Foreground="{DynamicResource HeaderForeground}">
       <DockPanel>
         <Border Width="3" Height="16" CornerRadius="1.5" Background="{DynamicResource BrandAccent}"
                 Margin="0,0,10,0" VerticalAlignment="Center"/>
@@ -44,8 +45,9 @@
           <Button Content="Cerrar" IsCancel="True" Padding="10,4" Click="Close_Click"/>
         </StackPanel>
         <StackPanel>
-          <TextBlock Text="Contenido → NPC" FontWeight="SemiBold" FontSize="15"/>
-          <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="{DynamicResource TextSecondary}"
+          <TextBlock Text="Contenido → NPC" FontWeight="SemiBold" FontSize="15"
+                     Foreground="{DynamicResource HeaderForeground}"/>
+          <TextBlock Text="{Binding StatusText}" FontSize="11" Foreground="{DynamicResource HeaderOnBrownSubtle}"
                      TextWrapping="Wrap" Margin="0,2,0,0"/>
         </StackPanel>
       </DockPanel>
@@ -212,7 +214,6 @@
                         </Grid.ColumnDefinitions>
                         <Grid.RowDefinitions>
                           <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
-                          <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
                         <TextBlock Grid.Row="0" Text="Mapa ID" Style="{StaticResource FieldLabel}"/>
                         <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding MapId, UpdateSourceTrigger=PropertyChanged}"
@@ -225,9 +226,7 @@
                         <ctrl:NpcOrientationPicker Grid.Row="2" Grid.Column="1" Margin="0,0,0,8"
                                                      Orientation="{Binding Orientation, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                      OrientationEdited="OrientationPicker_Edited"/>
-                        <TextBlock Grid.Row="3" Text="Condición" Style="{StaticResource FieldLabel}"/>
-                        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Condition, UpdateSourceTrigger=PropertyChanged}"
-                                 FontFamily="Consolas" TextChanged="LocationField_Changed"/>
+                        <!-- Condición oculta en UI; se conserva en NpcLocationDraft.Condition al publicar. -->
                       </Grid>
                       <Button Grid.Column="1" Content="Eliminar" VerticalAlignment="Top" Margin="8,0,0,0"
                               Padding="8,4" Tag="{Binding}" Click="RemoveLocation_Click"/>

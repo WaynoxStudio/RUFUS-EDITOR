@@ -172,9 +172,7 @@ public sealed class ContDialog6bTests
         var r = ws.Dialogs.AddResponse(q);
         r.TextLocal = "Sí";
         ws.Dialogs.AddAction(r, DialogActionCodes.Teleport).Args = "1,2";
-        ws.Dialogs.AddAction(r, DialogActionCodes.GotoQuestion);
-        // second action: raw goto without target still counts as multi-action same logical id
-        r.Actions[1].Args = "0";
+        ws.Dialogs.AddAction(r, DialogActionCodes.StartQuest).Args = "3503";
 
         var occ = new DialogEsIdOccupancy { BdQuestionMax = 20023, BdResponseMax = 90001 };
         var plan = ContentPublishPlanBuilder.Build(ws, Maxes(), snap, occ);
@@ -207,6 +205,19 @@ public sealed class ContDialog6bTests
         });
         Assert.True(result.Success, result.Error);
         Assert.Equal("¡Hola! ¿ña?", result.OutputSnapshot!.Questions[1]);
+    }
+
+    [Fact]
+    public void Latin1_typographic_em_dash_is_normalized()
+    {
+        var src = Seed(1);
+        var result = DialogEsService.Generate(new DialogEsGenerateRequest
+        {
+            SourceSwfBytes = src,
+            Additions = new[] { Q(1, "Astrub — cerca") },
+        });
+        Assert.True(result.Success, result.Error);
+        Assert.Equal("Astrub - cerca", result.OutputSnapshot!.Questions[1]);
     }
 
     [Fact]
@@ -379,5 +390,134 @@ public sealed class ContDialog6bTests
         var info = LangMapsSwfService.Inspect(path);
         Assert.True(info.WasCompressed);
         Assert.Equal(1282, info.Version);
+    }
+
+    [Theory]
+    [InlineData("áéíóú")]
+    [InlineData("ÁÉÍÓÚ")]
+    [InlineData("ñÑ")]
+    [InlineData("üÜ")]
+    [InlineData("¿Qué?")]
+    [InlineData("¡Sí!")]
+    [InlineData("¿Aún no has ido?")]
+    [InlineData("la anomalía no se nos escapa")]
+    [InlineData("yo sí me escape")]
+    public void Swf6_utf8_wire_round_trip_exact(string text)
+    {
+        Assert.Equal(text, DialogEsLatin1.Prepare(text));
+        var src = Seed(1);
+        var gen = DialogEsService.Generate(new DialogEsGenerateRequest
+        {
+            SourceSwfBytes = src,
+            Additions = new[] { Q(10, text) },
+        });
+        Assert.True(gen.Success, gen.Error);
+        Assert.Equal(text, gen.OutputSnapshot!.Questions[10]);
+
+        var push = Avm1Bytecode.EncodePush(new[] { Avm1PushItem.StringLiteral(text) });
+        var utf8 = System.Text.Encoding.UTF8.GetBytes(text);
+        Assert.Contains(Convert.ToHexString(utf8), Convert.ToHexString(push));
+        Assert.DoesNotContain(
+            Convert.ToHexString(System.Text.Encoding.Latin1.GetBytes(text)),
+            Convert.ToHexString(push));
+    }
+
+    [Fact]
+    public void ReplaceExisting_long_latin1_repertoire_round_trip_exact()
+    {
+        const string oldText = "texto antiguo";
+        const string neu =
+            "¿Aún no has ido? No te preocupes: la anomalía no se nos escapa (aun cuando yo sí me escape de vez en cuando). Ve al lugar indicado y descubre el mapa. Sin descubrimiento, sin historias; y sin historias, sin recompensa.";
+
+        Assert.Equal(neu, DialogEsLatin1.Prepare(neu));
+        var src = Seed(1295, Q(20025, oldText), Q(20024, "corto"), A(90002, "ok"));
+        var gen = DialogEsService.Generate(new DialogEsGenerateRequest
+        {
+            SourceSwfBytes = src,
+            Additions =
+            [
+                new DialogEsAssignment
+                {
+                    Space = DialogEsSpace.Question,
+                    Id = 20025,
+                    Text = neu,
+                    ReplaceExisting = true,
+                },
+                new DialogEsAssignment
+                {
+                    Space = DialogEsSpace.Question,
+                    Id = 20024,
+                    Text = "He detectado una alteración cerca de Astrub.",
+                    ReplaceExisting = true,
+                },
+                new DialogEsAssignment
+                {
+                    Space = DialogEsSpace.Answer,
+                    Id = 90002,
+                    Text = "¡Sí, acepto!",
+                    ReplaceExisting = true,
+                },
+            ],
+        });
+        Assert.True(gen.Success, gen.Error);
+        Assert.Equal(neu, gen.OutputSnapshot!.Questions[20025]);
+        Assert.Equal("He detectado una alteración cerca de Astrub.", gen.OutputSnapshot.Questions[20024]);
+        Assert.Equal("¡Sí, acepto!", gen.OutputSnapshot.Answers[90002]);
+        Assert.True(neu.Length > oldText.Length);
+        Assert.Contains("anomalía", gen.OutputSnapshot.Questions[20025], StringComparison.Ordinal);
+        Assert.Contains("yo sí me escape", gen.OutputSnapshot.Questions[20025], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ReplaceExisting_shorter_string_round_trip_and_neighbors_intact()
+    {
+        var src = Seed(
+            5,
+            Q(1, "texto muy largo inicial con anomalía y más"),
+            Q(2, "vecino áéí"),
+            A(9, "respuesta ñ"));
+        var gen = DialogEsService.Generate(new DialogEsGenerateRequest
+        {
+            SourceSwfBytes = src,
+            Additions =
+            [
+                new DialogEsAssignment
+                {
+                    Space = DialogEsSpace.Question,
+                    Id = 1,
+                    Text = "¿Sí?",
+                    ReplaceExisting = true,
+                },
+            ],
+        });
+        Assert.True(gen.Success, gen.Error);
+        Assert.Equal("¿Sí?", gen.OutputSnapshot!.Questions[1]);
+        Assert.Equal("vecino áéí", gen.OutputSnapshot.Questions[2]);
+        Assert.Equal("respuesta ñ", gen.OutputSnapshot.Answers[9]);
+    }
+
+    [Fact]
+    public void Published_flag_still_repairs_when_remote_text_diverges()
+    {
+        var snap = DialogEsParser.Parse(Seed(8, Q(20025, "texto viejo")));
+        var ws = new ContentDraftWorkspace();
+        ws.Npcs.SetDbMaxId(20064);
+        var npc = ws.Npcs.CreateNew();
+        npc.Id = 20065;
+        npc.DialogMode = NpcDialogMode.Interactive;
+        npc.PublishedBd = true;
+        npc.DialogEsPublished = true;
+        npc.DialogEsPublishedVersion = 8;
+        var q = ws.Dialogs.CreateQuestion(npc.Id);
+        q.Id = 20025;
+        q.PublishedBd = true;
+        q.TextLocal = "¿Aún no has ido? la anomalía; yo sí me escape";
+
+        Assert.True(ContentClientRemotePublishService.HasPendingDialogEs(ws));
+        var batch = DialogEsPublishBatchBuilder.Build(ws, snap);
+        Assert.Empty(batch.Errors);
+        Assert.Contains(batch.Bindings, b =>
+            b.Assignment is { Space: DialogEsSpace.Question, Id: 20025, ReplaceExisting: true });
+        Assert.Equal(q.TextLocal, batch.Bindings.Single(b => b.Assignment.Id == 20025).Assignment.Text);
     }
 }

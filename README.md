@@ -1,39 +1,57 @@
-# RUFUS Map Editor
+# RUFUS EDITOR
 
-Editor moderno de mapas DOFUS Retro.
+Editor DOFUS Retro: **mapas**, **NPC/diálogos/misiones** y **ajustes** en un solo escritorio.
+
+## Producto
+
+| Artefacto | Rol |
+|-----------|-----|
+| **`RufusAdmin.exe`** | Único ejecutable de escritorio (raíz del repo o `dist-admin`) |
+| `Library\` | Assets (mapas, GFX, XML) — debe quedar junto al EXE en uso portable |
+| `src\RufusMapEditor.App` | Librería UI (ya no genera EXE propio) |
+
+Documentación de uso y arquitectura: **[docs/RUFUS_ADMIN.md](docs/RUFUS_ADMIN.md)**  
+Índice completo: **[docs/README_DOCS.md](docs/README_DOCS.md)**  
+Notas recientes: **[docs/SESSION_NOTES_2026-10.md](docs/SESSION_NOTES_2026-10.md)**
 
 ## Requisitos
 
 - Windows
-- [.NET 10 SDK](https://dotnet.microsoft.com/download)
+- [.NET 10 SDK](https://dotnet.microsoft.com/download) (solo para compilar)
 
 ## Compilar / ejecutar
 
 ```bat
-dotnet build RufusMapEditor.slnx
-dotnet run --project src/RufusMapEditor.App
+dotnet build src\RufusMapEditor.Admin\RufusMapEditor.Admin.csproj -c Debug
+src\RufusMapEditor.Admin\bin\Debug\net10.0-windows\RufusAdmin.exe
+```
+
+Paquete self-contained:
+
+```powershell
+.\scripts\build-admin-dist.ps1
 ```
 
 ## Tests
 
 ```bat
-dotnet test tests/RufusMapEditor.LegacyCompatibility.Tests
+dotnet test tests\RufusMapEditor.LegacyCompatibility.Tests
 ```
 
 ## Estructura
 
 | Ruta | Contenido |
 |------|-----------|
-| `src/` | Código fuente (App, Admin, AiBackend, librerías) |
-| `tests/` | Tests y fixtures de compatibilidad |
-| `Library/` | Assets del editor (imágenes, mapas, XML, visuals) |
-| `docs/` | Documentación técnica |
-| `tools/` | Utilidades de desarrollo |
-| `scripts/` | Scripts auxiliares |
+| `src/` | Código (Admin, App-as-library, AiBackend, Domain, …) |
+| `Library/` | Assets del editor |
+| `docs/` | Documentación técnica y de producto |
+| `scripts/` | Build / publish Admin |
+| `tests/` | Tests |
+| `tools/` | FFDec / JRE y utilidades |
 
 ## Colaboración
 
-1. Clonar: `git clone https://github.com/WaynoxStudio/RUFUS-EDITOR.git`
-2. Abrir la solución `RufusMapEditor.slnx` en Visual Studio / Rider / VS Code
-3. No subir builds (`dist/`, `bin/`, `obj/`) ni secretos (`.env`, claves API)
-4. Ver `docs/` para compatibilidad Astria y licenciamiento
+1. `git clone https://github.com/WaynoxStudio/RUFUS-EDITOR.git` (rama **`main`**)
+2. Abrir `RufusMapEditor.slnx` o lanzar `RufusAdmin.exe`
+3. No subir secretos ni basura de build (`bin/`, `obj/`, `artifacts/`)
+4. Empezar por `docs/README_DOCS.md`

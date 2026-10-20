@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using RufusMapEditor.Admin.Navigation;
 using RufusMapEditor.Admin.Services;
@@ -15,32 +16,43 @@ namespace RufusMapEditor.Admin;
 
 public partial class MainWindow : Window
 {
+    private const double SidebarExpandedWidth = 220;
+    private const double SidebarCollapsedWidth = 44;
+    private static readonly TimeSpan SidebarAnimDuration = TimeSpan.FromMilliseconds(220);
+
     private readonly AdminWorkspace _workspace = new();
     private readonly AdminInfrastructureStatus _infra = new();
     private readonly Dictionary<AdminSection, FrameworkElement> _views = new();
-    private LicensesView? _licensesView;
     private MapsEditorView? _mapsEditor;
     private ContentWorkspaceView? _contentWorkspace;
     private bool _autoConnectAttempted;
     private bool _infraCheckAttempted;
     private bool _navReady;
-    private bool _preloadScheduled;
+    private bool _warmCacheScheduled;
     private AdminSection? _loadingSection;
+    private bool _sidebarExpanded = true;
+    private bool _syncingThemeToggle;
+    private AppSettings? _settings;
 
     public MainWindow()
     {
         InitializeComponent();
-        _workspace.LoadPersistedConnection();
         _workspace.Changed += UpdateConnectionHeader;
         _infra.Changed += UpdateInfrastructureHeader;
-        UpdateConnectionHeader();
-        UpdateInfrastructureHeader();
+        ThemeService.ThemeChanged += SyncThemeToggle;
         Closing += MainWindow_Closing;
     }
 
     private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
+        ThemeService.ThemeChanged -= SyncThemeToggle;
         if (_mapsEditor is not null && !_mapsEditor.TryConfirmClose())
+        {
+            e.Cancel = true;
+            return;
+        }
+
+        if (_contentWorkspace is not null && !_contentWorkspace.ViewModel.ConfirmLeaveIfDirty())
         {
             e.Cancel = true;
             return;
@@ -51,11 +63,37 @@ public partial class MainWindow : Window
         _workspace.InvalidateAiSession();
     }
 
-    private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+    private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
+        try
+        {
+            _settings = AppSettingsStore.Load();
+        }
+        catch
+        {
+            _settings = null;
+        }
+
+        // Fijo abrir/cerrar (sin hover). Por defecto abierto; respeta preferencia guardada.
+        var startExpanded = !(_settings?.UiLayout.AdminSidebarCollapsed ?? false);
+        SetSidebarExpanded(startExpanded, persist: false);
+        SyncThemeToggle();
+
+        try
+        {
+            await _workspace.LoadPersistedConnectionAsync().ConfigureAwait(true);
+        }
+        catch
+        {
+            // Best-effort; Settings can reconfigure.
+        }
+
+        UpdateConnectionHeader();
+        UpdateInfrastructureHeader();
+
         _navReady = true;
-        Navigate(AdminSection.Licenses);
-        ScheduleHeavyModulePreload();
+        Navigate(_workspace.HasCredentials ? AdminSection.Maps : AdminSection.Settings);
+        ScheduleBackgroundWarmCache();
 
         if (_autoConnectAttempted)
             return;
@@ -91,6 +129,10 @@ public partial class MainWindow : Window
         if (_infraCheckAttempted)
             return;
         _infraCheckAttempted = true;
+
+        // Let UI settle before optional BD/SFTP probes.
+        await Dispatcher.InvokeAsync(static () => { }, DispatcherPriority.ApplicationIdle);
+
         try
         {
             await _infra.CheckAllAsync();
@@ -99,6 +141,106 @@ public partial class MainWindow : Window
         {
             // Quiet auto-check — header shows Error/NotConfigured; no modal.
         }
+    }
+
+    private void SidebarToggle_Click(object sender, RoutedEventArgs e)
+        => SetSidebarExpanded(!_sidebarExpanded, persist: true, animate: true);
+
+    private void SetSidebarExpanded(bool expanded, bool persist, bool animate = false)
+    {
+        _sidebarExpanded = expanded;
+        var toWidth = expanded ? SidebarExpandedWidth : SidebarCollapsedWidth;
+
+        // Swap content early so the big arrow is the correct glyph while animating.
+        if (expanded)
+        {
+            SidebarCollapsedRail.Visibility = Visibility.Collapsed;
+            SidebarExpanded.Visibility = Visibility.Visible;
+        }
+
+        if (animate)
+        {
+            AnimateSidebarWidth(toWidth, onCompleted: () =>
+            {
+                if (!expanded)
+                {
+                    SidebarExpanded.Visibility = Visibility.Collapsed;
+                    SidebarCollapsedRail.Visibility = Visibility.Visible;
+                }
+            });
+        }
+        else
+        {
+            SidebarHost.BeginAnimation(FrameworkElement.WidthProperty, null);
+            SidebarHost.Width = toWidth;
+            SidebarExpanded.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
+            SidebarCollapsedRail.Visibility = expanded ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        if (!persist)
+            return;
+
+        try
+        {
+            _settings ??= AppSettingsStore.Load();
+            _settings.UiLayout.AdminSidebarCollapsed = !expanded;
+            AppSettingsStore.Save(_settings);
+        }
+        catch
+        {
+            // Preferencia no crítica.
+        }
+    }
+
+    private void AnimateSidebarWidth(double toWidth, Action? onCompleted = null)
+    {
+        SidebarHost.BeginAnimation(FrameworkElement.WidthProperty, null);
+        var from = SidebarHost.ActualWidth > 1 ? SidebarHost.ActualWidth : SidebarHost.Width;
+        var anim = new DoubleAnimation(from, toWidth, SidebarAnimDuration)
+        {
+            EasingFunction = new CubicEase
+            {
+                EasingMode = toWidth > from ? EasingMode.EaseOut : EasingMode.EaseIn,
+            },
+            FillBehavior = FillBehavior.Stop,
+        };
+        anim.Completed += (_, _) =>
+        {
+            SidebarHost.Width = toWidth;
+            onCompleted?.Invoke();
+        };
+        SidebarHost.BeginAnimation(FrameworkElement.WidthProperty, anim);
+    }
+
+    private void SyncThemeToggle()
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.Invoke(SyncThemeToggle);
+            return;
+        }
+
+        if (ThemeToggle is null)
+            return;
+
+        _syncingThemeToggle = true;
+        ThemeToggle.IsChecked = ThemeService.IsDarkEffective;
+        _syncingThemeToggle = false;
+    }
+
+    private void ThemeToggle_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_syncingThemeToggle || ThemeToggle is null)
+            return;
+
+        var preference = ThemeToggle.IsChecked == true
+            ? ThemePreference.Dark
+            : ThemePreference.Light;
+
+        var settings = AppSettingsStore.Load();
+        settings.Theme = preference;
+        AppSettingsStore.Save(settings);
+        ThemeService.SetPreference(preference);
     }
 
     private async void CheckConnections_Click(object sender, RoutedEventArgs e)
@@ -185,6 +327,7 @@ public partial class MainWindow : Window
                 await content.EnsureInitializedAsync().ConfigureAwait(true);
                 break;
             case AdminSection.Maps when view is MapsEditorView maps:
+                await Task.Yield();
                 await maps.Dispatcher.InvokeAsync(
                     () => maps.ViewModel.EnsureLibraryLoaded(),
                     DispatcherPriority.Background);
@@ -192,50 +335,64 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ScheduleHeavyModulePreload()
+    /// <summary>
+    /// After initial nav is responsive, warm heavy modules off-screen (memory cache).
+    /// Does not block initial startup.
+    /// </summary>
+    private void ScheduleBackgroundWarmCache()
     {
-        if (_preloadScheduled)
+        if (_warmCacheScheduled)
             return;
-        _preloadScheduled = true;
-
-        _ = PreloadSectionAsync(AdminSection.Maps);
-        _ = PreloadSectionAsync(AdminSection.Content);
+        _warmCacheScheduled = true;
+        _ = WarmHeavyModulesWhenIdleAsync();
     }
 
-    private async Task PreloadSectionAsync(AdminSection section)
+    private async Task WarmHeavyModulesWhenIdleAsync()
+    {
+        await Dispatcher.InvokeAsync(static () => { }, DispatcherPriority.ApplicationIdle);
+        await Task.Delay(2000);
+
+        foreach (var section in new[] { AdminSection.Content, AdminSection.Maps })
+        {
+            if (_views.ContainsKey(section))
+                continue;
+
+            try
+            {
+                await WarmSectionAsync(section).ConfigureAwait(true);
+            }
+            catch
+            {
+                // Warm cache is best-effort.
+            }
+
+            await Task.Delay(400);
+        }
+    }
+
+    private async Task WarmSectionAsync(AdminSection section)
     {
         if (!IsHeavySection(section))
             return;
 
-        // Let Licencias paint first.
-        await Dispatcher.InvokeAsync(static () => { }, DispatcherPriority.ApplicationIdle);
-
-        if (_views.ContainsKey(section))
-            return;
-
-        FrameworkElement view = await Dispatcher.InvokeAsync(() =>
+        var view = await Dispatcher.InvokeAsync(() =>
         {
             var created = GetOrCreateView(section);
             if (!ReferenceEquals(GetPreloadHost(section).Content, created))
                 GetPreloadHost(section).Content = created;
             return created;
-        });
+        }, DispatcherPriority.Background);
 
-        try
+        await WaitForSectionReadyAsync(section, view).ConfigureAwait(true);
+
+        await Dispatcher.InvokeAsync(() =>
         {
-            await WaitForSectionReadyAsync(section, view).ConfigureAwait(true);
-        }
-        finally
-        {
-            await Dispatcher.InvokeAsync(() =>
+            if (ReferenceEquals(GetPreloadHost(section).Content, view)
+                && !ReferenceEquals(ContentHost.Content, view))
             {
-                if (ReferenceEquals(GetPreloadHost(section).Content, view)
-                    && !ReferenceEquals(ContentHost.Content, view))
-                {
-                    GetPreloadHost(section).Content = null;
-                }
-            });
-        }
+                GetPreloadHost(section).Content = null;
+            }
+        }, DispatcherPriority.Background);
     }
 
     private ContentControl GetPreloadHost(AdminSection section) =>
@@ -286,17 +443,13 @@ public partial class MainWindow : Window
 
         FrameworkElement view = section switch
         {
-            AdminSection.Licenses => _licensesView ??= new LicensesView(_workspace, this),
-            AdminSection.AiUsage => new AiUsageView(_workspace),
             AdminSection.Settings => new SettingsView(_workspace, this),
             AdminSection.Maps => CreateMapsEditor(),
             AdminSection.Content => CreateContentWorkspace(),
-            AdminSection.Missions => new PlaceholderView("Misiones", AdminNavNotes.MissionsPlaceholder),
+            // Missions live inside ContentWorkspaceView (NPC/diálogos/misiones).
+            AdminSection.Missions => CreateContentWorkspace(),
             _ => new PlaceholderView("RUFUS ADMIN", ""),
         };
-
-        if (section == AdminSection.Licenses)
-            _licensesView = (LicensesView)view;
 
         _views[section] = view;
         return view;
@@ -317,17 +470,16 @@ public partial class MainWindow : Window
         return _contentWorkspace;
     }
 
-    private void SyncNav(AdminSection section)
+    private void SyncNav(AdminSection section) => SetNavChecked("AdminNav", section);
+
+    private void SetNavChecked(string groupName, AdminSection section)
     {
         foreach (var rb in FindVisualChildren<RadioButton>(this))
         {
-            if (rb.GroupName != "AdminNav" || rb.Tag is not string tag)
+            if (rb.GroupName != groupName || rb.Tag is not string tag)
                 continue;
-            if (Enum.TryParse<AdminSection>(tag, true, out var s) && s == section)
-            {
-                rb.IsChecked = true;
-                break;
-            }
+            if (Enum.TryParse<AdminSection>(tag, true, out var s))
+                rb.IsChecked = s == section;
         }
     }
 

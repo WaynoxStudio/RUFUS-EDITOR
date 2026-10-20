@@ -21,10 +21,10 @@ public static class MissionObjectiveTypes
     public const int HaveSpells = 15;
     public const int JobLevel = 16;
 
-    /// <summary>Types offered in Contendido 2.0 normal UI (excludes 7/10/11/13; 12 blocked).</summary>
+    /// <summary>Types offered in Contendido 2.0 normal UI (excludes 0/7/10/11/12/13).</summary>
     public static readonly int[] UiNormalTypes =
     [
-        Manual, TalkToNpc, ShowItemToNpc, DeliverItemsToNpc,
+        TalkToNpc, ShowItemToNpc, DeliverItemsToNpc,
         DiscoverMap, DiscoverArea, DefeatMobs, UseItem, ReturnToNpc,
         ReachLevel, HaveSpells, JobLevel,
     ];

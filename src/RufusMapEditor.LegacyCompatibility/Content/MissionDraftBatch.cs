@@ -20,19 +20,30 @@ public readonly struct MissionDeleteBlocked
 }
 
 /// <summary>
-/// Mission drafts with provisional stage/objective IDs (global). Quest uses DraftId only.
+/// Mission drafts with provisional stage/objective IDs (global). Quest uses DraftId only until CONT.5.
+/// DbMaxQuestId cached for UI next-preview (CONTENT.IDS.MAX.1).
 /// </summary>
 public sealed class MissionDraftBatch
 {
     private readonly List<MissionDraft> _missions = new();
+    private int _dbMaxQuestId;
     private int _dbMaxStageId;
     private int _dbMaxObjectiveId;
 
     public IReadOnlyList<MissionDraft> Missions => _missions;
+    public int DbMaxQuestId => _dbMaxQuestId;
     public int DbMaxStageId => _dbMaxStageId;
     public int DbMaxObjectiveId => _dbMaxObjectiveId;
+    /// <summary>Next quest id after BD MAX + unpublished local mission drafts (Guid until publish).</summary>
+    public int NextQuestId => ComputeNextQuestId();
     public int NextStageId => ComputeNextStageId();
     public int NextObjectiveId => ComputeNextObjectiveId();
+
+    public void SetDbMaxQuestId(int maxId)
+    {
+        if (maxId < 0) throw new ArgumentOutOfRangeException(nameof(maxId));
+        _dbMaxQuestId = maxId;
+    }
 
     public void SetDbMaxStageId(int maxId)
     {
@@ -75,12 +86,20 @@ public sealed class MissionDraftBatch
             DraftId = Guid.NewGuid(),
             PublishedQuestId = null,
             PublishedBd = false,
+            PreviewPlannedQuestId = null,
+            QuestsEsPublished = false,
+            QuestsEsPublishedVersion = null,
+            HasPendingBdChanges = false,
+            PublishedStageIds = new List<int>(),
+            PublishedObjectiveIds = new List<int>(),
+            PendingDeletedObjectiveIds = new List<int>(),
             Nombre = source.Nombre,
             PuedeRepetirse = source.PuedeRepetirse,
+            // Semantic NPC hint only — does not clone acción 44 / published dialog IDs.
             StartNpcId = source.StartNpcId,
-            PregDarPreguntaId = source.PregDarPreguntaId,
-            PregIncompletaPreguntaId = source.PregIncompletaPreguntaId,
-            PregCompletadaPreguntaId = source.PregCompletadaPreguntaId,
+            PregDarPreguntaId = null,
+            PregIncompletaPreguntaId = null,
+            PregCompletadaPreguntaId = null,
         };
         var nextStage = ComputeNextStageId();
         var nextObj = ComputeNextObjectiveId();
@@ -95,9 +114,35 @@ public sealed class MissionDraftBatch
                 VariosObj = s.VariosObj,
             };
             foreach (var o in s.Objectives)
-                ns.Objectives.Add(o.CloneNewIdentity(nextObj++));
+            {
+                var no = o.CloneNewIdentity(nextObj++);
+                ns.Objectives.Add(no);
+            }
             copy.Stages.Add(ns);
         }
+
+        MissionAutoReturnSync.SyncMission(
+            copy,
+            () =>
+            {
+                var id = ComputeNextObjectiveId();
+                EnsureObjectiveUnique(id);
+                return id;
+            },
+            npcId =>
+            {
+                // Preserve coords from source auto-return when present; else leave pending.
+                foreach (var s in source.Stages)
+                {
+                    var ar = s.Objectives.FirstOrDefault(o => o.IsAutoReturnToStartNpc);
+                    if (ar is null) continue;
+                    var (_, x, y) = MissionObjectiveArgsCodec.StripCoords(ar.Args);
+                    if (x is int xi && y is int yi)
+                        return (xi, yi);
+                }
+
+                return null;
+            });
         return copy;
     }
 
@@ -136,6 +181,8 @@ public sealed class MissionDraftBatch
     {
         ArgumentNullException.ThrowIfNull(mission);
         ArgumentNullException.ThrowIfNull(stage);
+        if (mission.IsPublishedStage(stage.Id))
+            return false;
         if (mission.Stages.Remove(stage)) return true;
         for (var i = 0; i < mission.Stages.Count; i++)
         {
@@ -205,6 +252,9 @@ public sealed class MissionDraftBatch
     {
         ArgumentNullException.ThrowIfNull(stage);
         ArgumentNullException.ThrowIfNull(objective);
+        if (objective.IsAutoReturnToStartNpc)
+            return false;
+        // Published deletes: remove from draft; caller overload queues BD DELETE.
         if (stage.Objectives.Remove(objective)) return true;
         for (var i = 0; i < stage.Objectives.Count; i++)
         {
@@ -213,6 +263,86 @@ public sealed class MissionDraftBatch
             return true;
         }
         return false;
+    }
+
+    public bool RemoveObjective(MissionDraft mission, MissionStageDraft stage, MissionObjectiveDraft objective)
+    {
+        ArgumentNullException.ThrowIfNull(mission);
+        ArgumentNullException.ThrowIfNull(stage);
+        ArgumentNullException.ThrowIfNull(objective);
+        if (objective.IsAutoReturnToStartNpc)
+            return false;
+
+        var wasPublished = mission.IsPublishedObjective(objective.Id);
+        var removed = RemoveObjective(stage, objective);
+        if (!removed)
+        {
+            // Fallback: objective row may reference a stale stage instance after UI sync.
+            foreach (var s in mission.Stages)
+            {
+                if (ReferenceEquals(s, stage)) continue;
+                if (!RemoveObjective(s, objective)) continue;
+                removed = true;
+                break;
+            }
+        }
+
+        if (!removed) return false;
+        if (wasPublished)
+            mission.QueueDeletedPublishedObjective(objective.Id);
+        else if (mission.PublishedBd)
+            mission.MarkPendingBdEdit();
+        return true;
+    }
+
+    public MissionObjectiveDraft DuplicateObjective(MissionStageDraft stage, MissionObjectiveDraft source)
+    {
+        ArgumentNullException.ThrowIfNull(stage);
+        ArgumentNullException.ThrowIfNull(source);
+        if (source.IsAutoReturnToStartNpc)
+            throw new InvalidOperationException("El retorno automático no se puede duplicar.");
+        var id = ComputeNextObjectiveId();
+        EnsureObjectiveUnique(id);
+        var copy = source.CloneNewIdentity(id);
+        copy.IsAutoReturnToStartNpc = false;
+        var idx = IndexOfObjective(stage, source.Id);
+        if (idx < 0) stage.Objectives.Add(copy);
+        else stage.Objectives.Insert(idx + 1, copy);
+        return copy;
+    }
+
+    /// <summary>MISSIONS.OBJECTIVES.AUTO_RETURN_NPC — sync tipo-9 auto-return for unpublished drafts.</summary>
+    /// <param name="resolveNpcWorldCoords">npcId → mapas.X/Y of NPC location map; required for generation.</param>
+    public bool SyncAutoReturns(
+        MissionDraft mission,
+        Func<int, (int X, int Y)?>? resolveNpcWorldCoords = null)
+    {
+        ArgumentNullException.ThrowIfNull(mission);
+        return MissionAutoReturnSync.SyncMission(
+            mission,
+            () =>
+            {
+                var id = ComputeNextObjectiveId();
+                EnsureObjectiveUnique(id);
+                return id;
+            },
+            resolveNpcWorldCoords);
+    }
+
+    /// <summary>MISSIONS.OBJECTIVES.QUICK_DELETE_AND_START_NPC_BINDING.2 — tipo 2/3 → StartNpc.</summary>
+    public bool SyncShowDeliverToStartNpc(MissionDraft mission)
+    {
+        ArgumentNullException.ThrowIfNull(mission);
+        return MissionShowDeliverNpcBinding.SyncMission(mission);
+    }
+
+    private static int IndexOfObjective(MissionStageDraft stage, int objectiveId)
+    {
+        for (var i = 0; i < stage.Objectives.Count; i++)
+        {
+            if (stage.Objectives[i].Id == objectiveId) return i;
+        }
+        return -1;
     }
 
     public MissionDraft? FindByDraftId(Guid id) =>
@@ -265,12 +395,54 @@ public sealed class MissionDraftBatch
     {
         foreach (var m in _missions)
         {
+            var touched = false;
             if (m.StartNpcId == npcId)
             {
                 m.StartNpcId = null;
                 m.PregDarPreguntaId = null;
                 m.PregIncompletaPreguntaId = null;
                 m.PregCompletadaPreguntaId = null;
+                touched = true;
+            }
+
+            // Diálogo simple / NPC reusado: objetivos «hablar/volver a este NPC» no deben
+            // seguir apuntando aquí (si no, hablar con el NPC cumple la misión en juego).
+            foreach (var stage in m.Stages)
+            {
+                for (var i = stage.Objectives.Count - 1; i >= 0; i--)
+                {
+                    var o = stage.Objectives[i];
+                    if (o.Tipo is not (MissionObjectiveTypes.TalkToNpc
+                        or MissionObjectiveTypes.ShowItemToNpc
+                        or MissionObjectiveTypes.DeliverItemsToNpc
+                        or MissionObjectiveTypes.ReturnToNpc))
+                        continue;
+                    if (!MissionObjectiveNpcRemap.TryReadLeadingNpc(o.Args ?? "", out var refNpc)
+                        || refNpc != npcId)
+                        continue;
+
+                    if (o.IsAutoReturnToStartNpc || o.Tipo == MissionObjectiveTypes.ReturnToNpc)
+                    {
+                        var oid = o.Id;
+                        stage.Objectives.RemoveAt(i);
+                        if (m.IsPublishedObjective(oid))
+                            m.QueueDeletedPublishedObjective(oid);
+                        touched = true;
+                        continue;
+                    }
+
+                    o.Args = "";
+                    o.Detalle = "";
+                    touched = true;
+                }
+            }
+
+            if (touched && m.PublishedBd)
+            {
+                m.MarkPendingBdEdit();
+                // Force quests_es rewrite — otherwise el cliente sigue cumpliendo la misión
+                // al hablar con este NPC (Q.o tipo 9 / hablar con p=[npcId]).
+                m.QuestsEsPublished = false;
             }
         }
     }
@@ -313,6 +485,12 @@ public sealed class MissionDraftBatch
             if (mission.Stages[i].Id == stageId) return i;
         }
         return -1;
+    }
+
+    private int ComputeNextQuestId()
+    {
+        var unpublished = _missions.Count(m => !m.PublishedBd);
+        return _dbMaxQuestId + unpublished + 1;
     }
 
     private int ComputeNextStageId()

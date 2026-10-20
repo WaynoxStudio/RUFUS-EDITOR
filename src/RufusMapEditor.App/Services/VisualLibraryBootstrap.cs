@@ -80,4 +80,16 @@ public static class VisualLibraryBootstrap
             Gate.Release();
         }
     }
+
+    /// <summary>Fast startup path: local disk only, with no database or SFTP access.</summary>
+    public static bool TryLoadCachedItems(AppSettings? settings = null)
+    {
+        settings ??= AppSettingsStore.Load();
+        ConfigurePreviewFromSettings(settings);
+        if (!string.IsNullOrWhiteSpace(settings.ClipsRootPath))
+            VisualLibraryService.Shared.SetClipsRoot(settings.ClipsRootPath);
+
+        return VisualLibraryService.Shared.ItemsLoaded
+               || VisualLibraryService.Shared.TryLoadCachedItems();
+    }
 }

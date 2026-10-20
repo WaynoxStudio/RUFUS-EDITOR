@@ -31,6 +31,7 @@ public sealed class ContentNpcEditorViewModel : ViewModelBase
         Items = new ObservableCollection<NpcDraftItemViewModel>();
         FilteredItems = CollectionViewSource.GetDefaultView(Items);
         FilteredItems.Filter = FilterNpc;
+        var needsPersist = false;
         foreach (var d in Batch.Drafts)
         {
             var vm = new NpcDraftItemViewModel(d);
@@ -41,7 +42,12 @@ public sealed class ContentNpcEditorViewModel : ViewModelBase
                 Persist();
             };
             Items.Add(vm);
+            if (vm.WasMaxClampedOnLoad)
+                needsPersist = true;
         }
+
+        if (needsPersist)
+            Persist();
 
         RefreshMaxCommand = new RelayCommand(async () => await RefreshMaxAsync(), () => !IsBusy);
         NewNpcCommand = new RelayCommand(CreateNew, () => DbReady && !IsBusy);
@@ -50,6 +56,36 @@ public sealed class ContentNpcEditorViewModel : ViewModelBase
         AddLocationCommand = new RelayCommand(AddLocation, () => Selected is not null && !IsBusy);
         RemoveLocationCommand = new RelayCommand(RemoveLocation, () => Selected is not null && SelectedLocation is not null && !IsBusy);
         PickGfxAppearanceCommand = new RelayCommand(async () => await PickGfxAppearanceAsync(), () => EditorEnabled && !IsBusy);
+    }
+
+    /// <summary>CONTENT.LIBRARY.ORGANIZE.DELETE.2 — resincroniza lista tras quitar drafts del workspace.</summary>
+    public void ReloadFromWorkspace()
+    {
+        var keepId = Selected?.Id;
+        Items.Clear();
+        var needsPersist = false;
+        foreach (var d in Batch.Drafts)
+        {
+            var vm = new NpcDraftItemViewModel(d);
+            vm.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName is nameof(NpcDraftItemViewModel.Nombre))
+                    FilteredItems.Refresh();
+                Persist();
+            };
+            Items.Add(vm);
+            if (vm.WasMaxClampedOnLoad)
+                needsPersist = true;
+        }
+
+        if (needsPersist)
+            Persist();
+
+        FilteredItems.Refresh();
+        OnPropertyChanged(nameof(ItemCountLabel));
+        Selected = keepId is int id
+            ? Items.FirstOrDefault(i => i.Id == id) ?? Items.FirstOrDefault()
+            : Items.FirstOrDefault();
     }
 
     public ObservableCollection<NpcDraftItemViewModel> Items { get; }
@@ -155,6 +191,16 @@ public sealed class ContentNpcEditorViewModel : ViewModelBase
 
     public async Task InitializeAsync() => await RefreshMaxAsync();
 
+    public void NotifyDbMaxApplied(int maxId)
+    {
+        Batch.SetDbMaxId(maxId);
+        DbMaxId = maxId;
+        DbReady = true;
+        StatusText = $"MAX(npcs_modelo.id) = {maxId} · próximo = {Batch.NextProvisionalId}";
+        OnPropertyChanged(nameof(NextProvisionalId));
+        Persist();
+    }
+
     public async Task RefreshMaxAsync()
     {
         IsBusy = true;
@@ -244,6 +290,10 @@ public sealed class ContentNpcEditorViewModel : ViewModelBase
             Workspace.Missions.ClearNpcReferences(id);
         }
 
+        foreach (var qid in Workspace.Dialogs.QuestionsForNpc(id).Select(q => q.Id).ToList())
+            Workspace.Missions.ClearPreguntaReferences(qid);
+        Workspace.Dialogs.RemoveQuestionsForNpc(id);
+
         if (!Batch.Remove(Selected.Model))
             return;
         Items.Remove(Selected);
@@ -276,7 +326,16 @@ public sealed class ContentNpcEditorViewModel : ViewModelBase
     }
 
     /// <summary>Called from XAML when location fields change.</summary>
-    public void NotifyLocationEdited() => Persist();
+    public void NotifyLocationEdited()
+    {
+        Selected?.NotifyLocationPresentation();
+        Persist();
+        if (Selected is not null)
+            LocationMapChanged?.Invoke(Selected.Id);
+    }
+
+    /// <summary>COORDS_AND_PUBLISHED_REPAIR.6 — StartNpc map changed → resync auto-return X/Y.</summary>
+    public event Action<int>? LocationMapChanged;
 
     private bool FilterNpc(object obj)
     {
@@ -386,13 +445,35 @@ public sealed class ContentNpcEditorViewModel : ViewModelBase
 public sealed class NpcDraftItemViewModel : ViewModelBase
 {
     private bool _userEditedTamaño;
+    private string _scaleValidationMessage = "";
 
     public NpcDraftItemViewModel(NpcsModeloDraft model)
     {
         Model = model ?? throw new ArgumentNullException(nameof(model));
+        ApplyExistingMaxClampOnLoad();
     }
 
     public NpcsModeloDraft Model { get; }
+
+    public bool WasMaxClampedOnLoad { get; private set; }
+
+    public string ScaleValidationMessage
+    {
+        get => _scaleValidationMessage;
+        private set => SetProperty(ref _scaleValidationMessage, value ?? "");
+    }
+
+    /// <summary>CONTENT.NPC.SCALE.AUTO_CLAMP.MAX.2 — correct drafts already over max (e.g. 150).</summary>
+    private void ApplyExistingMaxClampOnLoad()
+    {
+        var sx = NpcsModeloScale.ClampMax(Model.ScaleX, out var cx);
+        var sy = NpcsModeloScale.ClampMax(Model.ScaleY, out var cy);
+        if (!cx && !cy) return;
+        Model.ScaleX = sx;
+        Model.ScaleY = sy;
+        WasMaxClampedOnLoad = true;
+        _scaleValidationMessage = NpcsModeloScale.AutoClampMaxNotice;
+    }
 
     public int Id => Model.Id;
     public string IdDisplay => $"#{Id}";
@@ -484,12 +565,19 @@ public sealed class NpcDraftItemViewModel : ViewModelBase
         get => NpcIdentityUi.FormatTamañoDisplay(ScaleX, ScaleY, _userEditedTamaño);
         set
         {
-            if (!NpcIdentityUi.TryParseTamaño(value, out var v))
+            if (!NpcIdentityUi.TryParseTamaño(value, out var v, out var noticeOrError))
+            {
+                ScaleValidationMessage = noticeOrError ?? "";
                 return;
+            }
+
             var (sx, sy) = NpcIdentityUi.ApplyUniformTamaño(v);
-            ScaleX = sx;
-            ScaleY = sy;
+            Model.ScaleX = sx;
+            Model.ScaleY = sy;
             _userEditedTamaño = true;
+            ScaleValidationMessage = noticeOrError ?? "";
+            OnPropertyChanged(nameof(ScaleX));
+            OnPropertyChanged(nameof(ScaleY));
             NotifyTamañoRelated();
         }
     }
@@ -499,12 +587,21 @@ public sealed class NpcDraftItemViewModel : ViewModelBase
         get => Model.ScaleX;
         set
         {
-            if (Model.ScaleX != value)
+            var v = NpcsModeloScale.ClampMax(value, out var clamped);
+            if (v < NpcsModeloScale.SqlMin)
             {
-                Model.ScaleX = value;
+                ScaleValidationMessage = NpcsModeloScale.ErrorScaleX;
+                return;
+            }
+
+            if (Model.ScaleX != v)
+            {
+                Model.ScaleX = v;
                 OnPropertyChanged();
                 NotifyTamañoRelated();
             }
+
+            ScaleValidationMessage = clamped ? NpcsModeloScale.AutoClampMaxNotice : "";
         }
     }
 
@@ -513,12 +610,21 @@ public sealed class NpcDraftItemViewModel : ViewModelBase
         get => Model.ScaleY;
         set
         {
-            if (Model.ScaleY != value)
+            var v = NpcsModeloScale.ClampMax(value, out var clamped);
+            if (v < NpcsModeloScale.SqlMin)
             {
-                Model.ScaleY = value;
+                ScaleValidationMessage = NpcsModeloScale.ErrorScaleY;
+                return;
+            }
+
+            if (Model.ScaleY != v)
+            {
+                Model.ScaleY = v;
                 OnPropertyChanged();
                 NotifyTamañoRelated();
             }
+
+            ScaleValidationMessage = clamped ? NpcsModeloScale.AutoClampMaxNotice : "";
         }
     }
 
@@ -592,6 +698,22 @@ public sealed class NpcDraftItemViewModel : ViewModelBase
 
     public ObservableCollection<NpcLocationDraft> Locations => Model.Locations;
 
+    /// <summary>Single ubicación slot shown in Identidad (always present).</summary>
+    public NpcLocationDraft PrimaryLocation => Model.EnsurePrimaryLocation();
+
+    /// <summary>Lista NPC: coords cortas a la derecha del nombre, p.ej. (12501,104).</summary>
+    public string LocationCoordsLabel
+    {
+        get
+        {
+            var loc = Model.EnsurePrimaryLocation();
+            return $"({loc.MapId},{loc.CellId})";
+        }
+    }
+
+    public void NotifyLocationPresentation() =>
+        OnPropertyChanged(nameof(LocationCoordsLabel));
+
     public ObservableCollection<NpcClientActionItemViewModel> ClientActions { get; } = new();
 
     public IReadOnlyList<int> SelectedClientActionIds =>
@@ -624,6 +746,8 @@ public sealed class NpcDraftItemViewModel : ViewModelBase
         OnPropertyChanged(nameof(SexoUi));
         NotifyTamañoRelated();
         OnPropertyChanged(nameof(Pregunta));
+        OnPropertyChanged(nameof(PrimaryLocation));
+        OnPropertyChanged(nameof(LocationCoordsLabel));
         NotifyClientActionsChanged();
     }
 

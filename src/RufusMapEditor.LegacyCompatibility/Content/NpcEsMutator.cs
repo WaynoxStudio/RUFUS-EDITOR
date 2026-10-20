@@ -14,25 +14,28 @@ internal static class NpcEsMutator
             throw new InvalidOperationException(
                 $"VERSION npc_es debe ser N+1 ({parsed.VersionValue + 1}), recibido {newVersion}.");
 
+        var prepared = new List<(NpcEsAssignment Add, string Name)>(additions.Count);
         foreach (var add in additions)
         {
-            DialogEsLatin1.Validate(add.Name, $"N.d[{add.Id}].n");
+            var name = DialogEsLatin1.Prepare(add.Name, $"N.d[{add.Id}].n");
             foreach (var a in add.Actions)
             {
                 if (!NpcEsClientActions.IsValid(a))
                     throw new InvalidOperationException($"Acción npc_es inválida: {a} (solo 1..8).");
             }
+
+            prepared.Add((add, name));
         }
 
         var data = (byte[])parsed.ActionData.Clone();
         BitConverter.TryWriteBytes(data.AsSpan(parsed.VersionIntOffset, 4), newVersion);
 
-        if (additions.Count == 0)
+        if (prepared.Count == 0)
             return data;
 
         using var ms = new MemoryStream();
-        foreach (var add in additions)
-            ms.Write(BuildAssignment(parsed, add));
+        foreach (var (add, name) in prepared)
+            ms.Write(BuildAssignment(parsed, add, name));
         var block = ms.ToArray();
 
         var insertAt = parsed.FileEndPushOffset;
@@ -43,7 +46,7 @@ internal static class NpcEsMutator
         return newData;
     }
 
-    private static byte[] BuildAssignment(NpcEsParsed parsed, NpcEsAssignment add)
+    private static byte[] BuildAssignment(NpcEsParsed parsed, NpcEsAssignment add, string latin1Name)
     {
         var actions = NpcEsClientActions.Normalize(add.Actions);
         if (actions.Count > 0 && parsed.IdxA < 0)
@@ -61,7 +64,7 @@ internal static class NpcEsMutator
         Push(Avm1PushItem.Integer(add.Id));
 
         Push(Avm1PushItem.Constant(parsed.IdxNameProp));
-        Push(Avm1PushItem.StringLiteral(add.Name));
+        Push(Avm1PushItem.StringLiteral(latin1Name));
 
         var propCount = 1;
         if (actions.Count > 0)

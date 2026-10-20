@@ -1,31 +1,33 @@
-# Portable Distribution — RUFUS Map Editor
+# Portable Distribution — RUFUS ADMIN
 
-Fase **9P.3** — distribución ZIP portable para Windows x64.
+> **Actualización 2026-10:** el producto portable es **`RufusAdmin.exe`** (mapas + NPC/diálogos + ajustes).  
+> Ya no se publica un `RufusMapEditor.exe` de usuario. `build-portable-dist.ps1` delega en `build-admin-dist.ps1`.
+
+Fase **9P.3** (histórico) → hoy: paquete Admin self-contained.
 
 ## Objetivo
 
-Carpeta `RUFUS Map Editor\` que:
+Carpeta `RUFUS ADMIN\` que:
 
-- se comprime en ZIP;
 - funciona en cualquier ruta Windows x64;
-- no requiere .NET instalado;
-- no requiere Astria Map Editor instalado;
-- detecta automáticamente `.\Library\` junto al EXE.
+- no requiere .NET instalado (publish self-contained);
+- detecta automáticamente `.\Library\` junto al EXE (o usa `LibraryPath` en settings).
 
 ## Build
 
 ```powershell
 cd "C:\Users\rubez\Desktop\RUFUS EDITOR"
-.\scripts\build-portable-dist.ps1
+.\scripts\build-admin-dist.ps1
+# equivalente: .\scripts\build-portable-dist.ps1
 ```
 
 **Salidas:**
 
 | Artefacto | Ruta |
 |-----------|------|
-| Carpeta | `dist\RUFUS Map Editor\` |
-| ZIP | `dist\RUFUS Map Editor.zip` |
-| EXE desarrollo (sin cambiar flujo) | `RufusMapEditor.exe` (raíz repo) |
+| Carpeta | `dist-admin\RUFUS ADMIN\` |
+| Espejo opcional | `dist\RUFUS ADMIN\` |
+| EXE en raíz (manual) | `RufusAdmin.exe` |
 
 **Fuente de copia Library (build-time):**
 

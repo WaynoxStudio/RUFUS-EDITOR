@@ -72,6 +72,35 @@ public sealed class InMemoryMapasRepository : IMapasRepository
         return Task.FromResult(row is null ? null : Clone(row));
     }
 
+    public Task<IReadOnlyList<MapasRow>> ListByFechaContainingAsync(string fecha, CancellationToken ct = default)
+    {
+        var key = (fecha ?? "").Trim();
+        if (key.Length == 0)
+            return Task.FromResult<IReadOnlyList<MapasRow>>(Array.Empty<MapasRow>());
+
+        var list = _rows.Values
+            .Where(r => r.Fecha.Contains(key, StringComparison.Ordinal))
+            .OrderBy(r => r.Y).ThenBy(r => r.X).ThenBy(r => r.Id)
+            .Select(Clone)
+            .ToList();
+        return Task.FromResult<IReadOnlyList<MapasRow>>(list);
+    }
+
+    public Task<IReadOnlyList<MapasFechaPreviewRow>> ListFechaPreviewByContainingAsync(
+        string fecha, CancellationToken ct = default)
+    {
+        var key = (fecha ?? "").Trim();
+        if (key.Length == 0)
+            return Task.FromResult<IReadOnlyList<MapasFechaPreviewRow>>(Array.Empty<MapasFechaPreviewRow>());
+
+        var list = _rows.Values
+            .Where(r => r.Fecha.Contains(key, StringComparison.Ordinal))
+            .OrderBy(r => r.Y).ThenBy(r => r.X).ThenBy(r => r.Id)
+            .Select(r => new MapasFechaPreviewRow { Id = r.Id, Fecha = r.Fecha, X = r.X, Y = r.Y })
+            .ToList();
+        return Task.FromResult<IReadOnlyList<MapasFechaPreviewRow>>(list);
+    }
+
     public Task<int> UpdateExistingAsync(MapPublishValues values, CancellationToken ct = default)
     {
         if (_failNextUpdate)

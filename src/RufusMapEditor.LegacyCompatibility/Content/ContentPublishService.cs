@@ -25,12 +25,25 @@ public sealed class ContentPublishService
         CancellationToken ct = default,
         string? dialogEsCacheDirectory = null,
         DialogEsSnapshot? dialogEsSnapshot = null,
-        string? dialogEsStatusOverride = null)
+        string? dialogEsStatusOverride = null,
+        QuestsEsSnapshot? questsEsSnapshot = null,
+        string? questsEsCacheDirectory = null,
+        IReadOnlySet<int>? npcIdFilter = null)
     {
         ArgumentNullException.ThrowIfNull(workspace);
         RufusLog.Info("Prevalidando contenido");
         var engines = await _store.GetEnginesAsync(ct).ConfigureAwait(false);
-        var maxes = await _store.ReadMaxIdsAsync(ct).ConfigureAwait(false);
+        ContentPublishMaxSnapshot maxes;
+        try
+        {
+            maxes = await _store.ReadMaxIdsAsync(ct).ConfigureAwait(false);
+        }
+        catch (Exception mex)
+        {
+            throw new InvalidOperationException(
+                "No se pudo obtener MAX de tablas de contenido. Publicación bloqueada.\n" + mex.Message,
+                mex);
+        }
         var occupancy = new DialogEsIdOccupancy
         {
             BdQuestionMax = maxes.NpcPreguntas,
@@ -50,7 +63,10 @@ public sealed class ContentPublishService
             if (!string.IsNullOrWhiteSpace(dialogEsStatusOverride))
                 cacheStatus = dialogEsStatusOverride;
         }
-        var plan = ContentPublishPlanBuilder.Build(workspace, maxes, dialogEs, occupancy);
+
+        var questsEs = questsEsSnapshot ?? TryParseLocalQuestsEs(questsEsCacheDirectory, out _);
+        var plan = ContentPublishPlanBuilder.Build(
+            workspace, maxes, dialogEs, occupancy, questsEs, npcIdFilter: npcIdFilter);
         plan.DialogEsCacheStatus = cacheStatus;
         plan.ConcurrencyMode = ResolveConcurrencyMode(engines);
         RufusLog.Info($"IDs tentativos · NPC {plan.FormatIdRange(plan.ReservedNpcIds)} · Quest {plan.FormatIdRange(plan.ReservedQuestIds)}");
@@ -79,9 +95,26 @@ public sealed class ContentPublishService
         }
     }
 
+    private static QuestsEsSnapshot? TryParseLocalQuestsEs(string? cacheDirectory, out string status)
+    {
+        var dir = cacheDirectory ?? LangRemoteSyncService.DefaultCacheDirectory;
+        if (!QuestsEsLocalCache.TryParseLatest(dir, out var snap, out var path, out var err))
+        {
+            status = err ?? "Sin quests_es local.";
+            return null;
+        }
+
+        status = string.Create(CultureInfo.InvariantCulture,
+            $"Caché local: {Path.GetFileName(path)} (MAX Q.q/Q.s/Q.o)");
+        return snap;
+    }
+
     public async Task<ContentPublishOutcome> PublishAsync(
         ContentDraftWorkspace workspace,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        DialogEsSnapshot? dialogEsSnapshot = null,
+        DialogEsIdOccupancy? dialogEsOccupancy = null,
+        IReadOnlySet<int>? npcIdFilter = null)
     {
         ArgumentNullException.ThrowIfNull(workspace);
         var logs = new List<string>();
@@ -128,9 +161,32 @@ public sealed class ContentPublishService
                 Log("INFO Transacción iniciada");
             }
 
-            Log("INFO Reservando IDs");
-            var maxes = await _store.ReadMaxIdsAsync(ct).ConfigureAwait(false);
-            plan = ContentPublishPlanBuilder.Build(workspace, maxes);
+            Log("INFO Reservando IDs (lectura MAX en vivo)");
+            ContentPublishMaxSnapshot maxes;
+            try
+            {
+                maxes = await _store.ReadMaxIdsAsync(ct).ConfigureAwait(false);
+            }
+            catch (Exception mex)
+            {
+                return Fail(
+                    "No se pudo obtener MAX de tablas de contenido. Publicación abortada.\n" + mex.Message,
+                    logs);
+            }
+
+            var occupancy = dialogEsOccupancy ?? new DialogEsIdOccupancy
+            {
+                BdQuestionMax = maxes.NpcPreguntas,
+                BdResponseMax = maxes.NpcRespuestas,
+            };
+            var dialogEs = dialogEsSnapshot ?? TryParseLocalDialogEs(null, out _);
+            plan = ContentPublishPlanBuilder.Build(
+                workspace,
+                maxes,
+                dialogEs,
+                occupancy,
+                questsEs: TryParseLocalQuestsEs(null, out _),
+                npcIdFilter: npcIdFilter);
             plan.ConcurrencyMode = mode;
 
             if (!plan.IsValid)
@@ -148,53 +204,94 @@ public sealed class ContentPublishService
             // INSERT order: objectives → stages → missions → responses → questions → npcs → ubicaciones
             // Actually better: npcs first (locations need npc), questions need response ids in CSV but responses can insert first
             // Order: objetivos, etapas, misiones, respuestas, preguntas, npcs_modelo, npcs_ubicacion
-            Log("INFO Publicando mision_objetivos...");
-            foreach (var o in plan.Objectives)
+            if (plan.Objectives.Count > 0)
             {
-                await _store.InsertObjetivoAsync(o, ct).ConfigureAwait(false);
+                Log($"INFO Publicando mision_objetivos ({plan.Objectives.Count})...");
+                foreach (var o in plan.Objectives)
+                {
+                    if (o.IsUpdate)
+                        await _store.UpdateObjetivoAsync(o, ct).ConfigureAwait(false);
+                    else
+                        await _store.InsertObjetivoAsync(o, ct).ConfigureAwait(false);
+                    insertedSomething = true;
+                }
+            }
+
+            if (plan.Stages.Count > 0)
+            {
+                Log($"INFO Publicando mision_etapas ({plan.Stages.Count})...");
+                foreach (var s in plan.Stages)
+                {
+                    if (s.IsUpdate)
+                        await _store.UpdateEtapaAsync(s, ct).ConfigureAwait(false);
+                    else
+                        await _store.InsertEtapaAsync(s, ct).ConfigureAwait(false);
+                    insertedSomething = true;
+                }
+            }
+
+            if (plan.Missions.Count > 0)
+            {
+                Log($"INFO Publicando misiones ({plan.Missions.Count})...");
+                foreach (var m in plan.Missions)
+                {
+                    if (m.IsUpdate)
+                        await _store.UpdateMisionAsync(m, ct).ConfigureAwait(false);
+                    else
+                        await _store.InsertMisionAsync(m, ct).ConfigureAwait(false);
+                    insertedSomething = true;
+                }
+            }
+
+            if (plan.ObjectiveIdsToDelete.Count > 0)
+            {
+                Log("INFO Eliminando mision_objetivos huérfanos...");
+                await _store.DeleteByIdsAsync(
+                    MisionObjetivosColumns.DefaultTable,
+                    MisionObjetivosColumns.Id,
+                    plan.ObjectiveIdsToDelete,
+                    ct).ConfigureAwait(false);
                 insertedSomething = true;
             }
 
-            Log("INFO Publicando mision_etapas...");
-            foreach (var s in plan.Stages)
+            if (plan.ResponseActions.Count > 0)
             {
-                await _store.InsertEtapaAsync(s, ct).ConfigureAwait(false);
-                insertedSomething = true;
+                Log($"INFO Publicando npc_respuestas ({plan.ResponseActions.Count})...");
+                foreach (var r in plan.ResponseActions)
+                {
+                    await _store.InsertRespuestaActionAsync(r, ct).ConfigureAwait(false);
+                    insertedSomething = true;
+                }
             }
 
-            Log("INFO Publicando misiones...");
-            foreach (var m in plan.Missions)
+            if (plan.Questions.Count > 0)
             {
-                await _store.InsertMisionAsync(m, ct).ConfigureAwait(false);
-                insertedSomething = true;
+                Log($"INFO Publicando npc_preguntas ({plan.Questions.Count})...");
+                foreach (var q in plan.Questions)
+                {
+                    await _store.InsertPreguntaAsync(q, ct).ConfigureAwait(false);
+                    insertedSomething = true;
+                }
             }
 
-            Log("INFO Publicando npc_respuestas...");
-            foreach (var r in plan.ResponseActions)
+            if (plan.Npcs.Count > 0)
             {
-                await _store.InsertRespuestaActionAsync(r, ct).ConfigureAwait(false);
-                insertedSomething = true;
+                Log($"INFO Publicando npcs_modelo ({plan.Npcs.Count})...");
+                foreach (var n in plan.Npcs)
+                {
+                    await _store.InsertNpcAsync(n, ct).ConfigureAwait(false);
+                    insertedSomething = true;
+                }
             }
 
-            Log("INFO Publicando npc_preguntas...");
-            foreach (var q in plan.Questions)
+            if (plan.Locations.Count > 0)
             {
-                await _store.InsertPreguntaAsync(q, ct).ConfigureAwait(false);
-                insertedSomething = true;
-            }
-
-            Log("INFO Publicando npcs_modelo...");
-            foreach (var n in plan.Npcs)
-            {
-                await _store.InsertNpcAsync(n, ct).ConfigureAwait(false);
-                insertedSomething = true;
-            }
-
-            Log("INFO Publicando npcs_ubicacion...");
-            foreach (var u in plan.Locations)
-            {
-                await _store.InsertUbicacionAsync(u, ct).ConfigureAwait(false);
-                insertedSomething = true;
+                Log($"INFO Publicando npcs_ubicacion ({plan.Locations.Count})...");
+                foreach (var u in plan.Locations)
+                {
+                    await _store.InsertUbicacionAsync(u, ct).ConfigureAwait(false);
+                    insertedSomething = true;
+                }
             }
 
             Log("INFO Verificando BD...");
@@ -327,9 +424,9 @@ public sealed class ContentPublishService
 
         await ExpectCount(NpcsModeloColumns.DefaultTable, NpcsModeloColumns.Id, plan.ReservedNpcIds, plan.Npcs.Count, "npcs_modelo").ConfigureAwait(false);
         await ExpectCount(NpcPreguntasColumns.DefaultTable, NpcPreguntasColumns.Id, plan.ReservedQuestionIds, plan.Questions.Count, "npc_preguntas").ConfigureAwait(false);
-        await ExpectCount(MisionesColumns.DefaultTable, MisionesColumns.Id, plan.ReservedQuestIds, plan.Missions.Count, "misiones").ConfigureAwait(false);
-        await ExpectCount(MisionEtapasColumns.DefaultTable, MisionEtapasColumns.Id, plan.ReservedStageIds, plan.Stages.Count, "mision_etapas").ConfigureAwait(false);
-        await ExpectCount(MisionObjetivosColumns.DefaultTable, MisionObjetivosColumns.Id, plan.ReservedObjectiveIds, plan.Objectives.Count, "mision_objetivos").ConfigureAwait(false);
+        await ExpectCount(MisionesColumns.DefaultTable, MisionesColumns.Id, plan.ReservedQuestIds, plan.ReservedQuestIds.Count, "misiones").ConfigureAwait(false);
+        await ExpectCount(MisionEtapasColumns.DefaultTable, MisionEtapasColumns.Id, plan.ReservedStageIds, plan.ReservedStageIds.Count, "mision_etapas").ConfigureAwait(false);
+        await ExpectCount(MisionObjetivosColumns.DefaultTable, MisionObjetivosColumns.Id, plan.ReservedObjectiveIds, plan.ReservedObjectiveIds.Count, "mision_objetivos").ConfigureAwait(false);
 
         if (plan.Locations.Count > 0)
         {
@@ -444,10 +541,38 @@ public sealed class ContentPublishService
                 {
                     if (plan.ObjectiveIdMap.TryGetValue(o.Id, out var oid))
                         o.Id = oid;
+
+                    // NPC_ID_SYNC.FIX.7 — remap NPC inside objective args (incl. auto-return).
+                    if (MissionObjectiveNpcRemap.UsesNpcInArgs(o.Tipo))
+                    {
+                        var remapped = MissionObjectiveNpcRemap.RemapLeadingNpc(o.Args, plan.NpcIdMap);
+                        if (!string.Equals(remapped, o.Args, StringComparison.Ordinal))
+                        {
+                            if (string.Equals(o.Detalle, o.Args, StringComparison.Ordinal))
+                                o.Detalle = remapped;
+                            o.Args = remapped;
+                        }
+                    }
+
+                    // Auto-return must match definitive StartNpcId (same p[] NPC).
+                    if (o.IsAutoReturnToStartNpc && m.StartNpcId is int finalNpc && finalNpc > 0)
+                    {
+                        var (_, x, y) = MissionObjectiveArgsCodec.StripCoords(o.Args);
+                        MissionAutoReturnSync.ApplyReturnNpc(o, finalNpc, x, y);
+                    }
+
+                    // Tipo 2/3 must match definitive StartNpcId.
+                    if (MissionShowDeliverNpcBinding.IsBoundTipo(o.Tipo)
+                        && m.StartNpcId is int showDeliverNpc
+                        && showDeliverNpc > 0)
+                    {
+                        MissionShowDeliverNpcBinding.SyncObjective(o, showDeliverNpc);
+                    }
                 }
                 s.Id = sid;
             }
             m.PublishedBd = true;
+            m.MarkPublishedSnapshot();
         }
     }
 

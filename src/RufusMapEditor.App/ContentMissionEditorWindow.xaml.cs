@@ -36,4 +36,22 @@ public partial class ContentMissionEditorWindow : Window
         _vm.ApplyRewardsFromUi();
         _vm.NotifyEdited();
     }
+
+    private void RewardItemId_Changed(object sender, TextChangedEventArgs e)
+    {
+        _vm.ApplyRewardsFromUi();
+        _vm.NotifyEdited();
+    }
+
+    private void RewardQty_Changed(object sender, TextChangedEventArgs e)
+    {
+        _vm.ApplyRewardsFromUi();
+        _vm.NotifyEdited();
+    }
+
+    private void RewardRemove_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: MissionRewardItemRowVm row })
+            _vm.RemoveRewardRow(row);
+    }
 }

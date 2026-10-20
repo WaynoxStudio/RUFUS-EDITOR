@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Windows;
+using System.Windows.Threading;
 using RufusMapEditor.LegacyCompatibility.Content;
 using RufusMapEditor.LegacyCompatibility.Content.Ai;
 
@@ -13,9 +14,21 @@ public sealed class ContentAiAssistantViewModel : ViewModelBase
 {
     private readonly IAiGenerationService _generationService;
     private CancellationTokenSource? _generationCts;
+    private DispatcherTimer? _conversationWaitTimer;
+    private bool _conversationProgressActive;
     private Func<NpcsModeloDraft?>? _getSelectedNpc;
     private Func<ContentDraftWorkspace>? _getWorkspace;
+    private Func<DialogQuestionDraft?>? _getSelectedQuestion;
+    private Func<DialogResponseDraft?>? _getSelectedResponse;
+    private Func<bool>? _getIsSimpleDialog;
     private Action? _refreshAfterApply;
+    private Action? _persistDrafts;
+    private bool _suppressProfileWrite;
+    private AiBubbleKind _bubbleKind;
+    private DialogQuestionDraft? _bubbleTargetQuestion;
+    private DialogResponseDraft? _bubbleTargetResponse;
+    private string _bubbleInstruction = "";
+    private bool _bubbleAiPanelOpen;
 
     private string _rolePreset = AiCreativePresets.Roles[0];
     private string _customRole = "";
@@ -37,8 +50,13 @@ public sealed class ContentAiAssistantViewModel : ViewModelBase
     private bool _showResultPreview;
     private string _dialoguePreviewText = "";
     private string _conversationNpcText = "";
+    private string _conversationIncompleteText = "";
+    private string _conversationCompleteText = "";
     private string _validationDebugText = "";
     private bool _isGenerating;
+    private double _generationProgress;
+    private string _generationProgressText = "";
+    private bool _isGenerationProgressVisible;
 
     public ContentAiAssistantViewModel()
         : this(AiBackendGenerationServiceFactory.CreateForEditor())
@@ -59,14 +77,28 @@ public sealed class ContentAiAssistantViewModel : ViewModelBase
             async () => await PrepareAsync(AiCreativeAction.GenerarNombre),
             () => !IsGenerating);
         GenerateDialogCommand = new RelayCommand(
-            async () => await PrepareAsync(AiCreativeAction.GenerarDialogo),
+            async () =>
+            {
+                _bubbleKind = AiBubbleKind.None;
+                await PrepareAsync(AiCreativeAction.GenerarDialogo);
+            },
             () => !IsGenerating);
         GenerateConversationCommand = new RelayCommand(
             async () => await PrepareAsync(AiCreativeAction.GenerarConversacion),
             () => !IsGenerating);
+        GenerateNpcBubbleCommand = new RelayCommand(
+            async () => await GenerateBubbleAsync(
+                _getIsSimpleDialog?.Invoke() == true ? AiBubbleKind.SimpleDialog : AiBubbleKind.NpcQuestion),
+            () => !IsGenerating
+                  && (_getIsSimpleDialog?.Invoke() == true || _getSelectedQuestion?.Invoke() is not null));
+        GeneratePlayerReplyCommand = new RelayCommand(
+            async () => await GenerateBubbleAsync(AiBubbleKind.PlayerReply),
+            () => !IsGenerating && _getSelectedResponse?.Invoke() is not null);
         LoadMockResultCommand = new RelayCommand(LoadMockResult, () => !IsGenerating);
-        UseDialogueCommand = new RelayCommand(UseDialogue, () => !IsGenerating && HasDialoguePreview && _getSelectedNpc?.Invoke() is not null);
+        UseDialogueCommand = new RelayCommand(UseDialogue, () => !IsGenerating && HasDialoguePreview && _bubbleKind == AiBubbleKind.None && _getSelectedNpc?.Invoke() is not null);
         UseConversationCommand = new RelayCommand(UseConversation, () => !IsGenerating && HasConversationPreview && _getSelectedNpc?.Invoke() is not null);
+        UseBubbleTextCommand = new RelayCommand(UseBubbleText, () => !IsGenerating && HasBubblePreview);
+        CancelBubbleResultCommand = new RelayCommand(CancelBubbleResult, () => HasBubblePreview || ShowBubbleAiResult);
         RegenerateCommand = new RelayCommand(
             async () => await PrepareAsync(_lastAction, isRegenerate: true),
             () => !IsGenerating && HasUsablePreview);
@@ -90,11 +122,19 @@ public sealed class ContentAiAssistantViewModel : ViewModelBase
     public void AttachDraftHost(
         Func<NpcsModeloDraft?> getSelectedNpc,
         Func<ContentDraftWorkspace> getWorkspace,
-        Action refreshAfterApply)
+        Action refreshAfterApply,
+        Func<DialogQuestionDraft?>? getSelectedQuestion = null,
+        Func<DialogResponseDraft?>? getSelectedResponse = null,
+        Action? persistDrafts = null,
+        Func<bool>? getIsSimpleDialog = null)
     {
         _getSelectedNpc = getSelectedNpc ?? throw new ArgumentNullException(nameof(getSelectedNpc));
         _getWorkspace = getWorkspace ?? throw new ArgumentNullException(nameof(getWorkspace));
         _refreshAfterApply = refreshAfterApply ?? throw new ArgumentNullException(nameof(refreshAfterApply));
+        _getSelectedQuestion = getSelectedQuestion;
+        _getSelectedResponse = getSelectedResponse;
+        _persistDrafts = persistDrafts;
+        _getIsSimpleDialog = getIsSimpleDialog;
     }
 
     public IAiGenerationService GenerationService => _generationService;
@@ -117,9 +157,13 @@ public sealed class ContentAiAssistantViewModel : ViewModelBase
     public RelayCommand GenerateNameCommand { get; }
     public RelayCommand GenerateDialogCommand { get; }
     public RelayCommand GenerateConversationCommand { get; }
+    public RelayCommand GenerateNpcBubbleCommand { get; }
+    public RelayCommand GeneratePlayerReplyCommand { get; }
     public RelayCommand LoadMockResultCommand { get; }
     public RelayCommand UseDialogueCommand { get; }
     public RelayCommand UseConversationCommand { get; }
+    public RelayCommand UseBubbleTextCommand { get; }
+    public RelayCommand CancelBubbleResultCommand { get; }
     public RelayCommand RegenerateCommand { get; }
 
     public string ServiceStatusLabel
@@ -151,10 +195,13 @@ public sealed class ContentAiAssistantViewModel : ViewModelBase
                 GenerateNameCommand.RaiseCanExecuteChanged();
                 GenerateDialogCommand.RaiseCanExecuteChanged();
                 GenerateConversationCommand.RaiseCanExecuteChanged();
+                GenerateNpcBubbleCommand.RaiseCanExecuteChanged();
+                GeneratePlayerReplyCommand.RaiseCanExecuteChanged();
                 LoadMockResultCommand.RaiseCanExecuteChanged();
                 RegenerateCommand.RaiseCanExecuteChanged();
                 UseDialogueCommand.RaiseCanExecuteChanged();
                 UseConversationCommand.RaiseCanExecuteChanged();
+                UseBubbleTextCommand.RaiseCanExecuteChanged();
                 foreach (var item in NamePreviewItems)
                     item.RaiseUseCanExecuteChanged();
                 OnPropertyChanged(nameof(ServiceStatusLabel));
@@ -162,6 +209,32 @@ public sealed class ContentAiAssistantViewModel : ViewModelBase
             }
         }
     }
+
+    /// <summary>DIALOG.AI.GENERATION.PROGRESS.1 — estimated 0–100 for GenerarConversacion only.</summary>
+    public double GenerationProgress
+    {
+        get => _generationProgress;
+        private set
+        {
+            if (SetProperty(ref _generationProgress, value))
+                OnPropertyChanged(nameof(GenerationProgressPercentLabel));
+        }
+    }
+
+    public string GenerationProgressText
+    {
+        get => _generationProgressText;
+        private set => SetProperty(ref _generationProgressText, value ?? "");
+    }
+
+    public bool IsGenerationProgressVisible
+    {
+        get => _isGenerationProgressVisible;
+        private set => SetProperty(ref _isGenerationProgressVisible, value);
+    }
+
+    public string GenerationProgressPercentLabel =>
+        $"{Math.Clamp((int)Math.Round(GenerationProgress), 0, 100)} %";
 
     public string RolePreset
     {
@@ -188,14 +261,21 @@ public sealed class ContentAiAssistantViewModel : ViewModelBase
         set
         {
             if (SetProperty(ref _attitudePreset, value ?? ""))
+            {
                 OnPropertyChanged(nameof(IsCustomAttitude));
+                WriteProfileToSelectedNpc();
+            }
         }
     }
 
     public string CustomAttitude
     {
         get => _customAttitude;
-        set => SetProperty(ref _customAttitude, value ?? "");
+        set
+        {
+            if (SetProperty(ref _customAttitude, value ?? ""))
+                WriteProfileToSelectedNpc();
+        }
     }
 
     public bool IsCustomAttitude =>
@@ -204,7 +284,11 @@ public sealed class ContentAiAssistantViewModel : ViewModelBase
     public string NarrativeContext
     {
         get => _narrativeContext;
-        set => SetProperty(ref _narrativeContext, value ?? "");
+        set
+        {
+            if (SetProperty(ref _narrativeContext, value ?? ""))
+                WriteProfileToSelectedNpc();
+        }
     }
 
     public string AdditionalInstruction
@@ -216,8 +300,34 @@ public sealed class ContentAiAssistantViewModel : ViewModelBase
     public AiTextLength Length
     {
         get => _length;
-        set => SetProperty(ref _length, value);
+        set
+        {
+            if (SetProperty(ref _length, value))
+                WriteProfileToSelectedNpc();
+        }
     }
+
+    public string BubbleInstruction
+    {
+        get => _bubbleInstruction;
+        set => SetProperty(ref _bubbleInstruction, value ?? "");
+    }
+
+    public bool BubbleAiPanelOpen
+    {
+        get => _bubbleAiPanelOpen;
+        set => SetProperty(ref _bubbleAiPanelOpen, value);
+    }
+
+    public string BubbleInstructionPrompt =>
+        _getSelectedResponse?.Invoke() is not null
+            ? "¿Cómo quieres que responda el jugador?"
+            : "¿Qué quieres que diga el NPC?";
+
+    public string GenerateBubbleButtonLabel =>
+        _getSelectedResponse?.Invoke() is not null
+            ? "✨ Generar respuesta"
+            : "✨ Generar texto";
 
     public string CurrentNpcName
     {
@@ -273,11 +383,15 @@ public sealed class ContentAiAssistantViewModel : ViewModelBase
                 OnPropertyChanged(nameof(HasConversationPreview));
                 OnPropertyChanged(nameof(HasResultPreviewContent));
                 OnPropertyChanged(nameof(HasUsablePreview));
+                OnPropertyChanged(nameof(HasBubblePreview));
                 OnPropertyChanged(nameof(ShowIdentityAiResult));
                 OnPropertyChanged(nameof(ShowInteractionsAiResult));
+                OnPropertyChanged(nameof(ShowBubbleAiResult));
                 RegenerateCommand.RaiseCanExecuteChanged();
                 UseDialogueCommand.RaiseCanExecuteChanged();
                 UseConversationCommand.RaiseCanExecuteChanged();
+                UseBubbleTextCommand.RaiseCanExecuteChanged();
+                CancelBubbleResultCommand.RaiseCanExecuteChanged();
             }
         }
     }
@@ -291,6 +405,7 @@ public sealed class ContentAiAssistantViewModel : ViewModelBase
             {
                 OnPropertyChanged(nameof(ShowIdentityAiResult));
                 OnPropertyChanged(nameof(ShowInteractionsAiResult));
+                OnPropertyChanged(nameof(ShowBubbleAiResult));
             }
         }
     }
@@ -307,6 +422,18 @@ public sealed class ContentAiAssistantViewModel : ViewModelBase
         private set => SetProperty(ref _conversationNpcText, value);
     }
 
+    public string ConversationIncompleteText
+    {
+        get => _conversationIncompleteText;
+        private set => SetProperty(ref _conversationIncompleteText, value);
+    }
+
+    public string ConversationCompleteText
+    {
+        get => _conversationCompleteText;
+        private set => SetProperty(ref _conversationCompleteText, value);
+    }
+
     public string ValidationDebugText
     {
         get => _validationDebugText;
@@ -316,6 +443,7 @@ public sealed class ContentAiAssistantViewModel : ViewModelBase
             {
                 OnPropertyChanged(nameof(ShowIdentityAiResult));
                 OnPropertyChanged(nameof(ShowInteractionsAiResult));
+                OnPropertyChanged(nameof(ShowBubbleAiResult));
                 OnPropertyChanged(nameof(HasResultPreviewContent));
             }
         }
@@ -332,6 +460,10 @@ public sealed class ContentAiAssistantViewModel : ViewModelBase
 
     public bool HasUsablePreview => HasNamePreview || HasDialoguePreview || HasConversationPreview;
 
+    public bool HasBubblePreview =>
+        _bubbleKind != AiBubbleKind.None
+        && LastGenerationResult is { IsValid: true, Action: AiCreativeAction.GenerarDialogo, Dialogue: not null };
+
     public bool HasResultPreviewContent =>
         HasUsablePreview || !string.IsNullOrWhiteSpace(ValidationDebugText);
 
@@ -340,23 +472,43 @@ public sealed class ContentAiAssistantViewModel : ViewModelBase
         HasNamePreview
         || (ShowResultPreview && _lastAction == AiCreativeAction.GenerarNombre && !string.IsNullOrWhiteSpace(ValidationDebugText));
 
-    /// <summary>ADMIN.UI.3.2 — dialogue/conversation results stay in Interacciones.</summary>
+    /// <summary>ADMIN.UI.3.2 — dialogue/conversation results stay in Interacciones (not bubble panel).</summary>
     public bool ShowInteractionsAiResult =>
-        HasDialoguePreview
-        || HasConversationPreview
-        || (ShowResultPreview
-            && (_lastAction is AiCreativeAction.GenerarDialogo or AiCreativeAction.GenerarConversacion)
-            && !string.IsNullOrWhiteSpace(ValidationDebugText));
+        _bubbleKind == AiBubbleKind.None
+        && (HasDialoguePreview
+            || HasConversationPreview
+            || (ShowResultPreview
+                && (_lastAction is AiCreativeAction.GenerarDialogo or AiCreativeAction.GenerarConversacion)
+                && !string.IsNullOrWhiteSpace(ValidationDebugText)));
+
+    public bool ShowBubbleAiResult =>
+        _bubbleKind != AiBubbleKind.None
+        && (HasBubblePreview
+            || (ShowResultPreview && !string.IsNullOrWhiteSpace(ValidationDebugText)));
 
     public void BindToNpc(int? npcId, string? npcName)
     {
+        var npcChanged = npcId != _selectedNpcId;
         CancelPendingGeneration();
         _selectedNpcId = npcId;
         CurrentNpcName = npcName ?? "";
+        ReadProfileFromSelectedNpc();
+        if (npcChanged)
+        {
+            BubbleInstruction = "";
+            _bubbleKind = AiBubbleKind.None;
+            _bubbleTargetQuestion = null;
+            _bubbleTargetResponse = null;
+            NotifyBubbleUi();
+        }
+
         OnPropertyChanged(nameof(ServiceStatusLabel));
         OnPropertyChanged(nameof(ExpanderStatusLabel));
         UseDialogueCommand.RaiseCanExecuteChanged();
         UseConversationCommand.RaiseCanExecuteChanged();
+        UseBubbleTextCommand.RaiseCanExecuteChanged();
+        GenerateNpcBubbleCommand.RaiseCanExecuteChanged();
+        GeneratePlayerReplyCommand.RaiseCanExecuteChanged();
         foreach (var item in NamePreviewItems)
             item.RaiseUseCanExecuteChanged();
     }
@@ -368,11 +520,99 @@ public sealed class ContentAiAssistantViewModel : ViewModelBase
     {
         try { _generationCts?.Cancel(); }
         catch (ObjectDisposedException) { /* ignore */ }
+        StopConversationWaitPulse();
+        if (_conversationProgressActive)
+            ResetConversationProgress();
+    }
+
+    public void OpenBubbleAiPanel()
+    {
+        BubbleAiPanelOpen = true;
+        NotifyDialogSelectionChanged();
+    }
+
+    public void NotifyDialogSelectionChanged()
+    {
+        NotifyBubbleUi();
+        GenerateNpcBubbleCommand.RaiseCanExecuteChanged();
+        GeneratePlayerReplyCommand.RaiseCanExecuteChanged();
+        UseBubbleTextCommand.RaiseCanExecuteChanged();
     }
 
     public AiCreativeRequest BuildRequest(AiCreativeAction action)
     {
         var npcName = _getSelectedNpc?.Invoke()?.Nombre ?? CurrentNpcName;
+        var additional = AdditionalInstruction;
+        string? prior = null;
+        string? parent = null;
+        var playerReply = false;
+        var ws = _getWorkspace?.Invoke();
+        var npc = _getSelectedNpc?.Invoke();
+
+        if (action == AiCreativeAction.GenerarDialogo && _bubbleKind != AiBubbleKind.None)
+        {
+            additional = BubbleInstruction;
+            var mission = ws is not null && npc is not null
+                ? AiMissionRoleContextBuilder.ResolveMission(ws, npc)
+                : null;
+
+            if (_bubbleKind == AiBubbleKind.NpcQuestion)
+            {
+                var q = _bubbleTargetQuestion ?? _getSelectedQuestion?.Invoke();
+                if (ws is not null && npc is not null && q is not null)
+                    prior = AiDialogThreadContextBuilder.BuildPriorForQuestion(ws, npc, q);
+
+                var roleHint = AiMissionRoleContextBuilder.BuildBubbleRoleHint(mission, q, isPlayerReply: false);
+                if (!string.IsNullOrWhiteSpace(roleHint))
+                {
+                    additional = string.IsNullOrWhiteSpace(additional)
+                        ? roleHint
+                        : roleHint + Environment.NewLine + additional.Trim();
+                }
+            }
+            else if (_bubbleKind == AiBubbleKind.PlayerReply)
+            {
+                playerReply = true;
+                var response = _bubbleTargetResponse ?? _getSelectedResponse?.Invoke();
+                var q = _bubbleTargetQuestion
+                    ?? _getSelectedQuestion?.Invoke()
+                    ?? (ws is not null && response is not null
+                        ? AiDialogThreadContextBuilder.FindParentQuestion(ws, response)
+                        : null);
+                parent = q?.TextLocal ?? "";
+                if (ws is not null && npc is not null && q is not null)
+                    prior = AiDialogThreadContextBuilder.BuildPriorForResponse(ws, npc, q);
+
+                var roleHint = AiMissionRoleContextBuilder.BuildBubbleRoleHint(mission, q, isPlayerReply: true);
+                if (!string.IsNullOrWhiteSpace(roleHint))
+                {
+                    additional = string.IsNullOrWhiteSpace(additional)
+                        ? roleHint
+                        : roleHint + Environment.NewLine + additional.Trim();
+                }
+            }
+
+            if (ws is not null && npc is not null)
+            {
+                var snapshot = AiMissionSnapshotBuilder.Build(ws, npc, mission);
+                additional = string.IsNullOrWhiteSpace(additional)
+                    ? snapshot
+                    : additional.Trim() + Environment.NewLine + Environment.NewLine + snapshot;
+            }
+        }
+        else if (action == AiCreativeAction.GenerarConversacion && ws is not null && npc is not null)
+        {
+            var mission = AiMissionRoleContextBuilder.ResolveMission(ws, npc);
+            prior = AiMissionRoleContextBuilder.BuildConversationSnapshotWithRoles(ws, npc, mission);
+            var missionBlock = AiMissionSnapshotBuilder.Build(ws, npc, mission);
+            var glossary = AiMissionRoleContextBuilder.BuildRoleGlossary();
+            additional = string.IsNullOrWhiteSpace(additional)
+                ? glossary + Environment.NewLine + Environment.NewLine + missionBlock
+                : additional.Trim()
+                  + Environment.NewLine + Environment.NewLine + glossary
+                  + Environment.NewLine + Environment.NewLine + missionBlock;
+        }
+
         return AiCreativeRequestBuilder.Build(
             action,
             rolePreset: "",
@@ -380,9 +620,12 @@ public sealed class ContentAiAssistantViewModel : ViewModelBase
             AttitudePreset,
             CustomAttitude,
             NarrativeContext,
-            AdditionalInstruction,
+            additional,
             Length,
-            npcName);
+            npcName,
+            prior,
+            parent,
+            playerReply);
     }
 
     public void PresentGenerationResult(AiGenerationResult result, int? boundNpcId = null)
@@ -416,22 +659,61 @@ public sealed class ContentAiAssistantViewModel : ViewModelBase
                 DialoguePreviewText = result.Dialogue.Dialogo.Texto;
                 break;
             case AiCreativeAction.GenerarConversacion when result.Conversation?.Conversacion is not null:
-                var c = result.Conversation.Conversacion;
-                ConversationNpcText = c.TextoNpc;
-                var i = 1;
-                foreach (var r in c.RespuestasJugador)
-                {
-                    ConversationReplyItems.Add(new AiConversationReplyPreviewItemViewModel(i, r.Texto, r.Tono));
-                    i++;
-                }
-                break;
+                // DIALOG.AI.AUTO_APPLY.SINGLE_REPLY.2 — apply directly; no conversation preview.
+                AutoApplyConversation(result.Conversation.Conversacion);
+                ShowResultPreview = false;
+                NotifyBubbleUi();
+                return;
         }
 
-        StatusMessage = "Preview · no aplicado al NPC hasta pulsar Usar";
+        StatusMessage = _bubbleKind == AiBubbleKind.None
+            ? "Preview · no aplicado al NPC hasta pulsar Usar"
+            : "Preview · no aplicado al NPC hasta pulsar Usar texto";
         ShowResultPreview = true;
+        NotifyBubbleUi();
         RegenerateCommand.RaiseCanExecuteChanged();
         UseDialogueCommand.RaiseCanExecuteChanged();
         UseConversationCommand.RaiseCanExecuteChanged();
+        UseBubbleTextCommand.RaiseCanExecuteChanged();
+        CancelBubbleResultCommand.RaiseCanExecuteChanged();
+    }
+
+    /// <summary>DIALOG.AI.AUTO_APPLY.SINGLE_REPLY.2 — apply validated conversation without preview/confirm UX.</summary>
+    private void AutoApplyConversation(AiConversationResult conversation)
+    {
+        var npc = _getSelectedNpc?.Invoke();
+        var ws = _getWorkspace?.Invoke();
+        if (ws is null)
+        {
+            StatusMessage = "Sin workspace de contenido.";
+            if (_conversationProgressActive)
+                SetConversationProgress(GenerationProgress, "Error al generar la conversación.");
+            return;
+        }
+
+        if (_conversationProgressActive)
+            SetConversationProgress(97, "Aplicando conversación...");
+
+        var result = AiDraftApplier.ApplyConversation(
+            ws, npc, conversation,
+            replaceConfirmed: true,
+            interactiveSwitchConfirmed: true,
+            _resultBoundNpcId);
+
+        if (result.Kind == AiDraftApplyKind.Applied)
+        {
+            if (_conversationProgressActive)
+                SetConversationProgress(100, "Conversación generada.");
+            StatusMessage = "Conversación generada.";
+            AiGenerationActivityLog.Info("resultado aplicado: Conversación");
+            _refreshAfterApply?.Invoke();
+            return;
+        }
+
+        StatusMessage = result.Message;
+        AiGenerationActivityLog.Error(_lastAction, $"Conversación no aplicada: {result.Kind}");
+        if (_conversationProgressActive)
+            SetConversationProgress(GenerationProgress, "Error al generar la conversación.");
     }
 
     internal void UseName(string nombre)
@@ -472,64 +754,62 @@ public sealed class ContentAiAssistantViewModel : ViewModelBase
         FinishApply(result, "Diálogo");
     }
 
-    private void UseConversation()
+    private void UseBubbleText()
     {
-        if (LastGenerationResult?.Conversation?.Conversacion is not AiConversationResult conversation) return;
-        var npc = _getSelectedNpc?.Invoke();
-        var ws = _getWorkspace?.Invoke();
-        if (ws is null)
+        if (LastGenerationResult?.Dialogue?.Dialogo?.Texto is not string text)
+            return;
+
+        AiDraftApplyResult result;
+        if (_bubbleKind == AiBubbleKind.SimpleDialog)
         {
-            StatusMessage = "Sin workspace de contenido.";
+            UseDialogue();
             return;
         }
 
-        var result = AiDraftApplier.ApplyConversation(
-            ws, npc, conversation,
-            replaceConfirmed: false,
-            interactiveSwitchConfirmed: false,
-            _resultBoundNpcId);
-
-        if (result.Kind == AiDraftApplyKind.NeedsInteractiveSwitch)
+        if (_bubbleKind == AiBubbleKind.PlayerReply)
         {
-            var ok = MessageBox.Show(
-                result.Message + "\n\nCancelar = no aplicar.\nOK = usar conversación interactiva.",
-                "Modo interactivo",
-                MessageBoxButton.OKCancel,
-                MessageBoxImage.Question) == MessageBoxResult.OK;
-            if (!ok)
-            {
-                StatusMessage = "Aplicación de conversación cancelada.";
-                return;
-            }
-
-            result = AiDraftApplier.ApplyConversation(
-                ws, npc, conversation,
-                replaceConfirmed: false,
-                interactiveSwitchConfirmed: true,
-                _resultBoundNpcId);
+            var response = _bubbleTargetResponse ?? _getSelectedResponse?.Invoke();
+            result = AiDraftApplier.ApplyResponseText(response, text);
+        }
+        else
+        {
+            var question = _bubbleTargetQuestion ?? _getSelectedQuestion?.Invoke();
+            result = AiDraftApplier.ApplyQuestionText(question, text);
         }
 
-        if (result.Kind == AiDraftApplyKind.NeedsConfirmation)
-        {
-            var ok = MessageBox.Show(
-                result.Message + "\n\nCancelar = mantener textos actuales.\nOK = sustituir textos creativos.",
-                "Sustituir textos",
-                MessageBoxButton.OKCancel,
-                MessageBoxImage.Question) == MessageBoxResult.OK;
-            if (!ok)
-            {
-                StatusMessage = "Sustitución de conversación cancelada.";
-                return;
-            }
+        FinishApply(result, "Texto");
+    }
 
-            result = AiDraftApplier.ApplyConversation(
-                ws, npc, conversation,
-                replaceConfirmed: true,
-                interactiveSwitchConfirmed: true,
-                _resultBoundNpcId);
+    private void CancelBubbleResult()
+    {
+        DialoguePreviewText = "";
+        ValidationDebugText = "";
+        ShowResultPreview = false;
+        LastGenerationResult = null;
+        StatusMessage = "Resultado IA descartado.";
+        NotifyBubbleUi();
+    }
+
+    private async Task GenerateBubbleAsync(AiBubbleKind kind)
+    {
+        _bubbleKind = kind;
+        _bubbleTargetQuestion = kind == AiBubbleKind.NpcQuestion ? _getSelectedQuestion?.Invoke() : null;
+        _bubbleTargetResponse = kind == AiBubbleKind.PlayerReply ? _getSelectedResponse?.Invoke() : null;
+        if (kind == AiBubbleKind.PlayerReply && _bubbleTargetQuestion is null)
+        {
+            var ws = _getWorkspace?.Invoke();
+            if (ws is not null && _bubbleTargetResponse is not null)
+                _bubbleTargetQuestion = AiDialogThreadContextBuilder.FindParentQuestion(ws, _bubbleTargetResponse);
         }
 
-        FinishApply(result, "Conversación");
+        BubbleAiPanelOpen = true;
+        await PrepareAsync(AiCreativeAction.GenerarDialogo);
+    }
+
+    private void UseConversation()
+    {
+        if (LastGenerationResult?.Conversation?.Conversacion is not AiConversationResult conversation) return;
+        AutoApplyConversation(conversation);
     }
 
     private void FinishApply(AiDraftApplyResult result, string label)
@@ -555,12 +835,29 @@ public sealed class ContentAiAssistantViewModel : ViewModelBase
     private async Task PrepareAsync(AiCreativeAction action, bool isRegenerate = false)
     {
         _lastAction = action;
+        if (!isRegenerate && action != AiCreativeAction.GenerarDialogo)
+            _bubbleKind = AiBubbleKind.None;
+
         // Capture NPC binding at request time (AI.5 — protect against mid-flight NPC switch).
         var boundNpcId = _selectedNpcId;
         if (isRegenerate)
             AiGenerationActivityLog.Info("regeneración iniciada");
 
         GenerationRequested?.Invoke(action);
+
+        var trackProgress = action == AiCreativeAction.GenerarConversacion
+                            && _generationService.IsConfigured;
+
+        CancelPendingGeneration();
+        _generationCts = new CancellationTokenSource();
+        var ct = _generationCts.Token;
+
+        if (trackProgress)
+        {
+            BeginConversationProgress();
+            SetConversationProgress(10, "Preparando contexto...");
+            await Dispatcher.Yield(DispatcherPriority.Background);
+        }
 
         var request = BuildRequest(action);
         var stub = AiCreativeServiceStub.Prepare(request);
@@ -569,27 +866,42 @@ public sealed class ContentAiAssistantViewModel : ViewModelBase
         RequestPreviewText = stub.Preview;
         ShowRequestPreview = true;
 
+        if (trackProgress)
+        {
+            SetConversationProgress(25, "Preparando misión...");
+            await Dispatcher.Yield(DispatcherPriority.Background);
+        }
+
         if (!isRegenerate)
         {
             LastGenerationResult = null;
             ClearPreviewCollections();
             DialoguePreviewText = "";
             ConversationNpcText = "";
+            ConversationIncompleteText = "";
+            ConversationCompleteText = "";
             ValidationDebugText = "";
             ShowResultPreview = false;
             _resultBoundNpcId = boundNpcId;
         }
 
-        CancelPendingGeneration();
-        _generationCts = new CancellationTokenSource();
-        var ct = _generationCts.Token;
-
         IsGenerating = true;
         StatusMessage = !_generationService.IsConfigured
             ? AiBackendGenerationService.NotConfiguredUserMessage
-            : isRegenerate ? "Regenerando..." : "Generando...";
+            : action == AiCreativeAction.GenerarConversacion
+                ? "Generando conversación..."
+                : isRegenerate ? "Regenerando..." : "Generando...";
+
+        if (trackProgress)
+        {
+            SetConversationProgress(35, "Enviando a la IA...");
+            StartConversationWaitPulse();
+        }
 
         var previousValid = isRegenerate && LastGenerationResult is { IsValid: true };
+        // Conversation auto-applies: canvas is source of truth; do not treat prior preview as salvageable.
+        var preserveConversationCanvas = action == AiCreativeAction.GenerarConversacion;
+        var conversationCompletedOk = false;
 
         try
         {
@@ -597,9 +909,13 @@ public sealed class ContentAiAssistantViewModel : ViewModelBase
                 .GenerateAsync(request, stub.Package, ct)
                 .ConfigureAwait(true);
 
+            StopConversationWaitPulse();
+
             if (ct.IsCancellationRequested)
             {
                 StatusMessage = "Generación cancelada.";
+                if (trackProgress)
+                    await FailConversationProgressAsync(ct).ConfigureAwait(true);
                 return;
             }
 
@@ -608,6 +924,8 @@ public sealed class ContentAiAssistantViewModel : ViewModelBase
             {
                 StatusMessage = "Resultado descartado: cambiaste de NPC durante la generación.";
                 AiGenerationActivityLog.Info("resultado descartado por cambio de NPC");
+                if (trackProgress)
+                    await FailConversationProgressAsync(ct).ConfigureAwait(true);
                 return;
             }
 
@@ -622,6 +940,15 @@ public sealed class ContentAiAssistantViewModel : ViewModelBase
 
             if (!call.Success)
             {
+                if (preserveConversationCanvas)
+                {
+                    StatusMessage = FormatUserError(call);
+                    AiGenerationActivityLog.Info("conversación ERROR (canvas anterior conservado)");
+                    if (trackProgress)
+                        await FailConversationProgressAsync(ct).ConfigureAwait(true);
+                    return;
+                }
+
                 if (previousValid)
                 {
                     StatusMessage = "No se pudo regenerar.";
@@ -645,23 +972,156 @@ public sealed class ContentAiAssistantViewModel : ViewModelBase
 
             if (call.Generation is not null)
             {
+                if (trackProgress)
+                    SetConversationProgress(92, "Procesando respuesta...");
+
                 PresentGenerationResult(call.Generation, boundNpcId);
                 if (isRegenerate)
                     AiGenerationActivityLog.Info("regeneración OK");
+
+                if (trackProgress)
+                {
+                    if (Math.Abs(GenerationProgress - 100) < 0.5)
+                    {
+                        conversationCompletedOk = true;
+                        await CompleteConversationProgressAsync(ct).ConfigureAwait(true);
+                    }
+                    else
+                    {
+                        await FailConversationProgressAsync(ct).ConfigureAwait(true);
+                    }
+                }
             }
         }
         catch (OperationCanceledException)
         {
+            StopConversationWaitPulse();
             StatusMessage = previousValid ? "No se pudo regenerar." : "Generación cancelada.";
+            if (trackProgress)
+                await FailConversationProgressAsync(CancellationToken.None).ConfigureAwait(true);
         }
         finally
         {
+            StopConversationWaitPulse();
             IsGenerating = false;
+            if (!conversationCompletedOk && trackProgress && _conversationProgressActive
+                && Math.Abs(GenerationProgress - 100) >= 0.5)
+            {
+                // Ensure bar does not linger if an early return skipped fail/complete.
+                ResetConversationProgress();
+            }
+
             if (_generationService is AiBackendGenerationService backend)
                 backend.RefreshStatusIdle();
             OnPropertyChanged(nameof(ServiceStatusLabel));
             OnPropertyChanged(nameof(ExpanderStatusLabel));
         }
+    }
+
+    private void BeginConversationProgress()
+    {
+        _conversationProgressActive = true;
+        IsGenerationProgressVisible = true;
+        SetConversationProgress(0, "Inicio");
+    }
+
+    private void SetConversationProgress(double value, string text)
+    {
+        if (!_conversationProgressActive && value < 100)
+            return;
+        GenerationProgress = Math.Clamp(value, 0, 100);
+        GenerationProgressText = text;
+    }
+
+    private void StartConversationWaitPulse()
+    {
+        StopConversationWaitPulse();
+        _conversationWaitTimer = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromMilliseconds(1600)
+        };
+        _conversationWaitTimer.Tick += ConversationWaitTimerOnTick;
+        _conversationWaitTimer.Start();
+    }
+
+    private void StopConversationWaitPulse()
+    {
+        if (_conversationWaitTimer is null)
+            return;
+        _conversationWaitTimer.Stop();
+        _conversationWaitTimer.Tick -= ConversationWaitTimerOnTick;
+        _conversationWaitTimer = null;
+    }
+
+    private void ConversationWaitTimerOnTick(object? sender, EventArgs e)
+    {
+        if (!_conversationProgressActive || !_isGenerating)
+            return;
+
+        var p = GenerationProgress;
+        if (p >= 90)
+            return;
+
+        double step = p switch
+        {
+            < 50 => 4.5,
+            < 65 => 3.0,
+            < 75 => 2.0,
+            < 82 => 1.2,
+            < 88 => 0.7,
+            _ => 0.35
+        };
+
+        var next = Math.Min(90, p + step);
+        SetConversationProgress(next, "Generando conversación...");
+    }
+
+    private async Task CompleteConversationProgressAsync(CancellationToken ct)
+    {
+        StopConversationWaitPulse();
+        SetConversationProgress(100, "Conversación generada.");
+        StatusMessage = "Conversación generada.";
+        try
+        {
+            await Task.Delay(1500, ct).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+            // Closing/cancel: hide immediately.
+        }
+
+        ResetConversationProgress();
+    }
+
+    private async Task FailConversationProgressAsync(CancellationToken ct)
+    {
+        StopConversationWaitPulse();
+        if (!_conversationProgressActive)
+            return;
+
+        // Never reach 100 % on error.
+        if (GenerationProgress >= 100)
+            GenerationProgress = 90;
+        GenerationProgressText = "Error al generar la conversación.";
+        IsGenerationProgressVisible = true;
+        try
+        {
+            await Task.Delay(1200, ct).ConfigureAwait(true);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+
+        ResetConversationProgress();
+    }
+
+    private void ResetConversationProgress()
+    {
+        StopConversationWaitPulse();
+        _conversationProgressActive = false;
+        IsGenerationProgressVisible = false;
+        GenerationProgress = 0;
+        GenerationProgressText = "";
     }
 
     private void LoadMockResult()
@@ -675,6 +1135,50 @@ public sealed class ContentAiAssistantViewModel : ViewModelBase
     {
         NamePreviewItems.Clear();
         ConversationReplyItems.Clear();
+    }
+
+    private void NotifyBubbleUi()
+    {
+        OnPropertyChanged(nameof(HasBubblePreview));
+        OnPropertyChanged(nameof(ShowBubbleAiResult));
+        OnPropertyChanged(nameof(ShowInteractionsAiResult));
+        OnPropertyChanged(nameof(BubbleInstructionPrompt));
+        OnPropertyChanged(nameof(GenerateBubbleButtonLabel));
+        CancelBubbleResultCommand.RaiseCanExecuteChanged();
+        UseBubbleTextCommand.RaiseCanExecuteChanged();
+    }
+
+    private void WriteProfileToSelectedNpc()
+    {
+        if (_suppressProfileWrite)
+            return;
+        var npc = _getSelectedNpc?.Invoke();
+        if (npc is null)
+            return;
+        npc.AiAttitudePreset = AttitudePreset ?? "";
+        npc.AiCustomAttitude = CustomAttitude ?? "";
+        npc.AiNarrativeContext = NarrativeContext ?? "";
+        npc.AiLength = Length;
+        _persistDrafts?.Invoke();
+    }
+
+    private void ReadProfileFromSelectedNpc()
+    {
+        var npc = _getSelectedNpc?.Invoke();
+        _suppressProfileWrite = true;
+        try
+        {
+            AttitudePreset = string.IsNullOrWhiteSpace(npc?.AiAttitudePreset)
+                ? AiCreativePresets.Attitudes[0]
+                : npc!.AiAttitudePreset;
+            CustomAttitude = npc?.AiCustomAttitude ?? "";
+            NarrativeContext = npc?.AiNarrativeContext ?? "";
+            Length = npc?.AiLength ?? AiTextLength.Corta;
+        }
+        finally
+        {
+            _suppressProfileWrite = false;
+        }
     }
 
     private static string FormatUserError(AiServiceCallResult call)
@@ -691,18 +1195,38 @@ public sealed class ContentAiAssistantViewModel : ViewModelBase
                 AiBackendGenerationService.UnauthorizedUserMessage,
             AiServiceCallResult.CodeUnavailable or AiServiceCallResult.CodeHttpError =>
                 "Backend IA no disponible.",
-            AiServiceCallResult.CodeTimeout or "OPENAI_TIMEOUT" =>
-                "Timeout del backend IA.",
+            AiServiceCallResult.CodeTimeout =>
+                AiBackendGenerationService.TimeoutUserMessage,
+            "OPENAI_TIMEOUT" =>
+                AiBackendGenerationService.OpenAiTimeoutUserMessage,
+            "OPENAI_AUTH_ERROR" =>
+                "OpenAI rechazó la autenticación en el backend.",
+            "OPENAI_RATE_LIMIT" =>
+                "OpenAI está limitando peticiones. Inténtalo de nuevo más tarde.",
+            "OPENAI_CONNECTION_ERROR" =>
+                "No se pudo conectar con OpenAI desde el backend.",
+            "OPENAI_BAD_REQUEST" or "OPENAI_RESPONSE_INVALID" or "INVALID_AI_RESPONSE" =>
+                AiBackendResponseParser.InvalidUserMessage,
+            "OPENAI_CLIENT_ERROR" or "INTERNAL_ERROR" =>
+                "Error interno del cliente OpenAI en el backend.",
             AiServiceCallResult.CodeCancelled =>
-                "Generación cancelada.",
+                AiBackendGenerationService.CancelledUserMessage,
             AiServiceCallResult.CodeInvalidAi3 or AiServiceCallResult.CodeCorruptJson
-                or AiServiceCallResult.CodeWrongAction or "INVALID_AI_RESPONSE" =>
+                or AiServiceCallResult.CodeWrongAction =>
                 AiBackendResponseParser.InvalidUserMessage,
             "OPENAI_ERROR" =>
                 call.ErrorMessage ?? "Error de OpenAI en el backend.",
             _ => call.ErrorMessage ?? "Error del servicio IA."
         };
     }
+}
+
+internal enum AiBubbleKind
+{
+    None,
+    NpcQuestion,
+    PlayerReply,
+    SimpleDialog
 }
 
 public sealed class AiNamePreviewItemViewModel

@@ -24,7 +24,12 @@ public sealed class ContNpc7bTests : IDisposable
     private static byte[] Seed(int version, params NpcEsAssignment[] entries) =>
         NpcEsSeed.Create(version, entries);
 
-    private static NpcEsAssignment N(int id, string name) => new() { Id = id, Name = name };
+    private static NpcEsAssignment N(int id, string name) => new()
+    {
+        Id = id,
+        Name = name,
+        Actions = new[] { NpcEsClientActions.Talk },
+    };
 
     private static string Versions(int npc = 1287, int dialog = 1293, int maps = 1283) =>
         string.Create(System.Globalization.CultureInfo.InvariantCulture,

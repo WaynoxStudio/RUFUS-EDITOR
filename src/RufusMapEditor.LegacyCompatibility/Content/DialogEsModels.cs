@@ -11,6 +11,11 @@ public sealed class DialogEsAssignment
     public required DialogEsSpace Space { get; init; }
     public required int Id { get; init; }
     public required string Text { get; init; }
+
+    /// <summary>
+    /// Post-BD: append SetMember for an ID already present in SWF (last write wins at runtime).
+    /// </summary>
+    public bool ReplaceExisting { get; init; }
 }
 
 public sealed class DialogEsSnapshot

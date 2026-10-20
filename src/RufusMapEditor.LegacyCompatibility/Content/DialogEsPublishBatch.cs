@@ -41,9 +41,10 @@ public sealed class DialogEsPublishBatch
         foreach (var b in Bindings)
         {
             var space = b.Assignment.Space == DialogEsSpace.Question ? "D.q" : "D.a";
+            var suffix = b.Assignment.ReplaceExisting ? " (reemplazo)" : $" ({b.Kind})";
             sb.AppendLine(string.Create(
                 CultureInfo.InvariantCulture,
-                $"  {space}[{b.Assignment.Id}] = \"{Truncate(b.Assignment.Text, 60)}\" ({b.Kind})"));
+                $"  {space}[{b.Assignment.Id}] = \"{Truncate(b.Assignment.Text, 60)}\"{suffix}"));
         }
         return sb.ToString();
     }
@@ -54,13 +55,15 @@ public sealed class DialogEsPublishBatch
 
 /// <summary>
 /// CONT.6C — build publish batch from live SWF + BD occupancy (never trust provisional UI IDs).
+/// Includes PublishedBd content that is still pending dialog_es (BD ≠ cliente).
 /// </summary>
 public static class DialogEsPublishBatchBuilder
 {
     public static DialogEsPublishBatch Build(
         ContentDraftWorkspace workspace,
         DialogEsSnapshot snapshot,
-        DialogEsIdOccupancy? occupancy = null)
+        DialogEsIdOccupancy? occupancy = null,
+        IReadOnlySet<int>? npcIdFilter = null)
     {
         ArgumentNullException.ThrowIfNull(workspace);
         ArgumentNullException.ThrowIfNull(snapshot);
@@ -70,26 +73,29 @@ public static class DialogEsPublishBatchBuilder
         var occ = occupancy ?? new DialogEsIdOccupancy();
         var resolver = new DialogEsIdResolver(snapshot, occ);
 
-        var npcs = workspace.Npcs.Drafts.Where(n => !n.PublishedBd).ToList();
-        var npcIds = npcs.Select(n => n.Id).ToHashSet();
-        var interactiveNpcIds = npcs
+        var pendingNpcs = workspace.Npcs.Drafts
+            .Where(n =>
+                (n.DialogMode == NpcDialogMode.Interactive
+                 || n.DialogMode == NpcDialogMode.Simple)
+                && ContentPublishNpcSelection.Includes(n.Id, npcIdFilter))
+            .ToList();
+        var interactiveNpcIds = pendingNpcs
             .Where(n => n.DialogMode == NpcDialogMode.Interactive)
             .Select(n => n.Id)
             .ToHashSet();
 
         var questions = workspace.Dialogs.Questions
-            .Where(q => !q.PublishedBd
-                        && npcIds.Contains(q.OwnerNpcId)
-                        && interactiveNpcIds.Contains(q.OwnerNpcId)
+            .Where(q => interactiveNpcIds.Contains(q.OwnerNpcId)
                         && !string.IsNullOrWhiteSpace(q.TextLocal))
             .ToList();
 
         // Interactive questions first (same order as plan builder).
         foreach (var q in questions)
         {
+            string preparedQ;
             try
             {
-                DialogEsLatin1.Validate(q.TextLocal, $"Pregunta {q.Id}");
+                preparedQ = DialogEsLatin1.Prepare(q.TextLocal, $"Pregunta {q.Id}");
             }
             catch (DialogEsEncodingException ex)
             {
@@ -97,18 +103,45 @@ public static class DialogEsPublishBatchBuilder
                 continue;
             }
 
-            var id = resolver.ReserveInteractiveQuestion();
+            if (!string.Equals(q.TextLocal, preparedQ, StringComparison.Ordinal))
+                q.TextLocal = preparedQ;
+
+            int id;
+            var replace = false;
+            if (q.PublishedBd)
+            {
+                id = q.Id;
+                if (snapshot.Questions.TryGetValue(id, out var existing))
+                {
+                    if (string.Equals(existing, DialogEsLatin1.Normalize(preparedQ), StringComparison.Ordinal))
+                        continue; // already correct in dialog_es
+
+                    replace = true;
+                }
+                else if (!resolver.TryClaimQuestion(id))
+                {
+                    errors.Add(string.Create(CultureInfo.InvariantCulture,
+                        $"D.q[{id}] no se pudo reservar (conflicto local)."));
+                    continue;
+                }
+            }
+            else
+            {
+                id = resolver.ReserveInteractiveQuestion();
+            }
+
             bindings.Add(new DialogEsPublishBinding
             {
                 Assignment = new DialogEsAssignment
                 {
                     Space = DialogEsSpace.Question,
                     Id = id,
-                    Text = q.TextLocal,
+                    Text = preparedQ,
+                    ReplaceExisting = replace,
                 },
                 OwnerNpcDraftId = q.OwnerNpcId,
                 OwnerQuestionDraftId = q.Id,
-                Kind = "interactive-question",
+                Kind = replace ? "interactive-question-replace" : "interactive-question",
             });
 
             foreach (var r in q.Responses)
@@ -119,9 +152,10 @@ public static class DialogEsPublishBatchBuilder
                     continue;
                 }
 
+                string preparedA;
                 try
                 {
-                    DialogEsLatin1.Validate(r.TextLocal, $"Respuesta {r.DraftId:N}");
+                    preparedA = DialogEsLatin1.Prepare(r.TextLocal, $"Respuesta {r.DraftId:N}");
                 }
                 catch (DialogEsEncodingException ex)
                 {
@@ -129,33 +163,67 @@ public static class DialogEsPublishBatchBuilder
                     continue;
                 }
 
-                var aid = resolver.ReserveInteractiveAnswer();
+                if (!string.Equals(r.TextLocal, preparedA, StringComparison.Ordinal))
+                    r.TextLocal = preparedA;
+
+                int aid;
+                var replaceA = false;
+                if (q.PublishedBd && r.PublishedResponseId is int publishedAid and > 0)
+                {
+                    aid = publishedAid;
+                    if (snapshot.Answers.TryGetValue(aid, out var existingA))
+                    {
+                        if (string.Equals(existingA, DialogEsLatin1.Normalize(preparedA), StringComparison.Ordinal))
+                            continue;
+
+                        replaceA = true;
+                    }
+                    else if (!resolver.TryClaimAnswer(aid))
+                    {
+                        errors.Add(string.Create(CultureInfo.InvariantCulture,
+                            $"D.a[{aid}] no se pudo reservar (conflicto local)."));
+                        continue;
+                    }
+                }
+                else
+                {
+                    aid = resolver.ReserveInteractiveAnswer();
+                }
+
                 bindings.Add(new DialogEsPublishBinding
                 {
                     Assignment = new DialogEsAssignment
                     {
                         Space = DialogEsSpace.Answer,
                         Id = aid,
-                        Text = r.TextLocal,
+                        Text = preparedA,
+                        ReplaceExisting = replaceA,
                     },
                     OwnerNpcDraftId = q.OwnerNpcId,
                     OwnerQuestionDraftId = q.Id,
                     OwnerResponseDraftId = r.DraftId,
-                    Kind = "interactive-answer",
+                    Kind = replaceA ? "interactive-answer-replace" : "interactive-answer",
                 });
             }
         }
 
-        foreach (var npc in npcs)
+        foreach (var npc in pendingNpcs)
         {
-            if (npc.DialogMode != NpcDialogMode.Simple || !npc.IsPendingDialogEs)
-                continue;
-            if (npc.DialogEsPublished)
+            if (npc.DialogMode != NpcDialogMode.Simple)
                 continue;
 
+            var hasText = !string.IsNullOrWhiteSpace(npc.SimpleDialogTextLocal);
+            if (!hasText)
+                continue;
+
+            // Pre-BD: Pregunta<=0 → reserve. Post-BD / repair: Pregunta already assigned → reuse.
+            if (npc.Pregunta <= 0 && !npc.IsPendingDialogEs)
+                continue;
+
+            string preparedSimple;
             try
             {
-                DialogEsLatin1.Validate(npc.SimpleDialogTextLocal, $"NPC {npc.Id}");
+                preparedSimple = DialogEsLatin1.Prepare(npc.SimpleDialogTextLocal, $"NPC {npc.Id}");
             }
             catch (DialogEsEncodingException ex)
             {
@@ -163,22 +231,46 @@ public static class DialogEsPublishBatchBuilder
                 continue;
             }
 
-            var id = resolver.ReserveSimpleQuestion();
+            if (!string.Equals(npc.SimpleDialogTextLocal, preparedSimple, StringComparison.Ordinal))
+                npc.SimpleDialogTextLocal = preparedSimple;
+
+            int id;
+            var replaceSimple = false;
+            if (npc.Pregunta > 0)
+            {
+                id = npc.Pregunta;
+                if (snapshot.Questions.TryGetValue(id, out var existing))
+                {
+                    if (string.Equals(existing, DialogEsLatin1.Normalize(preparedSimple), StringComparison.Ordinal))
+                        continue;
+
+                    replaceSimple = true;
+                }
+                else if (!resolver.TryClaimQuestion(id))
+                {
+                    errors.Add(string.Create(CultureInfo.InvariantCulture,
+                        $"D.q[{id}] no se pudo reservar (conflicto local)."));
+                    continue;
+                }
+            }
+            else
+            {
+                id = resolver.ReserveSimpleQuestion();
+            }
+
             bindings.Add(new DialogEsPublishBinding
             {
                 Assignment = new DialogEsAssignment
                 {
                     Space = DialogEsSpace.Question,
                     Id = id,
-                    Text = npc.SimpleDialogTextLocal,
+                    Text = preparedSimple,
+                    ReplaceExisting = replaceSimple,
                 },
                 OwnerNpcDraftId = npc.Id,
-                Kind = "simple",
+                Kind = replaceSimple ? "simple-replace" : "simple",
             });
         }
-
-        if (bindings.Count == 0 && errors.Count == 0)
-            errors.Add("No hay textos nuevos pendientes de publicar en dialog_es.");
 
         return new DialogEsPublishBatch
         {
@@ -202,21 +294,22 @@ public static class DialogEsPublishBatchBuilder
 
         foreach (var b in batch.Bindings)
         {
-            if (b.Kind == "simple" && b.OwnerNpcDraftId is int npcId)
+            if ((b.Kind is "simple" or "simple-replace") && b.OwnerNpcDraftId is int npcId)
             {
                 var npc = workspace.Npcs.FindById(npcId);
                 if (npc is null) continue;
                 npc.Pregunta = b.Assignment.Id;
+                npc.DialogEsIdProvisional = false;
                 npc.DialogEsPublished = true;
                 npc.DialogEsPublishedVersion = publishedVersion;
             }
-            else if (b.Kind == "interactive-question"
+            else if ((b.Kind is "interactive-question" or "interactive-question-replace")
                      && b.OwnerQuestionDraftId is int oldQ
                      && b.Assignment.Space == DialogEsSpace.Question)
             {
                 questionRemap[oldQ] = b.Assignment.Id;
             }
-            else if (b.Kind == "interactive-answer"
+            else if ((b.Kind is "interactive-answer" or "interactive-answer-replace")
                      && b.OwnerResponseDraftId is Guid rid
                      && b.Assignment.Space == DialogEsSpace.Answer)
             {
@@ -232,6 +325,17 @@ public static class DialogEsPublishBatchBuilder
 
         if (questionRemap.Count > 0)
             RemapQuestionIds(workspace, questionRemap, publishedVersion);
+
+        // Post-BD path: IDs already final — still mark interactive NPCs as dialog_es published.
+        foreach (var b in batch.Bindings.Where(x =>
+                     x.Kind is "interactive-question" or "interactive-question-replace"))
+        {
+            if (b.OwnerNpcDraftId is not int ownerNpcId) continue;
+            var npc = workspace.Npcs.FindById(ownerNpcId);
+            if (npc is null) continue;
+            npc.DialogEsPublished = true;
+            npc.DialogEsPublishedVersion = publishedVersion;
+        }
     }
 
     private static void RemapQuestionIds(

@@ -38,9 +38,9 @@ public sealed class ContentPublishTests
         stage.Nombre = "E1";
         stage.Rewards.Exp = 100;
         var o1 = ws.Missions.AddDeliverItemsObjective(stage, npc.Id, 8682, 5);
-        var o2 = ws.Missions.AddObjective(stage, tipo: 0);
-        o2.Args = "raw";
-        o2.Detalle = "[\"texto\"]";
+        var o2 = ws.Missions.AddObjective(stage, MissionObjectiveTypes.TalkToNpc);
+        o2.Args = "[1]";
+        o2.Detalle = "Habla con NPC #1.";
         ws.Dialogs.LinkStartMission(aQuest, mission.DraftId);
 
         var stage2 = ws.Missions.AddStage(mission);
@@ -262,6 +262,162 @@ public sealed class ContentPublishTests
     {
         // Structural: NpcRespuestaInsertRow has no Orden property
         Assert.Null(typeof(NpcRespuestaInsertRow).GetProperty("Orden"));
+    }
+
+    [Fact]
+    public void ScaleX_valid_in_sql_range_passes_preflight()
+    {
+        var ws = BuildSampleWorkspace();
+        ws.Npcs.Drafts[0].ScaleX = 100;
+        ws.Npcs.Drafts[0].ScaleY = 100;
+        var plan = ContentPublishPlanBuilder.Build(ws, DefaultMaxes());
+        Assert.True(plan.IsValid, string.Join("; ", plan.Errors));
+        Assert.Equal(100, plan.Npcs[0].ScaleX);
+    }
+
+    [Fact]
+    public void ScaleY_valid_in_sql_range_passes_preflight()
+    {
+        var ws = BuildSampleWorkspace();
+        ws.Npcs.Drafts[0].ScaleX = 127;
+        ws.Npcs.Drafts[0].ScaleY = 90;
+        var plan = ContentPublishPlanBuilder.Build(ws, DefaultMaxes());
+        Assert.True(plan.IsValid, string.Join("; ", plan.Errors));
+        Assert.Equal(90, plan.Npcs[0].ScaleY);
+    }
+
+    [Fact]
+    public void ScaleX_out_of_range_blocks_preflight()
+    {
+        var ws = BuildSampleWorkspace();
+        // Below SQL min still blocked (AUTO_CLAMP.MAX.2 does not change lower bound).
+        ws.Npcs.Drafts[0].ScaleX = -200;
+        ws.Npcs.Drafts[0].ScaleY = 100;
+        var plan = ContentPublishPlanBuilder.Build(ws, DefaultMaxes());
+        Assert.False(plan.IsValid);
+        Assert.Contains(NpcsModeloScale.ErrorScaleX, plan.Errors);
+    }
+
+    [Fact]
+    public void ScaleY_out_of_range_blocks_preflight()
+    {
+        var ws = BuildSampleWorkspace();
+        ws.Npcs.Drafts[0].ScaleX = 100;
+        ws.Npcs.Drafts[0].ScaleY = -200;
+        var plan = ContentPublishPlanBuilder.Build(ws, DefaultMaxes());
+        Assert.False(plan.IsValid);
+        Assert.Contains(NpcsModeloScale.ErrorScaleY, plan.Errors);
+    }
+
+    [Fact]
+    public async Task Scale_out_of_range_does_not_start_batch()
+    {
+        var ws = BuildSampleWorkspace();
+        ws.Npcs.Drafts[0].ScaleX = -200;
+        ws.Npcs.Drafts[0].ScaleY = -200;
+        var store = new InMemoryContentPublishStore(DefaultMaxes(), allMyisam: true);
+        var svc = new ContentPublishService(store, Path.Combine(Path.GetTempPath(), "rufus-scalex-preflight"));
+        var outcome = await svc.PublishAsync(ws);
+        Assert.False(outcome.Success);
+        Assert.Contains(NpcsModeloScale.ErrorScaleX, outcome.Error ?? "");
+        Assert.Equal(0, store.InsertCallCount);
+        Assert.Empty(store.Npcs);
+    }
+
+    [Fact]
+    public void Clamped_scale_reaches_publish_plan_as_127()
+    {
+        var ws = BuildSampleWorkspace();
+        var sx = NpcsModeloScale.ClampMax(150, out var cx);
+        var sy = NpcsModeloScale.ClampMax(130, out var cy);
+        Assert.True(cx);
+        Assert.True(cy);
+        ws.Npcs.Drafts[0].ScaleX = sx;
+        ws.Npcs.Drafts[0].ScaleY = sy;
+        var plan = ContentPublishPlanBuilder.Build(ws, DefaultMaxes());
+        Assert.True(plan.IsValid, string.Join("; ", plan.Errors));
+        Assert.Equal(127, plan.Npcs[0].ScaleX);
+        Assert.Equal(127, plan.Npcs[0].ScaleY);
+    }
+
+    [Theory]
+    [InlineData(130)]
+    [InlineData(150)]
+    [InlineData(128)]
+    public void ScaleX_and_ScaleY_clamp_max_helpers(int input)
+    {
+        Assert.Equal(127, NpcsModeloScale.ClampMax(input, out var cx));
+        Assert.True(cx);
+        Assert.Equal(127, NpcsModeloScale.ClampMax(input, out var cy));
+        Assert.True(cy);
+    }
+
+    [Fact]
+    public async Task Valid_npc_scale_publish_still_works()
+    {
+        var ws = BuildSampleWorkspace();
+        ws.Npcs.Drafts[0].ScaleX = 110;
+        ws.Npcs.Drafts[0].ScaleY = 110;
+        var store = new InMemoryContentPublishStore(DefaultMaxes(), allMyisam: true);
+        var svc = new ContentPublishService(store, Path.Combine(Path.GetTempPath(), "rufus-scalex-ok"));
+        var outcome = await svc.PublishAsync(ws);
+        Assert.True(outcome.Success, outcome.Error);
+        Assert.Single(store.Npcs);
+        Assert.Equal(110, store.Npcs.Values.First().ScaleX);
+        Assert.Equal(110, store.Npcs.Values.First().ScaleY);
+    }
+
+    [Fact]
+    public void Dialogo_simple_no_arrastra_mision_con_cambios_pendientes_BD()
+    {
+        var ws = new ContentDraftWorkspace();
+        var npc = ws.Npcs.CreateNew();
+        npc.Id = 20067;
+        npc.Nombre = "Silvio";
+        npc.DialogMode = NpcDialogMode.Simple;
+        npc.SimpleDialogTextLocal = "Hola";
+        npc.PublishedBd = false;
+        ws.Npcs.AddLocation(npc).MapId = 490;
+
+        var other = ws.Npcs.CreateNew();
+        other.Id = 20068;
+        other.Nombre = "Auro";
+        other.DialogMode = NpcDialogMode.Simple;
+        other.SimpleDialogTextLocal = "Hola";
+        other.PublishedBd = false;
+        ws.Npcs.AddLocation(other).MapId = 686;
+
+        var mission = ws.Missions.CreateMission();
+        mission.Nombre = "Guerreros del poder";
+        mission.PublishedBd = true;
+        mission.PublishedQuestId = 100005;
+        mission.HasPendingBdChanges = true;
+        mission.StartNpcId = npc.Id;
+        mission.PublishedStageIds.Add(5502);
+        mission.PublishedObjectiveIds.AddRange(new[] { 4662, 4663 });
+        mission.PendingDeletedObjectiveIds.Add(4662);
+        var stage = ws.Missions.AddStage(mission);
+        stage.Id = 5502;
+        stage.Nombre = "Misiones faciles prueba";
+        var o = ws.Missions.AddObjective(stage, MissionObjectiveTypes.DiscoverMap);
+        o.Id = 4663;
+        o.Args = "1";
+
+        var plan = ContentPublishPlanBuilder.Build(ws, new ContentPublishMaxSnapshot
+        {
+            NpcsModelo = 20066,
+            NpcPreguntas = 20030,
+            NpcRespuestas = 102951,
+            Misiones = 100005,
+            MisionEtapas = 5502,
+            MisionObjetivos = 4663,
+        });
+
+        Assert.Equal(2, plan.Npcs.Count);
+        Assert.Empty(plan.Missions);
+        Assert.Empty(plan.Stages);
+        Assert.Empty(plan.Objectives);
+        Assert.DoesNotContain(100005, plan.ReservedQuestIds);
     }
 
     private static ContentPublishMaxSnapshot DefaultMaxes() => new()

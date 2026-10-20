@@ -375,4 +375,111 @@ public sealed class ContDialog6cTests : IDisposable
             return bytes;
         }
     }
+
+    [Fact]
+    public void Pre_bd_batch_uses_provisional_ids_skipping_swf_occupied()
+    {
+        var snap = DialogEsParser.Parse(Seed(8, Q(20024, "viejo"), Q(20025, "viejo2"), Q(20026, "viejo3")));
+        var ws = new ContentDraftWorkspace();
+        ws.Npcs.SetDbMaxId(1);
+        var npc = ws.Npcs.CreateNew();
+        npc.DialogMode = NpcDialogMode.Interactive;
+        npc.PublishedBd = false;
+        var q1 = ws.Dialogs.CreateQuestion(npc.Id);
+        q1.Id = 1;
+        q1.TextLocal = "Oferta";
+        q1.PublishedBd = false;
+        var r = ws.Dialogs.AddResponse(q1);
+        r.TextLocal = "Acepto";
+        var q2 = ws.Dialogs.CreateQuestion(npc.Id);
+        q2.Id = 2;
+        q2.TextLocal = "Incompleta";
+        var q3 = ws.Dialogs.CreateQuestion(npc.Id);
+        q3.Id = 3;
+        q3.TextLocal = "Completada";
+
+        var batch = DialogEsPublishBatchBuilder.Build(
+            ws,
+            snap,
+            new DialogEsIdOccupancy { BdQuestionMax = 20023, BdResponseMax = 90001 });
+        Assert.True(batch.IsValid, string.Join("; ", batch.Errors));
+        var qIds = batch.Bindings.Where(b => b.Assignment.Space == DialogEsSpace.Question)
+            .Select(b => b.Assignment.Id).OrderBy(x => x).ToArray();
+        Assert.Equal(new[] { 20027, 20028, 20029 }, qIds);
+        Assert.DoesNotContain(batch.Bindings, b => b.Assignment.Id is 20024 or 20025 or 20026);
+    }
+
+    [Fact]
+    public void Post_bd_batch_uses_published_ids_and_replaces_remote_text()
+    {
+        var snap = DialogEsParser.Parse(Seed(8, Q(20024, "viejo oficios"), Q(20025, "Hola"), Q(20026, "Ciao")));
+        var ws = new ContentDraftWorkspace();
+        ws.Npcs.SetDbMaxId(20064);
+        var npc = ws.Npcs.CreateNew();
+        npc.Id = 20065;
+        npc.DialogMode = NpcDialogMode.Interactive;
+        npc.PublishedBd = true;
+        npc.DialogEsPublished = false;
+        npc.Pregunta = 20024;
+        var q1 = ws.Dialogs.CreateQuestion(npc.Id);
+        q1.Id = 20024;
+        q1.TextLocal = "Oferta PRUEBA";
+        q1.PublishedBd = true;
+        var r = ws.Dialogs.AddResponse(q1);
+        r.TextLocal = "Acepto";
+        r.PublishedResponseId = 90002;
+        var q2 = ws.Dialogs.CreateQuestion(npc.Id);
+        q2.Id = 20025;
+        q2.TextLocal = "Incompleta PRUEBA";
+        q2.PublishedBd = true;
+        var q3 = ws.Dialogs.CreateQuestion(npc.Id);
+        q3.Id = 20026;
+        q3.TextLocal = "Completada PRUEBA";
+        q3.PublishedBd = true;
+
+        var batch = DialogEsPublishBatchBuilder.Build(
+            ws,
+            snap,
+            new DialogEsIdOccupancy { BdQuestionMax = 20026, BdResponseMax = 90002 });
+        Assert.True(batch.IsValid, string.Join("; ", batch.Errors));
+        Assert.Contains(batch.Bindings, b => b.Assignment is { Space: DialogEsSpace.Question, Id: 20024, ReplaceExisting: true });
+        Assert.Contains(batch.Bindings, b => b.Assignment is { Space: DialogEsSpace.Question, Id: 20025, ReplaceExisting: true });
+        Assert.Contains(batch.Bindings, b => b.Assignment is { Space: DialogEsSpace.Question, Id: 20026, ReplaceExisting: true });
+        Assert.Contains(batch.Bindings, b => b.Assignment is { Space: DialogEsSpace.Answer, Id: 90002 });
+        Assert.DoesNotContain(batch.Bindings, b => b.Assignment.Id is 20028 or 20029 or 20030 or 102951);
+        Assert.Empty(batch.Errors);
+
+        var gen = DialogEsService.Generate(new DialogEsGenerateRequest
+        {
+            SourceSwfBytes = Seed(8, Q(20024, "viejo oficios"), Q(20025, "Hola"), Q(20026, "Ciao")),
+            Additions = batch.Additions,
+        });
+        Assert.True(gen.Success, gen.Error);
+        Assert.Equal("Oferta PRUEBA", gen.OutputSnapshot!.Questions[20024]);
+        Assert.Equal("Acepto", gen.OutputSnapshot.Answers[90002]);
+    }
+
+    [Fact]
+    public void Post_bd_same_remote_text_skips_without_blocking()
+    {
+        var snap = DialogEsParser.Parse(Seed(8, Q(20024, "Oferta"), A(90002, "Acepto")));
+        var ws = new ContentDraftWorkspace();
+        ws.Npcs.SetDbMaxId(1);
+        var npc = ws.Npcs.CreateNew();
+        npc.DialogMode = NpcDialogMode.Interactive;
+        npc.PublishedBd = true;
+        npc.DialogEsPublished = false;
+        var q1 = ws.Dialogs.CreateQuestion(npc.Id);
+        q1.Id = 20024;
+        q1.TextLocal = "Oferta";
+        q1.PublishedBd = true;
+        var r = ws.Dialogs.AddResponse(q1);
+        r.TextLocal = "Acepto";
+        r.PublishedResponseId = 90002;
+
+        var batch = DialogEsPublishBatchBuilder.Build(ws, snap);
+        Assert.DoesNotContain(batch.Bindings, b => b.Assignment.Id == 20024);
+        Assert.DoesNotContain(batch.Bindings, b => b.Assignment.Id == 90002);
+        Assert.DoesNotContain(batch.Errors, e => e.Contains("ya existe", StringComparison.OrdinalIgnoreCase));
+    }
 }
