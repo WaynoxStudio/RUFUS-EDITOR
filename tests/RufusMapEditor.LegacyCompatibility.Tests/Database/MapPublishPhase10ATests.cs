@@ -159,6 +159,8 @@ public sealed class MapPublishPhase10ATests
         Assert.False(RevisionLogic.TryIncrement("VULKANIA", out _, out var err));
         Assert.Contains("VULKANIA", err, StringComparison.Ordinal);
         Assert.False(RevisionLogic.IsNumeric("VULKANIA"));
+        Assert.Equal("VULKANIA", RevisionLogic.NextOrKeep("VULKANIA"));
+        Assert.Equal("3", RevisionLogic.NextOrKeep("2"));
     }
 
     [Fact]
@@ -273,15 +275,16 @@ public sealed class MapPublishPhase10ATests
     }
 
     [Fact]
-    public async Task Text_revision_requires_manual_without_auto_increment()
+    public async Task Text_revision_is_kept_without_auto_increment()
     {
         var map = SampleMap(backgroundId: 7);
         var repo = new InMemoryMapasRepository();
         repo.Seed(RowFromMap(SampleMap(), "VULKANIA"));
         var svc = new MapPublishService(repo, TempBackupDir());
         var prep = await svc.PrepareAsync(map);
-        Assert.False(prep.Success);
-        Assert.True(prep.NeedsManualRevision);
+        Assert.True(prep.Success);
+        Assert.False(prep.NeedsManualRevision);
+        Assert.Equal("VULKANIA", prep.NewFecha);
         Assert.Equal(0, repo.UpdateCount);
 
         var withManual = await svc.PrepareAsync(map, "10");

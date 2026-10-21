@@ -52,4 +52,30 @@ public sealed class MapQuickUpdateLogicTests
         Assert.False(MapQuickUpdateLogic.TryBuildValues(map, db, out _, out var error));
         Assert.Contains("tamaño", error!, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public void TryBuildValues_keeps_named_fecha()
+    {
+        var map = BlankMapFactory.Create(30100, 19, 22);
+        map.BackgroundId = 105;
+        map.BackgroundDefined = true;
+        MapCellEditor.SyncDocument(map);
+
+        var db = new MapasRow
+        {
+            Id = 30100,
+            Fecha = "Torre desafio",
+            Ancho = 19,
+            Alto = 22,
+            BgId = 284,
+            MapData = "old",
+            X = 0,
+            Y = 0,
+        };
+
+        Assert.True(MapQuickUpdateLogic.TryBuildValues(map, db, out var values, out var error), error);
+        Assert.Equal("Torre desafio", values.Fecha);
+        Assert.Equal(map.MapData, values.MapData);
+        Assert.Equal(105, values.BgId);
+    }
 }

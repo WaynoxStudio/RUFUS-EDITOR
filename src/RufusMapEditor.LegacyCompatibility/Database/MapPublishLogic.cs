@@ -26,6 +26,17 @@ public static class RevisionLogic
         next = (n + 1).ToString(CultureInfo.InvariantCulture).PadLeft(width, '0');
         return true;
     }
+
+    /// <summary>
+    /// Numeric <c>fecha</c> is incremented; names/labels (Isla JEIMAR, Torre desafio) are kept as-is
+    /// so publish / Actualizar Map ID still writes mapData.
+    /// </summary>
+    public static string NextOrKeep(string? current)
+    {
+        if (TryIncrement(current, out var next, out _))
+            return next;
+        return current?.Trim() ?? "";
+    }
 }
 
 public sealed class SchemaCheckResult

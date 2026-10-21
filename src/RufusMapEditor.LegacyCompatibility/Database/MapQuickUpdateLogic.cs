@@ -4,8 +4,8 @@ using RufusMapEditor.LegacyCompatibility.MapData;
 namespace RufusMapEditor.LegacyCompatibility.Database;
 
 /// <summary>
-/// Fast UPDATE path: <c>mapData</c> + <c>bgID</c> + <c>X</c>/<c>Y</c> + <c>fecha</c> (+1).
-/// Never writes <c>ancho</c>/<c>alto</c> or <c>posPelea</c>.
+/// Fast UPDATE path: <c>mapData</c> + <c>bgID</c> + <c>X</c>/<c>Y</c> + <c>fecha</c>
+/// (numeric fecha +1; names/labels kept). Never writes <c>ancho</c>/<c>alto</c> or <c>posPelea</c>.
 /// </summary>
 public static class MapQuickUpdateLogic
 {
@@ -41,11 +41,7 @@ public static class MapQuickUpdateLogic
             return false;
         }
 
-        if (!RevisionLogic.TryIncrement(db.Fecha, out var newFecha, out var revError))
-        {
-            error = revError ?? "No se pudo incrementar la fecha/revisión.";
-            return false;
-        }
+        var newFecha = RevisionLogic.NextOrKeep(db.Fecha);
 
         if (string.IsNullOrEmpty(map.MapData))
         {

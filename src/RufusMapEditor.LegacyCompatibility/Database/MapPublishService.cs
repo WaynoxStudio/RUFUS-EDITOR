@@ -259,16 +259,7 @@ public sealed class MapPublishService
         }
         else
         {
-            return new PublishOutcome
-            {
-                Success = false,
-                NeedsManualRevision = true,
-                CurrentFecha = row.Fecha,
-                Diff = MapPublishLogic.BuildDiff(row, map, row.Fecha),
-                Error =
-                    $"El valor de revisión actual no es numérico: {row.Fecha}\n" +
-                    "Indique una revisión nueva válida (entero) antes de publicar.",
-            };
+            proposed = RevisionLogic.NextOrKeep(row.Fecha);
         }
 
         return new PublishOutcome
