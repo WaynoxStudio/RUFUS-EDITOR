@@ -36,7 +36,7 @@
       </ListBox.ItemsPanel>
       <ListBox.ItemTemplate>
         <DataTemplate>
-          <Border Width="108" Height="120" Margin="4" Padding="4" CornerRadius="4"
+          <Border Width="116" Height="136" Margin="4" Padding="4" CornerRadius="4"
                   Background="{DynamicResource ThumbBackground}" BorderBrush="{DynamicResource Border}" BorderThickness="1">
             <StackPanel>
               <Border Height="72" Background="{DynamicResource CheckerA}" CornerRadius="3" ClipToBounds="True">
@@ -44,6 +44,8 @@
               </Border>
               <TextBlock Text="{Binding Label}" HorizontalAlignment="Center" FontFamily="Consolas" FontSize="11"
                          Foreground="{DynamicResource TextPrimary}" Margin="0,4,0,0"/>
+              <TextBlock Text="{Binding SizeLabel}" HorizontalAlignment="Center" FontFamily="Consolas" FontSize="10"
+                         Foreground="{DynamicResource TextSecondary}"/>
             </StackPanel>
           </Border>
         </DataTemplate>

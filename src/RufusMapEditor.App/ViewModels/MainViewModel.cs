@@ -7452,7 +7452,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
     private void LoadLibraryCore(string path, LibrarySource source = LibrarySource.ManualSelection)
     {
         StatusText = "Cargando biblioteca...";
-        SuppressImagesWatcher(TimeSpan.FromSeconds(30));
+        SuppressImagesWatcher(TimeSpan.FromSeconds(2));
         DisposeImagesWatcher();
         _thumbs.Clear();
         _overlayCache.Clear();
@@ -7496,7 +7496,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             if (!Directory.Exists(images))
                 return;
 
-            _imagesReloadDebounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(2500) };
+            _imagesReloadDebounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(800) };
             _imagesReloadDebounce.Tick += (_, _) =>
             {
                 _imagesReloadDebounce?.Stop();
@@ -7508,7 +7508,9 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
                 IncludeSubdirectories = true,
                 NotifyFilter = NotifyFilters.FileName
                                | NotifyFilters.DirectoryName
-                               | NotifyFilters.LastWrite,
+                               | NotifyFilters.LastWrite
+                               | NotifyFilters.Size
+                               | NotifyFilters.CreationTime,
                 InternalBufferSize = 64 * 1024,
                 EnableRaisingEvents = true,
             };
@@ -7525,9 +7527,6 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
 
     private void OnImagesFolderChanged(object sender, FileSystemEventArgs e)
     {
-        if (Environment.TickCount64 < _imagesWatcherSuppressUntilTick)
-            return;
-
         var name = Path.GetFileName(e.Name ?? e.FullPath);
         if (string.IsNullOrEmpty(name) ||
             name.StartsWith(".", StringComparison.Ordinal) ||
@@ -7578,6 +7577,7 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
             _library.ApplyCatalog(path, built.Catalog);
             _thumbs.Clear();
             _overlayCache.Clear();
+            _mapPreviews.Clear();
             BuildCatalogIndex();
             RebuildFolderTree();
             RefreshVisibleGfx(force: true);

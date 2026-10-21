@@ -11,7 +11,7 @@ namespace RufusMapEditor.App.Services;
 /// </summary>
 public sealed class GfxThumbnailCache
 {
-    private readonly ConcurrentDictionary<(GfxCategory, int, int), ImageSource> _cache = new();
+    private readonly ConcurrentDictionary<(GfxCategory Category, int Id, int DecodeWidth, long WriteTicks), ImageSource> _cache = new();
 
     public ImageSource? GetThumbnail(GfxResource resource, int decodeWidth = 64)
     {
@@ -21,13 +21,19 @@ public sealed class GfxThumbnailCache
 
         try
         {
-            return _cache.GetOrAdd((resource.Category, resource.Id, decodeWidth), _ =>
+            var writeTicks = File.Exists(resource.FilePath)
+                ? File.GetLastWriteTimeUtc(resource.FilePath).Ticks
+                : 0L;
+            return _cache.GetOrAdd((resource.Category, resource.Id, decodeWidth, writeTicks), _ =>
             {
+                // BitmapImage + StreamSource (no Uri) crashes WPF ImagingCache
+                // with "Value cannot be null (Parameter 'key')". Load from URI and
+                // bust the WPF image cache with IgnoreImageCache + writeTicks in our key.
                 var bi = new BitmapImage();
                 bi.BeginInit();
-                bi.UriSource = new Uri(resource.FilePath, UriKind.Absolute);
+                bi.UriSource = new Uri(Path.GetFullPath(resource.FilePath), UriKind.Absolute);
                 bi.CacheOption = BitmapCacheOption.OnLoad;
-                bi.CreateOptions = BitmapCreateOptions.IgnoreColorProfile;
+                bi.CreateOptions = BitmapCreateOptions.IgnoreColorProfile | BitmapCreateOptions.IgnoreImageCache;
                 bi.DecodePixelWidth = decodeWidth;
                 bi.EndInit();
                 bi.Freeze();
@@ -43,6 +49,10 @@ public sealed class GfxThumbnailCache
             return null;
         }
         catch (NotSupportedException)
+        {
+            return null;
+        }
+        catch (ArgumentException)
         {
             return null;
         }

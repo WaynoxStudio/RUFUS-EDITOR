@@ -5,6 +5,8 @@ using System.Windows.Input;
 using System.Windows.Media;
 using RufusMapEditor.App.Services;
 using RufusMapEditor.Domain.Gfx;
+using RufusMapEditor.LegacyCompatibility.Gfx;
+using RufusMapEditor.Rendering;
 
 namespace RufusMapEditor.App;
 
@@ -21,7 +23,13 @@ public partial class BackgroundPickerWindow : Window
 
         var thumbs = new GfxThumbnailCache();
         var all = library.Catalog!.Enumerate(GfxCategory.Background)
-            .Select(r => new BackgroundItemVm(r.Id, thumbs.GetThumbnail(r, 96)))
+            .Select(r =>
+            {
+                var disk = GfxImageDimensions.TryRead(r.FilePath);
+                var w = disk?.Width ?? r.PixelWidth;
+                var h = disk?.Height ?? r.PixelHeight;
+                return new BackgroundItemVm(r.Id, w, h, thumbs.GetThumbnail(r, 96));
+            })
             .OrderBy(x => x.Id)
             .ToList();
 
@@ -71,15 +79,41 @@ public partial class BackgroundPickerWindow : Window
 
     public sealed class BackgroundItemVm
     {
-        public BackgroundItemVm(int id, ImageSource? thumbnail)
+        public BackgroundItemVm(int id, int? pixelWidth, int? pixelHeight, ImageSource? thumbnail)
         {
             Id = id;
             Thumbnail = thumbnail;
             Label = $"BG {id}";
+            SizeLabel = FormatSize(pixelWidth, pixelHeight);
         }
 
         public int Id { get; }
         public ImageSource? Thumbnail { get; }
         public string Label { get; }
+        public string SizeLabel { get; }
+
+        private static string FormatSize(int? pixelWidth, int? pixelHeight)
+        {
+            if (pixelWidth is not int w || pixelHeight is not int h || w <= 0 || h <= 0)
+                return "";
+            var fit = GuessMapSize(w, h);
+            return string.IsNullOrEmpty(fit) ? $"{w}×{h}" : $"{w}×{h} · {fit}";
+        }
+
+        private static string GuessMapSize(int w, int h)
+        {
+            foreach (var (mw, mh) in new[] { (15, 17), (19, 22) })
+            {
+                var (cw, ch) = IsoGeometry.ExportImageSize(mw, mh);
+                var (fw, fh) = IsoGeometry.FullCanvasSize(mw, mh);
+                if (Near(w, h, cw, ch) || Near(w, h, fw, fh))
+                    return $"{mw}×{mh}";
+            }
+
+            return w >= 900 && h >= 520 ? "grande" : "pequeño";
+        }
+
+        private static bool Near(int w, int h, int tw, int th) =>
+            Math.Abs(w - tw) <= 40 && Math.Abs(h - th) <= 40;
     }
 }

@@ -131,7 +131,8 @@ public static class AstriaGfxCatalogBuilder
             return map;
         }
 
-        // Deterministic order; last write wins (Astria array overwrite behaviour).
+        // Nested folders (e.g. backgrounds\Nueva carpeta\1717.png) must not hide a newer
+        // file at the category root. Prefer the newest LastWriteTime; if tied, the shallower path.
         var files = Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories)
             .OrderBy(path => path, StringComparer.OrdinalIgnoreCase);
 
@@ -204,9 +205,12 @@ public static class AstriaGfxCatalogBuilder
                 };
             }
 
-            if (map.ContainsKey(id))
+            if (map.TryGetValue(id, out var previous))
             {
                 duplicateCount++;
+                var keepNew = PreferDuplicate(resource.FilePath, previous.FilePath);
+                var kept = keepNew ? resource.FilePath : previous.FilePath;
+                var dropped = keepNew ? previous.FilePath : resource.FilePath;
                 issues.Add(new GfxCatalogIssue
                 {
                     Severity = GfxIssueSeverity.Warning,
@@ -214,8 +218,10 @@ public static class AstriaGfxCatalogBuilder
                     Category = category,
                     GfxId = id,
                     Path = filePath,
-                    Message = $"Duplicate GfxID {id} in {category}; keeping last path '{resource.FilePath}' (previous '{map[id].FilePath}').",
+                    Message = $"Duplicate GfxID {id} in {category}; keeping '{kept}' (ignored '{dropped}').",
                 });
+                if (!keepNew)
+                    continue;
             }
 
             map[id] = resource;
@@ -311,5 +317,28 @@ public static class AstriaGfxCatalogBuilder
             Code = GfxIssueCode.CrossCategoryIdOverlap,
             Message = $"Detected {overlapCount} numeric GfxID overlaps across categories. Namespaces remain separate (Background/Ground/Object).",
         });
+    }
+
+    private static bool PreferDuplicate(string candidatePath, string currentPath)
+    {
+        try
+        {
+            var candidateTime = File.GetLastWriteTimeUtc(candidatePath);
+            var currentTime = File.GetLastWriteTimeUtc(currentPath);
+            var cmp = candidateTime.CompareTo(currentTime);
+            if (cmp != 0)
+                return cmp > 0;
+        }
+        catch
+        {
+            // Fall through to path-depth if timestamps are unreadable.
+        }
+
+        var candidateDepth = candidatePath.Count(c => c == Path.DirectorySeparatorChar || c == Path.AltDirectorySeparatorChar);
+        var currentDepth = currentPath.Count(c => c == Path.DirectorySeparatorChar || c == Path.AltDirectorySeparatorChar);
+        if (candidateDepth != currentDepth)
+            return candidateDepth < currentDepth;
+
+        return string.Compare(candidatePath, currentPath, StringComparison.OrdinalIgnoreCase) > 0;
     }
 }

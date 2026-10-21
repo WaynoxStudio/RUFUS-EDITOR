@@ -80,7 +80,7 @@ public sealed class GfxCatalogFixtureTests : IDisposable
     [Fact]
     public void Duplicate_gfx_ids_are_detected_and_last_path_wins()
     {
-        // Sorted order: A_Murs then B_Murs → last write wins (B_Murs), matching Astria overwrite.
+        // Same timestamp: shallower path first, then later path name (B_Murs) wins.
         CreateImage("Images/objects/A_Murs/100.png");
         CreateImage("Images/objects/B_Murs/100.png");
         WriteAnchors("XML/grounds.xml");
