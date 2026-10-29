@@ -40,8 +40,8 @@ public static class SeamPaintHelper
         if (!catalog.TryGet(category, gfxId, out var res) || res is null)
             return Array.Empty<WorldCellRef>();
 
-        var imgW = res.PixelWidth ?? 0;
-        var imgH = res.PixelHeight ?? 0;
+        var imgW = res.PlacementWidth;
+        var imgH = res.PlacementHeight;
         if (imgW <= 0 || imgH <= 0)
         {
             try

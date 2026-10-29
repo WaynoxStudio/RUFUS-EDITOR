@@ -9496,11 +9496,17 @@ public sealed class MainViewModel : ViewModelBase, IDisposable
                     if (offer != MessageBoxResult.Yes)
                         return false;
 
-                    var confirm = new CreateConfirmWindow(summary, label)
+                    var confirm = new CreateConfirmWindow(summary, label, CurrentMap.DateMap)
                     {
                         Owner = Application.Current?.MainWindow,
                     };
-                    return confirm.ShowDialog() == true && confirm.Confirmed;
+                    if (confirm.ShowDialog() != true || !confirm.Confirmed)
+                        return false;
+
+                    MapCreateLogic.ApplyCreateFecha(plan, confirm.ChosenFecha);
+                    CurrentMap.DateMap = plan.EditorValues.Fecha;
+                    EditRevision = plan.EditorValues.Fecha;
+                    return true;
                 }),
                 db.NewMapDefaults).ConfigureAwait(true);
 

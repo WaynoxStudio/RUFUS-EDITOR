@@ -74,9 +74,11 @@ public static class GfxPlacementPipeline
         int rotation,
         bool isObject,
         out GfxPlacementDescriptor descriptor,
-        int sizeCell = IsoGeometry.SizeBaseCell) =>
-        TryBuild(
-            mapWidth, mapHeight, cellId, resource,
-            bitmap.Width, bitmap.Height, flip, rotation, isObject,
+        int sizeCell = IsoGeometry.SizeBaseCell)
+    {
+        var (w, h) = GfxHdLayout.PlacementPixels(resource, bitmap.Width, bitmap.Height);
+        return TryBuild(
+            mapWidth, mapHeight, cellId, resource, w, h, flip, rotation, isObject,
             out descriptor, sizeCell);
+    }
 }

@@ -51,19 +51,24 @@ public sealed class GfxOverlayCache : IDisposable
         if (!_bitmaps.TryGetBitmap(resource, out var source))
             return null;
 
+        var layout = GfxHdLayout.FromResource(resource, source.Width, source.Height);
         var (ax, ay) = GfxPlacementMath.ResolveAnchor(
             resource.Anchor?.X,
             resource.Anchor?.Y,
-            source.Width,
-            source.Height);
+            layout.LogicalWidth,
+            layout.LogicalHeight);
 
         using var transformed = GfxPlacementMath.TransformBitmap(
-            source, ax, ay, flip, rotation, isObject, sizeCell, out var logical);
+            source,
+            layout.LogicalWidth,
+            layout.LogicalHeight,
+            ax, ay, flip, rotation, isObject, sizeCell, out var logical);
 
         var scaled = new Bitmap(logical.Width, logical.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
         using (var g = Graphics.FromImage(scaled))
         {
-            g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.Bilinear;
+            g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+            g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
             g.DrawImage(transformed, 0, 0, logical.Width, logical.Height);
         }
 

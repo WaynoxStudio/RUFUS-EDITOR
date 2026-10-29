@@ -126,6 +126,23 @@ public sealed class MapPublishPhase10BTests
     }
 
     [Fact]
+    public async Task Insert_uses_custom_fecha_name_from_document()
+    {
+        var map = Map(41011);
+        map.DateMap = "Torre desafio sala 4";
+        var repo = RepoWithDefaults();
+        var service = new MapPublishService(repo, TempDir());
+        var plan = await service.PrepareCreateAsync(map);
+        Assert.Equal("Torre desafio sala 4", plan.EditorValues.Fecha);
+        MapCreateLogic.ApplyCreateFecha(plan, "Sala 4 custom");
+        var result = await service.PublishCreateAsync(map, plan);
+        Assert.True(result.Success);
+        Assert.Equal("Sala 4 custom", map.DateMap);
+        Assert.Equal("Sala 4 custom", result.NewFecha);
+        Assert.Equal("Sala 4 custom", repo.LastInsert!.EditorValues.Fecha);
+    }
+
+    [Fact]
     public async Task Rufus_default_fills_when_no_mysql_default()
     {
         var repo = RepoWithDefaults();

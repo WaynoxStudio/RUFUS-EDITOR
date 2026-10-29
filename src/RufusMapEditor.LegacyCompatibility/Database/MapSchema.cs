@@ -52,8 +52,8 @@ public sealed class InsertColumnPlan
 
 public sealed class MapInsertPlan
 {
-    public required MapPublishValues EditorValues { get; init; }
-    public required IReadOnlyList<InsertColumnPlan> Columns { get; init; }
+    public required MapPublishValues EditorValues { get; set; }
+    public required IReadOnlyList<InsertColumnPlan> Columns { get; set; }
     public IReadOnlyList<string> MissingRequiredDefaults { get; init; } = Array.Empty<string>();
     public bool CanInsert => MissingRequiredDefaults.Count == 0;
 

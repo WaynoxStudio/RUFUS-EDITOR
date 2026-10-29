@@ -1,14 +1,19 @@
 {
   "formatVersion": 1,
-  "documentId": "82385f0c-ee56-4b4b-b5c8-6c48083a77cf",
-  "createdUtc": "2026-10-09T12:25:20.9547601+00:00",
-  "modifiedUtc": "2026-10-09T12:25:20.9560148+00:00",
-  "projectName": "518",
+  "documentId": "a74f1760-7a59-41ad-b5d5-f8dc4dc08800",
+  "createdUtc": "2026-10-20T23:09:46.6551486+00:00",
+  "modifiedUtc": "2026-10-20T23:09:46.6560984+00:00",
+  "projectName": "map_518",
+  "source": {
+    "kind": "LegacyAstria",
+    "originalMapId": 518,
+    "libraryPathHint": "C:\\Users\\alex_\\Desktop\\RUFUS\\RUFUS-EDITOR\\Library"
+  },
   "map": {
     "id": 518,
     "width": 15,
     "height": 17,
-    "dateMap": "0706131721",
+    "dateMap": "0706131723",
     "key": "",
     "fightPlaces": "|",
     "backgroundId": 0,

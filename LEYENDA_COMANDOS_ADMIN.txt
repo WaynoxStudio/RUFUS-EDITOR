@@ -1,0 +1,678 @@
+Formato: COMANDO | qué va detrás | qué hace | ejemplo
+[ ] = opcional. Si omites NombrePJ, se aplica a TI. Kamas/abono negativo restan. NIVEL pone el nivel exacto.
+Fuente: s-h.jar (estaticos/Comandos.class) + tabla estaticos.comandos_modelo
+
+!GETITEM  |  Después: idObjeto [cantidad] [NombrePJ] [MIN|MAX]  |  Crea el ítem por ID de modelo en el inventario. Sin nombre = a ti. MIN/MAX = jets. | Alias: OBJETO, ITEM  |  Ej: !GETITEM 26126 1 Ruben MAX
+A  |  Después: texto del anuncio  |  Anuncio naranja a TODO el servidor (no lleva nombre de PJ).  |  Ej: A El servidor reinicia en 10 minutos
+ABONO_DAYS  |  Después: días [NombrePJ]  |  Suma días de abono/VIP a la CUENTA de ese PJ. Número negativo quita días. Sin nombre = tú. | Alias: ABONO_DIAS, ADD_ABONO_DAYS, ADD_ABONO_DIAS, DAR_ABONO_DIAS  |  Ej: ABONO_DAYS 30 Ruben
+ABONO_DIAS  |  Después: días [NombrePJ]  |  Suma días de abono/VIP a la CUENTA de ese PJ. Número negativo quita días. Sin nombre = tú. | Alias: ABONO_DAYS, ADD_ABONO_DAYS, ADD_ABONO_DIAS, DAR_ABONO_DIAS  |  Ej: ABONO_DIAS 30 Ruben
+ACCESSORIES_NPC  |  Después: idNPC [NombrePJ]  |  Copia gfx, colores y accesorios de un PJ al NPC modelo (tienda/look del NPC). Sin nombre = tu look. | Alias: STUFF_NPC, ACTUALIZAR_NPC  |  Ej: ACCESSORIES_NPC 801 Ruben
+ACCOUNT_PASSWORD  |  Después: [NombrePJ]  |  Muestra usuario y contraseña de la cuenta de ese PJ. Sin nombre = tú. Cuidado. | Alias: GET_PASS, CUENTA_CONTRASE\u00d1A  |  Ej: ACCOUNT_PASSWORD Ruben
+ACTIVAR_ALBUM  |  Después: true|false  |  Acción GM (el servidor confirma en consola). | Alias: ALBUM_MOBS, PARAM_ALBUM  |  Ej: ACTIVAR_ALBUM true
+ACTIVAR_AURA  |  Después: true|false  |  Activa/desactiva las AURAS en TODO el servidor, no de un personaje. | Alias: AURA, PARAM_AURA  |  Ej: ACTIVAR_AURA true
+ACTUALIZAR_CASA  |  Después: mapaDentro celdaDentro  |  Fija el interior de la CASA donde estás parado (no lleva nombre). Tú tienes que estar en la puerta. | Alias: UPDATE_HOUSE, MAPA_DENTRO_CASA, MODIFY_HOUSE, MODIFICAR_CASA, UPDATE_CASA  |  Ej: ACTUALIZAR_CASA 1030 255
+ACTUALIZAR_NPC  |  Después: idNPC [NombrePJ]  |  Copia gfx, colores y accesorios de un PJ al NPC modelo (tienda/look del NPC). Sin nombre = tu look. | Alias: STUFF_NPC, ACCESSORIES_NPC  |  Ej: ACTUALIZAR_NPC 801 Ruben
+ADD_ABONO  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: ADD_ABONO
+ADD_ACCION_FIN_PELEA  |  Después: número número [valor] [valor] [valor] [número]  |  Acción GM (el servidor confirma en consola). | Alias: AGREGAR_ACCION_FIN_PELEA, ADD_END_FIGHT, ADD_ACTION_END_FIGHT, ADD_END_FIGHT_ACTION  |  Ej: ADD_ACCION_FIN_PELEA 1 1 1 1 1 1
+ADD_ACCION_OBJETO  |  Después: número número valor  |  Acción GM (el servidor confirma en consola). | Alias: AGREGAR_OBJETO_ACCION, ADD_ACTION_ITEM, ADD_ITEM_ACTION, AGREGAR_ACCION_OBJETO, ADD_OBJETO_ACCION  |  Ej: ADD_ACCION_OBJETO 1 1 1
+ADD_ACCION_PELEA  |  Después: número valor  |  Acción GM (el servidor confirma en consola). | Alias: AGREGAR_ACCION_PELEA, ADD_ACTION_FIGHT  |  Ej: ADD_ACCION_PELEA 1 1
+ADD_ACCION_RESPUESTA  |  Después: número número valor valor  |  Acción GM (el servidor confirma en consola). | Alias: ADD_ACCIONES_RESPUESTAS, ADD_ACCIONES_RESPUESTA, ADD_ACTION_ANSWER, ADD_ACTION_REPONSE, AGREGAR_ACCION_RESPUESTA, FIJAR_ACCION_RESPUESTA  |  Ej: ADD_ACCION_RESPUESTA 1 1 1 1
+ADD_ACTION_ANSWER  |  Después: número número valor valor  |  Acción GM (el servidor confirma en consola). | Alias: ADD_ACCIONES_RESPUESTAS, ADD_ACCIONES_RESPUESTA, ADD_ACTION_REPONSE, AGREGAR_ACCION_RESPUESTA, FIJAR_ACCION_RESPUESTA, ADD_ACCION_RESPUESTA  |  Ej: ADD_ACTION_ANSWER 1 1 1 1
+ADD_ACTION_END_FIGHT  |  Después: número número [valor] [valor] [valor] [número]  |  Acción GM (el servidor confirma en consola). | Alias: AGREGAR_ACCION_FIN_PELEA, ADD_ACCION_FIN_PELEA, ADD_END_FIGHT, ADD_END_FIGHT_ACTION  |  Ej: ADD_ACTION_END_FIGHT 1 1 1 1 1 1
+ADD_ACTION_FIGHT  |  Después: número valor  |  Acción GM (el servidor confirma en consola). | Alias: ADD_ACCION_PELEA, AGREGAR_ACCION_PELEA  |  Ej: ADD_ACTION_FIGHT 1 1
+ADD_ACTION_ITEM  |  Después: número número valor  |  Acción GM (el servidor confirma en consola). | Alias: AGREGAR_OBJETO_ACCION, ADD_ACCION_OBJETO, ADD_ITEM_ACTION, AGREGAR_ACCION_OBJETO, ADD_OBJETO_ACCION  |  Ej: ADD_ACTION_ITEM 1 1 1
+ADD_CAPTCHA  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: ADD_CAPTCHA
+ADD_CARD_MOB  |  Después: número [valor]  |  Acción GM (el servidor confirma en consola). | Alias: ADD_MOB_CARD  |  Ej: ADD_CARD_MOB 1 1
+ADD_CELDA_ACCION  |  Después: número valor [valor] [valor]  |  Acción GM (el servidor confirma en consola). | Alias: ADD_TRIGGER, AGREGAR_TRIGER, AGREGAR_CELDA_TELEPORT, AGREGAR_TRIGGER, AGREGAR_CELDA_ACCION  |  Ej: ADD_CELDA_ACCION 1 1 1 1
+ADD_CELDA_CERCADO  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: CELDA_OBJETO, ADD_CELL_MOUNTPARK  |  Ej: ADD_CELDA_CERCADO 1
+ADD_CELL_MOUNTPARK  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: CELDA_OBJETO, ADD_CELDA_CERCADO  |  Ej: ADD_CELL_MOUNTPARK 1
+ADD_COFFRE  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: ADD_COFFRE
+ADD_COMANDO_PERMITIDO  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: COMANDOS_PERMITIDOS, AGREGAR_COMANDO_PERMITIDO, COMANDO_PERMITIDO  |  Ej: ADD_COMANDO_PERMITIDO 1
+ADD_DROP  |  Después: número número número valor número valor  |  Acción GM (el servidor confirma en consola). | Alias: AGREGAR_DROP  |  Ej: ADD_DROP 1 1 1 1 1 1
+ADD_END_FIGHT  |  Después: número número [valor] [valor] [valor] [número]  |  Acción GM (el servidor confirma en consola). | Alias: AGREGAR_ACCION_FIN_PELEA, ADD_ACCION_FIN_PELEA, ADD_ACTION_END_FIGHT, ADD_END_FIGHT_ACTION  |  Ej: ADD_END_FIGHT 1 1 1 1 1 1
+ADD_FIGHT_POS  |  Después: número número  |  Acción GM (el servidor confirma en consola). | Alias: ADD_CELDA_PELEA, ADD_POS_FIGHT, ADD_CELL_FIGHT, AGREGAR_POS_PELEA, AGREGAR_CELDA_PELEA  |  Ej: ADD_FIGHT_POS 1 1
+ADD_GRUPOMOB_FIJO  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: SPAWN_FIX, SPAWN_SQL, AGREGAR_GRUPO_MOB_SQL, AGREGAR_GRUPOMOB_FIJO, AGREGAR_MOB_FIJO, AGREGAR_MOB_GRUPO_SQL, ADD_GRUPO_MOB_SQL, ADD_MOB_FIJO  |  Ej: ADD_GRUPOMOB_FIJO
+ADD_GRUPO_MOB  |  Después: valor número valor valor número  |  Acción GM (el servidor confirma en consola). | Alias: SPAWN_MOB, AGREGAR_GRUPO_MOB, SPAWN, AGREGAR_MOB_GRUPO, ADD_GROUP_MOB, SPAWN_GROUP_MOB, SPAWN_MOBS  |  Ej: ADD_GRUPO_MOB 1 1 1 1 1
+ADD_ITEM_ACTION  |  Después: número número valor  |  Acción GM (el servidor confirma en consola). | Alias: AGREGAR_OBJETO_ACCION, ADD_ACCION_OBJETO, ADD_ACTION_ITEM, AGREGAR_ACCION_OBJETO, ADD_OBJETO_ACCION  |  Ej: ADD_ITEM_ACTION 1 1 1
+ADD_ITEM_NPC  |  Después: número valor  |  Acción GM (el servidor confirma en consola). | Alias: AGREGAR_NPC_ITEM, AGREGAR_NPC_OBJETO, ADD_NPC_ITEM, ADD_NPC_OBJETO, AGREGAR_OBJETO_NPC, ADD_OBJETO_NPC, AGREGAR_ITEM_NPC  |  Ej: ADD_ITEM_NPC 1 1
+ADD_JOB_XP  |  Después: número número [valor]  |  Acción GM (el servidor confirma en consola). | Alias: ADD_XP_OFICIO, EXP_OFICIO, ADD_EXP_OFICIO  |  Ej: ADD_JOB_XP 1 1 1
+ADD_MAPA  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: ADD_MAPA
+ADD_MOBS  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: ADD_MOBS_MAPA, AGREGAR_MOBS_MAPA, INSERTAR_MOBS, AGREGAR_MOBS  |  Ej: ADD_MOBS 1
+ADD_MOBS_MAPA  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: ADD_MOBS, AGREGAR_MOBS_MAPA, INSERTAR_MOBS, AGREGAR_MOBS  |  Ej: ADD_MOBS_MAPA 1
+ADD_MOB_FIJO  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: SPAWN_FIX, SPAWN_SQL, AGREGAR_GRUPO_MOB_SQL, AGREGAR_GRUPOMOB_FIJO, AGREGAR_MOB_FIJO, AGREGAR_MOB_GRUPO_SQL, ADD_GRUPO_MOB_SQL, ADD_GRUPOMOB_FIJO  |  Ej: ADD_MOB_FIJO
+ADD_NPC  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: AGREGAR_NPC  |  Ej: ADD_NPC 1
+ADD_NPC_ITEM  |  Después: número valor  |  Acción GM (el servidor confirma en consola). | Alias: AGREGAR_NPC_ITEM, AGREGAR_NPC_OBJETO, ADD_ITEM_NPC, ADD_NPC_OBJETO, AGREGAR_OBJETO_NPC, ADD_OBJETO_NPC, AGREGAR_ITEM_NPC  |  Ej: ADD_NPC_ITEM 1 1
+ADD_NPC_OBJETO  |  Después: número valor  |  Acción GM (el servidor confirma en consola). | Alias: AGREGAR_NPC_ITEM, AGREGAR_NPC_OBJETO, ADD_ITEM_NPC, ADD_NPC_ITEM, AGREGAR_OBJETO_NPC, ADD_OBJETO_NPC, AGREGAR_ITEM_NPC  |  Ej: ADD_NPC_OBJETO 1 1
+ADD_OBJETO_ACCION  |  Después: número número valor  |  Acción GM (el servidor confirma en consola). | Alias: AGREGAR_OBJETO_ACCION, ADD_ACCION_OBJETO, ADD_ACTION_ITEM, ADD_ITEM_ACTION, AGREGAR_ACCION_OBJETO  |  Ej: ADD_OBJETO_ACCION 1 1 1
+ADD_OBJETO_NPC  |  Después: número valor  |  Acción GM (el servidor confirma en consola). | Alias: AGREGAR_NPC_ITEM, AGREGAR_NPC_OBJETO, ADD_ITEM_NPC, ADD_NPC_ITEM, ADD_NPC_OBJETO, AGREGAR_OBJETO_NPC, AGREGAR_ITEM_NPC  |  Ej: ADD_OBJETO_NPC 1 1
+ADD_OTRO_INTERACTIVO  |  Después: número número número número valor valor número valor  |  Acción GM (el servidor confirma en consola). | Alias: ADD_OTRO_OI, AGREGAR_OTRO_INTERACTIVO  |  Ej: ADD_OTRO_INTERACTIVO 1 1 1 1 1 1 1 1
+ADD_OTRO_OI  |  Después: número número número número valor valor número valor  |  Acción GM (el servidor confirma en consola). | Alias: AGREGAR_OTRO_INTERACTIVO, ADD_OTRO_INTERACTIVO  |  Ej: ADD_OTRO_OI 1 1 1 1 1 1 1 1
+ADD_POINTS  |  Después: número [valor]  |  Acción GM (el servidor confirma en consola). | Alias: REGALAR_OGRINAS, AGREGAR_OGRINAS, DAR_OGRINAS  |  Ej: ADD_POINTS 1 1
+ADD_POINTS_ACCOUNT  |  Después: número [valor]  |  Acción GM (el servidor confirma en consola). | Alias: DAR_OGRINAS_CUENTA  |  Ej: ADD_POINTS_ACCOUNT 1 1
+ADD_POS_FIGHT  |  Después: número número  |  Acción GM (el servidor confirma en consola). | Alias: ADD_CELDA_PELEA, ADD_CELL_FIGHT, ADD_FIGHT_POS, AGREGAR_POS_PELEA, AGREGAR_CELDA_PELEA  |  Ej: ADD_POS_FIGHT 1 1
+ADD_TRIGGER  |  Después: número valor [valor] [valor]  |  Acción GM (el servidor confirma en consola). | Alias: AGREGAR_TRIGER, AGREGAR_CELDA_TELEPORT, ADD_CELDA_ACCION, AGREGAR_TRIGGER, AGREGAR_CELDA_ACCION  |  Ej: ADD_TRIGGER 1 1 1 1
+ADD_TRUNK  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: ADD_TRUNK
+ADICCAC_VIP  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: ADICCAC_VIP
+ADIC_CAC  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: MULTIPLICADOR_DA\u00d1O_CAC  |  Ej: ADIC_CAC 1
+ADIC_MOB  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: MULTIPLICADOR_DA\u00d1O_MOB  |  Ej: ADIC_MOB 1
+ADIC_PJ  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: MULTIPLICADOR_DA\u00d1O_PJ  |  Ej: ADIC_PJ 1
+ADMIN  |  Después: nivelGM [NombrePJ]  |  Cambia el rango GM (0=jugador, 1-4 staff). Sin nombre = tú.  |  Ej: ADMIN 0 Ruben
+AFECTADOS  |  Después: número valor  |  Acción GM (el servidor confirma en consola). | Alias: TARGETS_SPELL, HECHIZO_AFECTADOS, SET_AFECTADOS, SPELL_TARGETS, TARGETS  |  Ej: AFECTADOS 1 1
+AGREGAR_ACCION_FIN_PELEA  |  Después: número número [valor] [valor] [valor] [número]  |  Acción GM (el servidor confirma en consola). | Alias: ADD_ACCION_FIN_PELEA, ADD_END_FIGHT, ADD_ACTION_END_FIGHT, ADD_END_FIGHT_ACTION  |  Ej: AGREGAR_ACCION_FIN_PELEA 1 1 1 1 1 1
+AGREGAR_ACCION_OBJETO  |  Después: número número valor  |  Acción GM (el servidor confirma en consola). | Alias: AGREGAR_OBJETO_ACCION, ADD_ACCION_OBJETO, ADD_ACTION_ITEM, ADD_ITEM_ACTION, ADD_OBJETO_ACCION  |  Ej: AGREGAR_ACCION_OBJETO 1 1 1
+AGREGAR_ACCION_PELEA  |  Después: número valor  |  Acción GM (el servidor confirma en consola). | Alias: ADD_ACCION_PELEA, ADD_ACTION_FIGHT  |  Ej: AGREGAR_ACCION_PELEA 1 1
+AGREGAR_ACCION_RESPUESTA  |  Después: número número valor valor  |  Acción GM (el servidor confirma en consola). | Alias: ADD_ACCIONES_RESPUESTAS, ADD_ACCIONES_RESPUESTA, ADD_ACTION_ANSWER, ADD_ACTION_REPONSE, FIJAR_ACCION_RESPUESTA, ADD_ACCION_RESPUESTA  |  Ej: AGREGAR_ACCION_RESPUESTA 1 1 1 1
+AGREGAR_CELDA_ACCION  |  Después: número valor [valor] [valor]  |  Acción GM (el servidor confirma en consola). | Alias: ADD_TRIGGER, AGREGAR_TRIGER, AGREGAR_CELDA_TELEPORT, ADD_CELDA_ACCION, AGREGAR_TRIGGER  |  Ej: AGREGAR_CELDA_ACCION 1 1 1 1
+AGREGAR_CELDA_TELEPORT  |  Después: número valor [valor] [valor]  |  Acción GM (el servidor confirma en consola). | Alias: ADD_TRIGGER, AGREGAR_TRIGER, ADD_CELDA_ACCION, AGREGAR_TRIGGER, AGREGAR_CELDA_ACCION  |  Ej: AGREGAR_CELDA_TELEPORT 1 1 1 1
+AGREGAR_COFRE  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: AGREGAR_COFRE
+AGREGAR_COMANDO_PERMITIDO  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: ADD_COMANDO_PERMITIDO, COMANDOS_PERMITIDOS, COMANDO_PERMITIDO  |  Ej: AGREGAR_COMANDO_PERMITIDO 1
+AGREGAR_DROP  |  Después: número número número valor número valor  |  Acción GM (el servidor confirma en consola). | Alias: ADD_DROP  |  Ej: AGREGAR_DROP 1 1 1 1 1 1
+AGREGAR_GRUPOMOB_FIJO  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: SPAWN_FIX, SPAWN_SQL, AGREGAR_GRUPO_MOB_SQL, AGREGAR_MOB_FIJO, AGREGAR_MOB_GRUPO_SQL, ADD_GRUPO_MOB_SQL, ADD_GRUPOMOB_FIJO, ADD_MOB_FIJO  |  Ej: AGREGAR_GRUPOMOB_FIJO
+AGREGAR_GRUPO_MOB  |  Después: valor número valor valor número  |  Acción GM (el servidor confirma en consola). | Alias: SPAWN_MOB, SPAWN, AGREGAR_MOB_GRUPO, ADD_GROUP_MOB, SPAWN_GROUP_MOB, ADD_GRUPO_MOB, SPAWN_MOBS  |  Ej: AGREGAR_GRUPO_MOB 1 1 1 1 1
+AGREGAR_ITEM_NPC  |  Después: número valor  |  Acción GM (el servidor confirma en consola). | Alias: AGREGAR_NPC_ITEM, AGREGAR_NPC_OBJETO, ADD_ITEM_NPC, ADD_NPC_ITEM, ADD_NPC_OBJETO, AGREGAR_OBJETO_NPC, ADD_OBJETO_NPC  |  Ej: AGREGAR_ITEM_NPC 1 1
+AGREGAR_MAPA  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: AGREGAR_MAPA
+AGREGAR_MISION_DIARIA  |  Después: número valor número número  |  Acción GM (el servidor confirma en consola). | Alias: ADD_ALMANAX, MISION_ALMANAX, UPDATE_ALMANAX  |  Ej: AGREGAR_MISION_DIARIA 1 1 1 1
+AGREGAR_MOBS  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: ADD_MOBS_MAPA, ADD_MOBS, AGREGAR_MOBS_MAPA, INSERTAR_MOBS  |  Ej: AGREGAR_MOBS 1
+AGREGAR_MOBS_MAPA  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: ADD_MOBS_MAPA, ADD_MOBS, INSERTAR_MOBS, AGREGAR_MOBS  |  Ej: AGREGAR_MOBS_MAPA 1
+AGREGAR_MOB_FIJO  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: SPAWN_FIX, SPAWN_SQL, AGREGAR_GRUPO_MOB_SQL, AGREGAR_GRUPOMOB_FIJO, AGREGAR_MOB_GRUPO_SQL, ADD_GRUPO_MOB_SQL, ADD_GRUPOMOB_FIJO, ADD_MOB_FIJO  |  Ej: AGREGAR_MOB_FIJO
+AGREGAR_MOB_GRUPO  |  Después: valor número valor valor número  |  Acción GM (el servidor confirma en consola). | Alias: SPAWN_MOB, AGREGAR_GRUPO_MOB, SPAWN, ADD_GROUP_MOB, SPAWN_GROUP_MOB, ADD_GRUPO_MOB, SPAWN_MOBS  |  Ej: AGREGAR_MOB_GRUPO 1 1 1 1 1
+AGREGAR_MOB_UNA_PELEA  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: AGREGAR_MOB_UNA_PELEA
+AGREGAR_NPC  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: ADD_NPC  |  Ej: AGREGAR_NPC 1
+AGREGAR_NPC_ITEM  |  Después: número valor  |  Acción GM (el servidor confirma en consola). | Alias: AGREGAR_NPC_OBJETO, ADD_ITEM_NPC, ADD_NPC_ITEM, ADD_NPC_OBJETO, AGREGAR_OBJETO_NPC, ADD_OBJETO_NPC, AGREGAR_ITEM_NPC  |  Ej: AGREGAR_NPC_ITEM 1 1
+AGREGAR_NPC_OBJETO  |  Después: número valor  |  Acción GM (el servidor confirma en consola). | Alias: AGREGAR_NPC_ITEM, ADD_ITEM_NPC, ADD_NPC_ITEM, ADD_NPC_OBJETO, AGREGAR_OBJETO_NPC, ADD_OBJETO_NPC, AGREGAR_ITEM_NPC  |  Ej: AGREGAR_NPC_OBJETO 1 1
+AGREGAR_OBJETO_ACCION  |  Después: número número valor  |  Acción GM (el servidor confirma en consola). | Alias: ADD_ACCION_OBJETO, ADD_ACTION_ITEM, ADD_ITEM_ACTION, AGREGAR_ACCION_OBJETO, ADD_OBJETO_ACCION  |  Ej: AGREGAR_OBJETO_ACCION 1 1 1
+AGREGAR_OBJETO_NPC  |  Después: número valor  |  Acción GM (el servidor confirma en consola). | Alias: AGREGAR_NPC_ITEM, AGREGAR_NPC_OBJETO, ADD_ITEM_NPC, ADD_NPC_ITEM, ADD_NPC_OBJETO, ADD_OBJETO_NPC, AGREGAR_ITEM_NPC  |  Ej: AGREGAR_OBJETO_NPC 1 1
+AGREGAR_OGRINAS  |  Después: número [valor]  |  Acción GM (el servidor confirma en consola). | Alias: REGALAR_OGRINAS, ADD_POINTS, DAR_OGRINAS  |  Ej: AGREGAR_OGRINAS 1 1
+AGREGAR_OTRO_INTERACTIVO  |  Después: número número número número valor valor número valor  |  Acción GM (el servidor confirma en consola). | Alias: ADD_OTRO_OI, ADD_OTRO_INTERACTIVO  |  Ej: AGREGAR_OTRO_INTERACTIVO 1 1 1 1 1 1 1 1
+AGREGAR_POS_PELEA  |  Después: número número  |  Acción GM (el servidor confirma en consola). | Alias: ADD_CELDA_PELEA, ADD_POS_FIGHT, ADD_CELL_FIGHT, ADD_FIGHT_POS, AGREGAR_CELDA_PELEA  |  Ej: AGREGAR_POS_PELEA 1 1
+AGREGAR_TRIGER  |  Después: número valor [valor] [valor]  |  Acción GM (el servidor confirma en consola). | Alias: ADD_TRIGGER, AGREGAR_CELDA_TELEPORT, ADD_CELDA_ACCION, AGREGAR_TRIGGER, AGREGAR_CELDA_ACCION  |  Ej: AGREGAR_TRIGER 1 1 1 1
+AGREGAR_TRIGGER  |  Después: número valor [valor] [valor]  |  Acción GM (el servidor confirma en consola). | Alias: ADD_TRIGGER, AGREGAR_TRIGER, AGREGAR_CELDA_TELEPORT, ADD_CELDA_ACCION, AGREGAR_CELDA_ACCION  |  Ej: AGREGAR_TRIGGER 1 1 1 1
+AJOUTER_COFFRE  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: AJOUTER_COFFRE
+ALBUM_MOBS  |  Después: true|false  |  Acción GM (el servidor confirma en consola). | Alias: ACTIVAR_ALBUM, PARAM_ALBUM  |  Ej: ALBUM_MOBS true
+ALIGN  |  Después: número [valor]  |  Acción GM (el servidor confirma en consola). | Alias: CAMBIAR_ALINEACION, SET_ALIGN, ALINEACION  |  Ej: ALIGN 1 1
+ALINEACION  |  Después: número [valor]  |  Acción GM (el servidor confirma en consola). | Alias: CAMBIAR_ALINEACION, ALIGN, SET_ALIGN  |  Ej: ALINEACION 1 1
+ALL  |  Después: texto  |  Acción GM (el servidor confirma en consola). | Alias: AN, ANNOUNCE  |  Ej: ALL mensaje
+AN  |  Después: texto  |  Acción GM (el servidor confirma en consola). | Alias: ALL, ANNOUNCE  |  Ej: AN mensaje
+ANNOUNCE  |  Después: texto  |  Acción GM (el servidor confirma en consola). | Alias: AN, ALL  |  Ej: ANNOUNCE mensaje
+ANTI_DDOS  |  Después: true|false  |  Acción GM (el servidor confirma en consola). | Alias: CONTRA_DDOS, PARAM_ANTI_DDOS  |  Ej: ANTI_DDOS true
+APRENDER_HECHIZO  |  Después: [número] [valor]  |  Acción GM (el servidor confirma en consola). | Alias: LEARN_SPELL  |  Ej: APRENDER_HECHIZO 1 1
+APRENDER_OFICIO  |  Después: número [valor]  |  Acción GM (el servidor confirma en consola). | Alias: LEARN_JOB  |  Ej: APRENDER_OFICIO 1 1
+AURA  |  Después: true|false  |  Activa/desactiva las AURAS en TODO el servidor, no de un personaje. | Alias: PARAM_AURA, ACTIVAR_AURA  |  Ej: AURA true
+BAN  |  Después: valor número [valor]  |  Acción GM (el servidor confirma en consola). | Alias: BANEAR  |  Ej: BAN 1 1 1
+BANEAR  |  Después: valor número [valor]  |  Acción GM (el servidor confirma en consola). | Alias: BAN  |  Ej: BANEAR 1 1 1
+BANEAR_IP_NUMERO  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: BANEAR_IP, BAN_IP_NUMBER, BAN_IP  |  Ej: BANEAR_IP_NUMERO 1
+BANEAR_IP_PJ  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: BAN_IP_PERSO, BAN_IP_PLAYER  |  Ej: BANEAR_IP_PJ 1
+BAN_IP  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: BANEAR_IP, BANEAR_IP_NUMERO, BAN_IP_NUMBER  |  Ej: BAN_IP 1
+BAN_IP_NUMBER  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: BANEAR_IP, BANEAR_IP_NUMERO, BAN_IP  |  Ej: BAN_IP_NUMBER 1
+BAN_IP_PERSO  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: BANEAR_IP_PJ, BAN_IP_PLAYER  |  Ej: BAN_IP_PERSO 1
+BAN_IP_PLAYER  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: BAN_IP_PERSO, BANEAR_IP_PJ  |  Ej: BAN_IP_PLAYER 1
+BLOCK_ATTACK  |  Después: true|false  |  Acción GM (el servidor confirma en consola). | Alias: BLOQUEAR_ATAQUE  |  Ej: BLOCK_ATTACK true
+BLOCK_GM  |  Después: número número  |  Acción GM (el servidor confirma en consola). | Alias: ACCESO_ADMIN_MINIMO, BLOQUEAR  |  Ej: BLOCK_GM 1 1
+BLOQUEAR  |  Después: número número  |  Acción GM (el servidor confirma en consola). | Alias: ACCESO_ADMIN_MINIMO, BLOCK_GM  |  Ej: BLOQUEAR 1 1
+BLOQUEAR_ATAQUE  |  Después: true|false  |  Acción GM (el servidor confirma en consola). | Alias: BLOCK_ATTACK  |  Ej: BLOQUEAR_ATAQUE true
+BOLETOS_COMPRADOS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: GET_BOUGHT_TICKETS, TICKETS_ACHETES  |  Ej: BOLETOS_COMPRADOS
+BOLETO_DE  |  Después: número  |  Acción GM (el servidor confirma en consola).  |  Ej: BOLETO_DE 1
+BONUS_ATAQUE_ESPALDA  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: BONUS_ATAQUE_ESPALDA
+BORRAR_ACCIONES_RESPUESTA  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: DELETE_ACTIONS_ANSWER, REMOVE_ACTONS_REPONSE, DEL_ACTIONS_REPONSE, DELETE_ACTIONS_REPONSE, DEL_ACTIONS_ANSWER, BORRAR_ACCION_RESPUESTA  |  Ej: BORRAR_ACCIONES_RESPUESTA 1
+BORRAR_ACCION_FIN_PELEA  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: DEL_ACTION_END_FIGHT, ELIMNAR_ACCION_FIN_PELEA, BORRAR_ACCIONES_FIN_PELEA, DELETED_ACTION_END_FIGHT  |  Ej: BORRAR_ACCION_FIN_PELEA
+BORRAR_ACCION_OBJETO  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: BORRAR_ACCIONES_OBJETO, BORRAR_OBJETO_ACCIONES, BORRAR_OBJETO_ACCION, DELETE_ITEM_ACTIONS, DELETE_ACTION_ITEM, DEL_ACTION_ITEM  |  Ej: BORRAR_ACCION_OBJETO 1
+BORRAR_ACCION_RESPUESTA  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: DELETE_ACTIONS_ANSWER, BORRAR_ACCIONES_RESPUESTA, REMOVE_ACTONS_REPONSE, DEL_ACTIONS_REPONSE, DELETE_ACTIONS_REPONSE, DEL_ACTIONS_ANSWER  |  Ej: BORRAR_ACCION_RESPUESTA 1
+BORRAR_CELDA_ACCION  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: BORRAR_CELDA_TELEPORT, DEL_TRIGGER, BORRAR_TRIGER, BORRAR_TRIGGER, DEL_CELDA_ACCION  |  Ej: BORRAR_CELDA_ACCION 1
+BORRAR_CELDA_TELEPORT  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: DEL_TRIGGER, BORRAR_TRIGER, BORRAR_CELDA_ACCION, BORRAR_TRIGGER, DEL_CELDA_ACCION  |  Ej: BORRAR_CELDA_TELEPORT 1
+BORRAR_DROP  |  Después: número número  |  Acción GM (el servidor confirma en consola). | Alias: ERASER_DROP, ELIMINATE_DROP, DELETE_DROP, DEL_DROP  |  Ej: BORRAR_DROP 1 1
+BORRAR_ITEM_NPC  |  Después: número valor  |  Acción GM (el servidor confirma en consola). | Alias: BORRAR_NPC_OBJETO, DEL_ITEM_NPC, BORRAR_OBJETO_NPC, DEL_NPC_ITEM, BORRAR_NPC_ITEM  |  Ej: BORRAR_ITEM_NPC 1 1
+BORRAR_MOBS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: DELETE_MOBS, DEL_MOBS, ELIMINAR_MOBS, REMOVE_MOBS  |  Ej: BORRAR_MOBS
+BORRAR_MOBS_FIJOS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: REMOVE_MOBS_FIX, DEL_MOBS_FIX, BORRAR_MOBS_FIX, ELIMINAR_MOBS_FIJOS, DELETE_MOBS_FIX  |  Ej: BORRAR_MOBS_FIJOS
+BORRAR_MOBS_FIX  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: BORRAR_MOBS_FIJOS, REMOVE_MOBS_FIX, DEL_MOBS_FIX, ELIMINAR_MOBS_FIJOS, DELETE_MOBS_FIX  |  Ej: BORRAR_MOBS_FIX
+BORRAR_NPC  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: DEL_NPC  |  Ej: BORRAR_NPC 1
+BORRAR_NPC_ITEM  |  Después: número valor  |  Acción GM (el servidor confirma en consola). | Alias: BORRAR_NPC_OBJETO, DEL_ITEM_NPC, BORRAR_ITEM_NPC, BORRAR_OBJETO_NPC, DEL_NPC_ITEM  |  Ej: BORRAR_NPC_ITEM 1 1
+BORRAR_NPC_OBJETO  |  Después: número valor  |  Acción GM (el servidor confirma en consola). | Alias: DEL_ITEM_NPC, BORRAR_ITEM_NPC, BORRAR_OBJETO_NPC, DEL_NPC_ITEM, BORRAR_NPC_ITEM  |  Ej: BORRAR_NPC_OBJETO 1 1
+BORRAR_NPC_TODOS_OBJETOS  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: BORRAR_OBJETOS_NPC  |  Ej: BORRAR_NPC_TODOS_OBJETOS 1
+BORRAR_OBJETOS_NPC  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: BORRAR_NPC_TODOS_OBJETOS  |  Ej: BORRAR_OBJETOS_NPC 1
+BORRAR_OBJETO_NPC  |  Después: número valor  |  Acción GM (el servidor confirma en consola). | Alias: BORRAR_NPC_OBJETO, DEL_ITEM_NPC, BORRAR_ITEM_NPC, DEL_NPC_ITEM, BORRAR_NPC_ITEM  |  Ej: BORRAR_OBJETO_NPC 1 1
+BORRAR_POSICIONES  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: DEL_POSICIONES_PELEA, ELIMINAR_POSICIONES, BORRAR_TODAS_POS_PELEA, DEL_ALL_POS  |  Ej: BORRAR_POSICIONES
+BORRAR_POS_PELEA  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: DEL_FIGHT_POS_BY_CELL, DEL_FIGHT_POS, DEL_POS_FIGHT  |  Ej: BORRAR_POS_PELEA 1
+BORRAR_PRISMA  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola).  |  Ej: BORRAR_PRISMA
+BORRAR_RASTREOS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola).  |  Ej: BORRAR_RASTREOS
+BORRAR_TODAS_POS_PELEA  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: DEL_POSICIONES_PELEA, ELIMINAR_POSICIONES, DEL_ALL_POS, BORRAR_POSICIONES  |  Ej: BORRAR_TODAS_POS_PELEA
+BORRAR_TRIGER  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: BORRAR_CELDA_TELEPORT, DEL_TRIGGER, BORRAR_CELDA_ACCION, BORRAR_TRIGGER, DEL_CELDA_ACCION  |  Ej: BORRAR_TRIGER 1
+BORRAR_TRIGGER  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: BORRAR_CELDA_TELEPORT, DEL_TRIGGER, BORRAR_TRIGER, BORRAR_CELDA_ACCION, DEL_CELDA_ACCION  |  Ej: BORRAR_TRIGGER 1
+CAMBIAR_CLAVE  |  Después: [valor] valor  |  Acción GM (el servidor confirma en consola). | Alias: CHANGE_PASSWORD, CAMBIAR_CONTRASE\u00d1A  |  Ej: CAMBIAR_CLAVE 1 1
+CAMBIAR_CONTRASEÑA  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: CAMBIAR_CONTRASEÑA
+CAMBIAR_IA  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: CAMBIAR_IA
+CAMBIAR_MAPA_VIEJO  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: REFRESCAR_MAPA, RELOAD_DATE_KEY_MAPDATA_MAP, MAPA_VIEJO, RECARGAR_MAPA, RELOAD_MAP, CHANGE_MAP_OLD, REFRESH_MAP, MAP_OLD  |  Ej: CAMBIAR_MAPA_VIEJO 1
+CAMBIAR_ROSTRO  |  Después: número [valor]  |  Acción GM (el servidor confirma en consola). | Alias: CHANGE_FACE  |  Ej: CAMBIAR_ROSTRO 1 1
+CANT_SALVANDO  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: SAVE_TIMES  |  Ej: CANT_SALVANDO
+CAPI  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: CAPI
+CAPITAL  |  Después: [número] [valor]  |  Acción GM (el servidor confirma en consola). | Alias: PUNTOS_STATS, POINTS_CAPITAL, STATS_POINTS, PUNTOS_CAPITAL  |  Ej: CAPITAL 1 1
+CARCEL  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: JAIL  |  Ej: CARCEL 1
+CELDAS_CERCADO  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola).  |  Ej: CELDAS_CERCADO
+CELDA_COORD  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: CELDA_POS, COORD_CELDA, CELL_COORD, POS_CELDA, EJES_CELDA  |  Ej: CELDA_COORD 1
+CELDA_OBJETO  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: ADD_CELL_MOUNTPARK, ADD_CELDA_CERCADO  |  Ej: CELDA_OBJETO 1
+CELDA_POS  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: CELDA_COORD, COORD_CELDA, CELL_COORD, POS_CELDA, EJES_CELDA  |  Ej: CELDA_POS 1
+CELL_COORD  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: CELDA_COORD, CELDA_POS, COORD_CELDA, POS_CELDA, EJES_CELDA  |  Ej: CELL_COORD 1
+CHANGE_FACE  |  Después: número [valor]  |  Acción GM (el servidor confirma en consola). | Alias: CAMBIAR_ROSTRO  |  Ej: CHANGE_FACE 1 1
+CHANGE_MAP_OLD  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: REFRESCAR_MAPA, RELOAD_DATE_KEY_MAPDATA_MAP, MAPA_VIEJO, RECARGAR_MAPA, RELOAD_MAP, REFRESH_MAP, CAMBIAR_MAPA_VIEJO, MAP_OLD  |  Ej: CHANGE_MAP_OLD 1
+CHANGE_PASSWORD  |  Después: [valor] valor  |  Acción GM (el servidor confirma en consola). | Alias: CAMBIAR_CONTRASE\u00d1A, CAMBIAR_CLAVE  |  Ej: CHANGE_PASSWORD 1 1
+CHAPAS  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: CHAPAS
+CHECK_TURNO  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: END_TURN, PASAR_TURNO, DEBUG_TURN, FIN_TURNO, PASS_TURN  |  Ej: CHECK_TURNO
+CLEAN_SERVER  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: EXPULSAR_INACTIVOS, EXPULSAR_CLIENTES_BUG, LIMPIAR_SERVIDOR, VOTAR_CLIENTES_BUG, KICK_CLIENTS_BUG, EXPULSAR_AFKS, LIMPIAR_SOCKETS  |  Ej: CLEAN_SERVER 1
+COMANDOS_JUGADOR  |  Después: true|false  |  Acción GM (el servidor confirma en consola). | Alias: PARAM_COMANDOS_JUGADOR, COMMANDS_PLAYERS, COMMANDES_JOUERS  |  Ej: COMANDOS_JUGADOR true
+COMANDO_PERMITIDO  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: ADD_COMANDO_PERMITIDO, COMANDOS_PERMITIDOS, AGREGAR_COMANDO_PERMITIDO  |  Ej: COMANDO_PERMITIDO 1
+COMIDA_MASCOTA  |  Después: número  |  Acción GM (el servidor confirma en consola).  |  Ej: COMIDA_MASCOTA 1
+COMMANDES_JOUERS  |  Después: true|false  |  Acción GM (el servidor confirma en consola). | Alias: PARAM_COMANDOS_JUGADOR, COMANDOS_JUGADOR, COMMANDS_PLAYERS  |  Ej: COMMANDES_JOUERS true
+COMMANDS_PLAYERS  |  Después: true|false  |  Acción GM (el servidor confirma en consola). | Alias: PARAM_COMANDOS_JUGADOR, COMANDOS_JUGADOR, COMMANDES_JOUERS  |  Ej: COMMANDS_PLAYERS true
+CONGELAR  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: FREEZE  |  Ej: CONGELAR 1
+CONGELAR_MAPA  |  Después: [número]  |  Acción GM (el servidor confirma en consola). | Alias: FREEZE_MAP  |  Ej: CONGELAR_MAPA 1
+CONSULTAR_OGRINAS  |  Después: [valor]  |  Acción GM (el servidor confirma en consola). | Alias: CONSULTA_PUNTOS, CONSULTA_OGRINAS, GET_POINTS, GET_OGRINAS  |  Ej: CONSULTAR_OGRINAS 1
+CONSULTA_OGRINAS  |  Después: [valor]  |  Acción GM (el servidor confirma en consola). | Alias: CONSULTAR_OGRINAS, CONSULTA_PUNTOS, GET_POINTS, GET_OGRINAS  |  Ej: CONSULTA_OGRINAS 1
+CONSULTA_PUNTOS  |  Después: [valor]  |  Acción GM (el servidor confirma en consola). | Alias: CONSULTAR_OGRINAS, CONSULTA_OGRINAS, GET_POINTS, GET_OGRINAS  |  Ej: CONSULTA_PUNTOS 1
+CONTAR_OBJETOS_INTERACTIVOS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: COUNT_OIS, CONTAR_OIS  |  Ej: CONTAR_OBJETOS_INTERACTIVOS
+CONTAR_OIS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: CONTAR_OBJETOS_INTERACTIVOS, COUNT_OIS  |  Ej: CONTAR_OIS
+CONTAR_OTROS_INTERACTIVOS  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: CONTAR_OTROS_INTERACTIVOS
+CONTRA_DDOS  |  Después: true|false  |  Acción GM (el servidor confirma en consola). | Alias: ANTI_DDOS, PARAM_ANTI_DDOS  |  Ej: CONTRA_DDOS true
+COORD_CELDA  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: CELDA_COORD, CELDA_POS, CELL_COORD, POS_CELDA, EJES_CELDA  |  Ej: COORD_CELDA 1
+COUNT_OIS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: CONTAR_OBJETOS_INTERACTIVOS, CONTAR_OIS  |  Ej: COUNT_OIS
+CRAFT_SEGURO  |  Después: true|false  |  Acción GM (el servidor confirma en consola). | Alias: PARAM_RECETA_SIEMPRE_EXITOSA, PARAM_CRAFT_SEGURO  |  Ej: CRAFT_SEGURO true
+CREAR_GREMIO  |  Después: [valor]  |  Acción GM (el servidor confirma en consola). | Alias: CREATE_GUILD  |  Ej: CREAR_GREMIO 1
+CREAR_ITEM_FACTOR  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: CREAR_ITEM_FACTOR
+CREAR_ITEM_MAX_OGRINAS  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: CREAR_ITEM_MAX_OGRINAS
+CREAR_SET  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: CREAR_SET
+CREAR_TU_ITEM  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: CREAR_TU_ITEM
+CREATE_GUILD  |  Después: [valor]  |  Acción GM (el servidor confirma en consola). | Alias: CREAR_GREMIO  |  Ej: CREATE_GUILD 1
+CUENTA_CONTRASEÑA  |  Después: [NombrePJ]  |  Muestra usuario y contraseña de la cuenta de ese PJ. Sin nombre = tú. Cuidado.  |  Ej: CUENTA_CONTRASEÑA Ruben
+CUENTA_REGRESIVA  |  Después: número valor  |  Acción GM (el servidor confirma en consola).  |  Ej: CUENTA_REGRESIVA 1 1
+DAR_ABONO  |  Después: días [NombrePJ]  |  Suma días de abono/VIP a la CUENTA de ese PJ. Número negativo quita días. Sin nombre = tú.  |  Ej: DAR_ABONO 30 Ruben
+DAR_IP  |  Después: [valor]  |  Acción GM (el servidor confirma en consola). | Alias: DAR_IP_PLAYER, GET_IP_PLAYER, DAR_IP_PERSONAJE, IP_PLAYER, IP_PERSONAJE, GET_IP  |  Ej: DAR_IP 1
+DAR_IP_PERSONAJE  |  Después: [valor]  |  Acción GM (el servidor confirma en consola). | Alias: DAR_IP_PLAYER, GET_IP_PLAYER, IP_PLAYER, IP_PERSONAJE, DAR_IP, GET_IP  |  Ej: DAR_IP_PERSONAJE 1
+DAR_IP_PLAYER  |  Después: [valor]  |  Acción GM (el servidor confirma en consola). | Alias: GET_IP_PLAYER, DAR_IP_PERSONAJE, IP_PLAYER, IP_PERSONAJE, DAR_IP, GET_IP  |  Ej: DAR_IP_PLAYER 1
+DAR_OGRINAS  |  Después: número [valor]  |  Acción GM (el servidor confirma en consola). | Alias: REGALAR_OGRINAS, AGREGAR_OGRINAS, ADD_POINTS  |  Ej: DAR_OGRINAS 1 1
+DAR_OGRINAS_CUENTA  |  Después: número [valor]  |  Acción GM (el servidor confirma en consola). | Alias: ADD_POINTS_ACCOUNT  |  Ej: DAR_OGRINAS_CUENTA 1 1
+DAR_SPRITE_ID  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: GET_SPRITE_ID  |  Ej: DAR_SPRITE_ID 1
+DAR_SPRITE_INFOS  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: GET_SPRITE_INFOS  |  Ej: DAR_SPRITE_INFOS 1
+DEBUG  |  Después: true|false  |  Acción GM (el servidor confirma en consola). | Alias: MODO_DEBUG  |  Ej: DEBUG true
+DEBUG_TURN  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: END_TURN, PASAR_TURNO, FIN_TURNO, CHECK_TURNO, PASS_TURN  |  Ej: DEBUG_TURN
+DEFORMAR  |  Después: [NombrePJ]  |  Vuelve al look normal (quita FORMA). Sin nombre = tú. | Alias: DEMORPH  |  Ej: DEFORMAR Ruben
+DELETED_ACTION_END_FIGHT  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: DEL_ACTION_END_FIGHT, ELIMNAR_ACCION_FIN_PELEA, BORRAR_ACCION_FIN_PELEA, BORRAR_ACCIONES_FIN_PELEA  |  Ej: DELETED_ACTION_END_FIGHT
+DELETE_DROP  |  Después: número número  |  Acción GM (el servidor confirma en consola). | Alias: ERASER_DROP, BORRAR_DROP, ELIMINATE_DROP, DEL_DROP  |  Ej: DELETE_DROP 1 1
+DELETE_MOBS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: BORRAR_MOBS, DEL_MOBS, ELIMINAR_MOBS, REMOVE_MOBS  |  Ej: DELETE_MOBS
+DELETE_MOBS_FIX  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: BORRAR_MOBS_FIJOS, REMOVE_MOBS_FIX, DEL_MOBS_FIX, BORRAR_MOBS_FIX, ELIMINAR_MOBS_FIJOS  |  Ej: DELETE_MOBS_FIX
+DEL_ACTIONS_ANSWER  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: DELETE_ACTIONS_ANSWER, BORRAR_ACCIONES_RESPUESTA, REMOVE_ACTONS_REPONSE, DEL_ACTIONS_REPONSE, DELETE_ACTIONS_REPONSE, BORRAR_ACCION_RESPUESTA  |  Ej: DEL_ACTIONS_ANSWER 1
+DEL_ACTIONS_REPONSE  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: DELETE_ACTIONS_ANSWER, BORRAR_ACCIONES_RESPUESTA, REMOVE_ACTONS_REPONSE, DELETE_ACTIONS_REPONSE, DEL_ACTIONS_ANSWER, BORRAR_ACCION_RESPUESTA  |  Ej: DEL_ACTIONS_REPONSE 1
+DEL_ACTION_END_FIGHT  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: ELIMNAR_ACCION_FIN_PELEA, BORRAR_ACCION_FIN_PELEA, BORRAR_ACCIONES_FIN_PELEA, DELETED_ACTION_END_FIGHT  |  Ej: DEL_ACTION_END_FIGHT
+DEL_ACTION_ITEM  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: BORRAR_ACCION_OBJETO, BORRAR_ACCIONES_OBJETO, BORRAR_OBJETO_ACCIONES, BORRAR_OBJETO_ACCION, DELETE_ITEM_ACTIONS, DELETE_ACTION_ITEM  |  Ej: DEL_ACTION_ITEM 1
+DEL_ALL_POS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: DEL_POSICIONES_PELEA, ELIMINAR_POSICIONES, BORRAR_TODAS_POS_PELEA, BORRAR_POSICIONES  |  Ej: DEL_ALL_POS
+DEL_CELDA_ACCION  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: BORRAR_CELDA_TELEPORT, DEL_TRIGGER, BORRAR_TRIGER, BORRAR_CELDA_ACCION, BORRAR_TRIGGER  |  Ej: DEL_CELDA_ACCION 1
+DEL_DROP  |  Después: número número  |  Acción GM (el servidor confirma en consola). | Alias: ERASER_DROP, BORRAR_DROP, ELIMINATE_DROP, DELETE_DROP  |  Ej: DEL_DROP 1 1
+DEL_FIGHT_POS  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: DEL_FIGHT_POS_BY_CELL, BORRAR_POS_PELEA, DEL_POS_FIGHT  |  Ej: DEL_FIGHT_POS 1
+DEL_FIGHT_POS_BY_CELL  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: DEL_FIGHT_POS, BORRAR_POS_PELEA, DEL_POS_FIGHT  |  Ej: DEL_FIGHT_POS_BY_CELL 1
+DEL_ITEM_NPC  |  Después: número valor  |  Acción GM (el servidor confirma en consola). | Alias: BORRAR_NPC_OBJETO, BORRAR_ITEM_NPC, BORRAR_OBJETO_NPC, DEL_NPC_ITEM, BORRAR_NPC_ITEM  |  Ej: DEL_ITEM_NPC 1 1
+DEL_MOBS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: BORRAR_MOBS, DELETE_MOBS, ELIMINAR_MOBS, REMOVE_MOBS  |  Ej: DEL_MOBS
+DEL_MOBS_FIX  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: BORRAR_MOBS_FIJOS, REMOVE_MOBS_FIX, BORRAR_MOBS_FIX, ELIMINAR_MOBS_FIJOS, DELETE_MOBS_FIX  |  Ej: DEL_MOBS_FIX
+DEL_NPC  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: BORRAR_NPC  |  Ej: DEL_NPC 1
+DEL_NPC_ITEM  |  Después: número valor  |  Acción GM (el servidor confirma en consola). | Alias: BORRAR_NPC_OBJETO, DEL_ITEM_NPC, BORRAR_ITEM_NPC, BORRAR_OBJETO_NPC, BORRAR_NPC_ITEM  |  Ej: DEL_NPC_ITEM 1 1
+DEL_POSICIONES_PELEA  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: ELIMINAR_POSICIONES, BORRAR_TODAS_POS_PELEA, DEL_ALL_POS, BORRAR_POSICIONES  |  Ej: DEL_POSICIONES_PELEA
+DEL_POS_FIGHT  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: DEL_FIGHT_POS_BY_CELL, DEL_FIGHT_POS, BORRAR_POS_PELEA  |  Ej: DEL_POS_FIGHT 1
+DEL_TRIGGER  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: BORRAR_CELDA_TELEPORT, BORRAR_TRIGER, BORRAR_CELDA_ACCION, BORRAR_TRIGGER, DEL_CELDA_ACCION  |  Ej: DEL_TRIGGER 1
+DEMORPH  |  Después: [NombrePJ]  |  Vuelve al look normal (quita FORMA). Sin nombre = tú. | Alias: DEFORMAR  |  Ej: DEMORPH Ruben
+DESBANEAR  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: DES_BAN, UN_BAN, UNBAN  |  Ej: DESBANEAR 1
+DESBANEAR_IP_NUMERO  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: UNBAN_IP_NUMERO  |  Ej: DESBANEAR_IP_NUMERO 1
+DESCONGELAR  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: UN_FREEZE, UNFREEZE  |  Ej: DESCONGELAR 1
+DESCONGELAR_MAPA  |  Después: [número]  |  Acción GM (el servidor confirma en consola). | Alias: UN_FREEZE_MAP, UNFREEZE_MAP  |  Ej: DESCONGELAR_MAPA 1
+DESCRIPCION_MAPA  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: PARAMETERS_MAPA, MAPA_DESCRIPCION, MAPA_PARAMETROS  |  Ej: DESCRIPCION_MAPA 1
+DESHABILITAR_SQL  |  Después: true|false  |  Acción GM (el servidor confirma en consola).  |  Ej: DESHABILITAR_SQL true
+DESMUTE  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: UNMUTE, UN_MUTE  |  Ej: DESMUTE 1
+DESMUTE_MAP  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: DES_MUTE_MAP, UN_MUTE_MAP, DESMUTEAR_MAPA, DES_MUTEAR_MAPA  |  Ej: DESMUTE_MAP 1
+DES_BAN  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: UN_BAN, DESBANEAR, UNBAN  |  Ej: DES_BAN 1
+DES_MUTE_MAP  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: DESMUTE_MAP, UN_MUTE_MAP, DESMUTEAR_MAPA, DES_MUTEAR_MAPA  |  Ej: DES_MUTE_MAP 1
+DETECTABLE  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: VISIBLE  |  Ej: DETECTABLE
+DEVOLVER_OGRINAS  |  Después: true|false  |  Acción GM (el servidor confirma en consola). | Alias: PARAM_DEVOLVER_OGRINAS  |  Ej: DEVOLVER_OGRINAS true
+DIFICULTAD_DROP_ETEREAS  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: DIFICULTAD_DROP_ETEREAS
+DIFICULTAD_FM  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: RATE_FM  |  Ej: DIFICULTAD_FM 1
+DINERO  |  Después: cantidad [NombrePJ]  |  SUMA kamas. Negativo RESTA. No pone el total, añade. Sin nombre = tú.  |  Ej: DINERO -50000 Ruben
+DIVISOR_PP  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: DIVISOR_PP
+DO_ACTION  |  Después: [valor] número [valor]  |  Acción GM (el servidor confirma en consola). | Alias: REALIZAR_ACCION, HACER_ACCION  |  Ej: DO_ACTION 1 1 1
+DROP_POR_OBJETO_MOB  |  Después: número número  |  Acción GM (el servidor confirma en consola). | Alias: INFO_DROP_MOB_OBJETO  |  Ej: DROP_POR_OBJETO_MOB 1 1
+EJES_CELDA  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: CELDA_COORD, CELDA_POS, COORD_CELDA, CELL_COORD, POS_CELDA  |  Ej: EJES_CELDA 1
+ELIMINAR_MOBS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: BORRAR_MOBS, DELETE_MOBS, DEL_MOBS, REMOVE_MOBS  |  Ej: ELIMINAR_MOBS
+ELIMINAR_MOBS_FIJOS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: BORRAR_MOBS_FIJOS, REMOVE_MOBS_FIX, DEL_MOBS_FIX, BORRAR_MOBS_FIX, DELETE_MOBS_FIX  |  Ej: ELIMINAR_MOBS_FIJOS
+ELIMINAR_POSICIONES  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: DEL_POSICIONES_PELEA, BORRAR_TODAS_POS_PELEA, DEL_ALL_POS, BORRAR_POSICIONES  |  Ej: ELIMINAR_POSICIONES
+ELIMINATE_DROP  |  Después: número número  |  Acción GM (el servidor confirma en consola). | Alias: ERASER_DROP, BORRAR_DROP, DELETE_DROP, DEL_DROP  |  Ej: ELIMINATE_DROP 1 1
+ELIMNAR_ACCION_FIN_PELEA  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: DEL_ACTION_END_FIGHT, BORRAR_ACCION_FIN_PELEA, BORRAR_ACCIONES_FIN_PELEA, DELETED_ACTION_END_FIGHT  |  Ej: ELIMNAR_ACCION_FIN_PELEA
+ENERGIA  |  Después: número [valor]  |  Acción GM (el servidor confirma en consola). | Alias: AGREGAR_ENERGIA, SET_ENERGY, ADD_ENERGIA, ENERGY  |  Ej: ENERGIA 1 1
+ENERGY  |  Después: número [valor]  |  Acción GM (el servidor confirma en consola). | Alias: ENERGIA, AGREGAR_ENERGIA, SET_ENERGY, ADD_ENERGIA  |  Ej: ENERGY 1 1
+ENVIADOS  |  Después: true|false  |  Acción GM (el servidor confirma en consola). | Alias: MOSTRAR_ENVIOS  |  Ej: ENVIADOS true
+ENVIAR  |  Después: texto  |  Acción GM (el servidor confirma en consola). | Alias: SEND  |  Ej: ENVIAR mensaje
+ENVIAR_PJ  |  Después: [valor] valor  |  Acción GM (el servidor confirma en consola). | Alias: SEND_PLAYER  |  Ej: ENVIAR_PJ 1 1
+EN_LINEA  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: JOUERS, ONLINE, WHOIS, PLAYERS, QUIENES, JUGADORES  |  Ej: EN_LINEA 1
+EQUIPO_GANADOR  |  Después: número [valor]  |  Acción GM (el servidor confirma en consola). | Alias: GANADOR_PELEA, WINNER, TEAM_WINNER, WINNER_FIGHT, GANADOR_EQUIPO, GANAR_PELEA  |  Ej: EQUIPO_GANADOR 1 1
+ERASER_DROP  |  Después: número número  |  Acción GM (el servidor confirma en consola). | Alias: BORRAR_DROP, ELIMINATE_DROP, DELETE_DROP, DEL_DROP  |  Ej: ERASER_DROP 1 1
+ESCONDER_POSICIONES  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: OCULTAR_POSICIONES, HIDE_POSITIONS  |  Ej: ESCONDER_POSICIONES
+ESCONDER_TRIGGERS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: OCULTAR_TRIGGERS, HIDE_TRIGGERS  |  Ej: ESCONDER_TRIGGERS
+ESTADO_JVM  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: MEMORY, MEMORY_USE, MEMORIA_USADA, MEMORIA  |  Ej: ESTADO_JVM
+ESTRELLAS_MOBS  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: ESTRELLAS_MOBS
+ESTRELLAS_MOBS_MAPA  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: MAPA_ESTRELLAS_MOB, MAPA_MOBS_ESTRELLAS, MOB_ESTRELLAS_MAPA, SUBIR_ESTRELLAS_MOBS_MAPA, MAPA_ESTRELLAS_MOBS, ESTRELLAS_MAPA_MOBS, MAPA_STARS_MOBS, MAP_STARS_MOBS, MOBS_ESTRELLAS_MAPA, MAPA_MOBS_STARS, ESTRELLAS_MOB_MAPA, MAP_MOBS_STARS, UP_STARS_MOBS_MAP, MOB_MAP_STARS, STARS_MOBS_MAP, MAPA_MOB_ESTRELLAS  |  Ej: ESTRELLAS_MOBS_MAPA 1
+ESTRELLAS_RECURSOS  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: RESSOURCES_STARS, STARS_RESSOURCES, SUBIR_ESTRELLAS_RECURSOS  |  Ej: ESTRELLAS_RECURSOS 1
+ESTRELLAS_RECURSOS_MAPA  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: RESSOURCES_MAP_STARS, SUBIR_ESTRELLAS_RECURSOS_MAPA, STARS_RESSOURCES_MAP  |  Ej: ESTRELLAS_RECURSOS_MAPA 1
+EXIT  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: REBOOT, RESET, SALIR, RESETEAR  |  Ej: EXIT
+EXPULSAR  |  Después: valor [valor]  |  Acción GM (el servidor confirma en consola). | Alias: KICK  |  Ej: EXPULSAR 1 1
+EXPULSAR_AFKS  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: EXPULSAR_INACTIVOS, CLEAN_SERVER, EXPULSAR_CLIENTES_BUG, LIMPIAR_SERVIDOR, VOTAR_CLIENTES_BUG, KICK_CLIENTS_BUG, LIMPIAR_SOCKETS  |  Ej: EXPULSAR_AFKS 1
+EXPULSAR_CLIENTES_BUG  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: EXPULSAR_INACTIVOS, CLEAN_SERVER, LIMPIAR_SERVIDOR, VOTAR_CLIENTES_BUG, KICK_CLIENTS_BUG, EXPULSAR_AFKS, LIMPIAR_SOCKETS  |  Ej: EXPULSAR_CLIENTES_BUG 1
+EXPULSAR_INACTIVOS  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: CLEAN_SERVER, EXPULSAR_CLIENTES_BUG, LIMPIAR_SERVIDOR, VOTAR_CLIENTES_BUG, KICK_CLIENTS_BUG, EXPULSAR_AFKS, LIMPIAR_SOCKETS  |  Ej: EXPULSAR_INACTIVOS 1
+EXP_OFICIO  |  Después: número número [valor]  |  Acción GM (el servidor confirma en consola). | Alias: ADD_JOB_XP, ADD_XP_OFICIO, ADD_EXP_OFICIO  |  Ej: EXP_OFICIO 1 1 1
+FACTOR_CI  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: FACTOR_CI
+FACTOR_MAX  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: FACTOR_MAX
+FECUNDAR  |  Después: [número]  |  Acción GM (el servidor confirma en consola). | Alias: FECUNDABLE  |  Ej: FECUNDAR 1
+FIJAR_ACCION_RESPUESTA  |  Después: número número valor valor  |  Acción GM (el servidor confirma en consola). | Alias: ADD_ACCIONES_RESPUESTAS, ADD_ACCIONES_RESPUESTA, ADD_ACTION_ANSWER, ADD_ACTION_REPONSE, AGREGAR_ACCION_RESPUESTA, ADD_ACCION_RESPUESTA  |  Ej: FIJAR_ACCION_RESPUESTA 1 1 1 1
+FIJAR_DAÑO  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: FIJAR_DAÑO
+FIJAR_DAÑOS  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: FIJAR_DAÑOS
+FIJAR_NPC_PREGUNTA  |  Después: número número  |  Acción GM (el servidor confirma en consola). | Alias: FIJAR_PREGUNTA_NPC, FIX_QUESTION_NPC, FIJAR_PREGUNTA, FIX_QUESTION  |  Ej: FIJAR_NPC_PREGUNTA 1 1
+FIJAR_PREGUNTA  |  Después: número número  |  Acción GM (el servidor confirma en consola). | Alias: FIJAR_PREGUNTA_NPC, FIX_QUESTION_NPC, FIJAR_NPC_PREGUNTA, FIX_QUESTION  |  Ej: FIJAR_PREGUNTA 1 1
+FIJAR_PREGUNTA_NPC  |  Después: número número  |  Acción GM (el servidor confirma en consola). | Alias: FIX_QUESTION_NPC, FIJAR_PREGUNTA, FIJAR_NPC_PREGUNTA, FIX_QUESTION  |  Ej: FIJAR_PREGUNTA_NPC 1 1
+FIJAR_RESPUESTAS  |  Después: número valor valor  |  Acción GM (el servidor confirma en consola). | Alias: FIJAR_RESPUESTAS_PREGUNTA, ADD_ANSWERS, WRITE_ANSWERS, FIX_REPONSES, FIX_ANSWERS, SET_ANSWERS, SET_RESPUESTAS  |  Ej: FIJAR_RESPUESTAS 1 1 1
+FIJAR_STATS  |  Después: número número valor  |  Acción GM (el servidor confirma en consola). | Alias: SET_STATS_MOB, FIJAR_DA\u00d1O, MODIFICAR_STATS_MOB, FIJAR_DA\u00d1OS, FIJAR_STATS_MOB  |  Ej: FIJAR_STATS 1 1 1
+FIJAR_STATS_MOB  |  Después: número número valor  |  Acción GM (el servidor confirma en consola). | Alias: SET_STATS_MOB, FIJAR_DA\u00d1O, MODIFICAR_STATS_MOB, FIJAR_DA\u00d1OS, FIJAR_STATS  |  Ej: FIJAR_STATS_MOB 1 1 1
+FIX_ANSWERS  |  Después: número valor valor  |  Acción GM (el servidor confirma en consola). | Alias: FIJAR_RESPUESTAS_PREGUNTA, ADD_ANSWERS, WRITE_ANSWERS, FIX_REPONSES, FIJAR_RESPUESTAS, SET_ANSWERS, SET_RESPUESTAS  |  Ej: FIX_ANSWERS 1 1 1
+FIX_QUESTION  |  Después: número número  |  Acción GM (el servidor confirma en consola). | Alias: FIJAR_PREGUNTA_NPC, FIX_QUESTION_NPC, FIJAR_PREGUNTA, FIJAR_NPC_PREGUNTA  |  Ej: FIX_QUESTION 1 1
+FIX_QUESTION_NPC  |  Después: número número  |  Acción GM (el servidor confirma en consola). | Alias: FIJAR_PREGUNTA_NPC, FIJAR_PREGUNTA, FIJAR_NPC_PREGUNTA, FIX_QUESTION  |  Ej: FIX_QUESTION_NPC 1 1
+FIX_REPONSES  |  Después: número valor valor  |  Acción GM (el servidor confirma en consola). | Alias: FIJAR_RESPUESTAS_PREGUNTA, ADD_ANSWERS, WRITE_ANSWERS, FIX_ANSWERS, FIJAR_RESPUESTAS, SET_ANSWERS, SET_RESPUESTAS  |  Ej: FIX_REPONSES 1 1 1
+FORMA  |  Después: idGfx [NombrePJ]  |  Cambia la apariencia al gfx. Sin nombre = tú. | Alias: GFXID, MORPH  |  Ej: FORMA 1046 Ruben
+FREEZE  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: CONGELAR  |  Ej: FREEZE 1
+FREEZE_MAP  |  Después: [número]  |  Acción GM (el servidor confirma en consola). | Alias: CONGELAR_MAPA  |  Ej: FREEZE_MAP 1
+FULL_HDV  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: FULL_HDV
+GANADORES_POR_BOLETOS  |  Después: número  |  Acción GM (el servidor confirma en consola).  |  Ej: GANADORES_POR_BOLETOS 1
+GANADOR_EQUIPO  |  Después: número [valor]  |  Acción GM (el servidor confirma en consola). | Alias: GANADOR_PELEA, WINNER, TEAM_WINNER, EQUIPO_GANADOR, WINNER_FIGHT, GANAR_PELEA  |  Ej: GANADOR_EQUIPO 1 1
+GARBAGE_COLLECTOR  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: RECOLECTOR_BASURA, GC  |  Ej: GARBAGE_COLLECTOR
+GET_BOUGHT_TICKETS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: BOLETOS_COMPRADOS, TICKETS_ACHETES  |  Ej: GET_BOUGHT_TICKETS
+GET_IP  |  Después: [valor]  |  Acción GM (el servidor confirma en consola). | Alias: DAR_IP_PLAYER, GET_IP_PLAYER, DAR_IP_PERSONAJE, IP_PLAYER, IP_PERSONAJE, DAR_IP  |  Ej: GET_IP 1
+GET_MAPS_BY_COORDS  |  Después: número número  |  Acción GM (el servidor confirma en consola). | Alias: MAPS, MAPAS, MAPAS_COORDENADAS  |  Ej: GET_MAPS_BY_COORDS 1 1
+GET_OGRINAS  |  Después: [valor]  |  Acción GM (el servidor confirma en consola). | Alias: CONSULTAR_OGRINAS, CONSULTA_PUNTOS, CONSULTA_OGRINAS, GET_POINTS  |  Ej: GET_OGRINAS 1
+GET_PASS  |  Después: [NombrePJ]  |  Muestra usuario y contraseña de la cuenta de ese PJ. Sin nombre = tú. Cuidado. | Alias: CUENTA_CONTRASE\u00d1A, ACCOUNT_PASSWORD  |  Ej: GET_PASS Ruben
+GET_PERSONAJES  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola).  |  Ej: GET_PERSONAJES
+GET_POINTS  |  Después: [valor]  |  Acción GM (el servidor confirma en consola). | Alias: CONSULTAR_OGRINAS, CONSULTA_PUNTOS, CONSULTA_OGRINAS, GET_OGRINAS  |  Ej: GET_POINTS 1
+GFX_OBJETO_MODELO  |  Después: número número  |  Acción GM (el servidor confirma en consola).  |  Ej: GFX_OBJETO_MODELO 1 1
+GIFT  |  Después: idObjeto [cantidad] [NombrePJ] [MIN|MAX]  |  Crea el ítem por ID de modelo en el inventario. Sin nombre = a ti. MIN/MAX = jets. | Alias: REGALO  |  Ej: GIFT 26126 1 Ruben MAX
+GIFT_FOR_ALL  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: REGALO_PARA_TODOS  |  Ej: GIFT_FOR_ALL 1
+GIFT_ONLINE  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: REGALO_ONLINE, REGALO_PARA_ONLINE  |  Ej: GIFT_ONLINE 1
+GIVE_ITEM_TO_ONLINE  |  Después: número número  |  Acción GM (el servidor confirma en consola). | Alias: OBJETO_PARA_JUGADORES_ONLINE, ITEM_FOR_ONLINE, OBJETO_PARA_ONLINE, ITEM_PLAYERS_ONLINE, OBJETO_PARA_PLAYERS_ONLINE  |  Ej: GIVE_ITEM_TO_ONLINE 1 1
+GO_MAP  |  Después: mapa [celda] [NombrePJ]  |  Teletransporta. Sin PJ = tú. Sin celda usa una por defecto. | Alias: IR_MAPA  |  Ej: GO_MAP 951 156 Ruben
+GRUPO_MOBS_POR_MAPA  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: MAX_GROUP_MOBS, MAX_GRUPO_MOBS  |  Ej: GRUPO_MOBS_POR_MAPA 1
+GUARDAR  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: SALVAR, SAVE  |  Ej: GUARDAR
+HACER_ACCION  |  Después: [valor] número [valor]  |  Acción GM (el servidor confirma en consola). | Alias: DO_ACTION, REALIZAR_ACCION  |  Ej: HACER_ACCION 1 1 1
+HIDE_POSITIONS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: ESCONDER_POSICIONES, OCULTAR_POSICIONES  |  Ej: HIDE_POSITIONS
+HIDE_TRIGGERS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: ESCONDER_TRIGGERS, OCULTAR_TRIGGERS  |  Ej: HIDE_TRIGGERS
+HONOR  |  Después: número [valor]  |  Acción GM (el servidor confirma en consola). | Alias: HONOUR  |  Ej: HONOR 1 1
+IA_MOB  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: IA_MOB
+ID_MIMOBIONTE  |  Después: número  |  Acción GM (el servidor confirma en consola).  |  Ej: ID_MIMOBIONTE 1
+INDETECTABLE  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: INVISIBLE  |  Ej: INDETECTABLE
+INFO  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: INFOS  |  Ej: INFO
+INFORMACION_SQL  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: INFORMACION_SQL
+INFOS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: INFO  |  Ej: INFOS
+INFO_DROP_MOB_OBJETO  |  Después: número número  |  Acción GM (el servidor confirma en consola). | Alias: DROP_POR_OBJETO_MOB  |  Ej: INFO_DROP_MOB_OBJETO 1 1
+INFO_ITEM  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: INFO_OBJETO, GET_STATS_OBJETO, SHOW_STATS_OBJETO  |  Ej: INFO_ITEM 1
+INFO_OBJETO  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: INFO_ITEM, GET_STATS_OBJETO, SHOW_STATS_OBJETO  |  Ej: INFO_OBJETO 1
+INFO_ROPA_PERSO  |  Después: [valor]  |  Acción GM (el servidor confirma en consola). | Alias: INFO_STUFF_PJ, INFO_STUFF_PERSO, INFO_ROPA_PJ  |  Ej: INFO_ROPA_PERSO 1
+INFO_ROPA_PJ  |  Después: [valor]  |  Acción GM (el servidor confirma en consola). | Alias: INFO_ROPA_PERSO, INFO_STUFF_PJ, INFO_STUFF_PERSO  |  Ej: INFO_ROPA_PJ 1
+INFO_STUFF_PERSO  |  Después: [valor]  |  Acción GM (el servidor confirma en consola). | Alias: INFO_ROPA_PERSO, INFO_STUFF_PJ, INFO_ROPA_PJ  |  Ej: INFO_STUFF_PERSO 1
+INFO_STUFF_PJ  |  Después: [valor]  |  Acción GM (el servidor confirma en consola). | Alias: INFO_ROPA_PERSO, INFO_STUFF_PERSO, INFO_ROPA_PJ  |  Ej: INFO_STUFF_PJ 1
+INSERTAR_MOBS  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: ADD_MOBS_MAPA, ADD_MOBS, AGREGAR_MOBS_MAPA, AGREGAR_MOBS  |  Ej: INSERTAR_MOBS 1
+INVISIBLE  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: INDETECTABLE  |  Ej: INVISIBLE
+IP_PERSONAJE  |  Después: [valor]  |  Acción GM (el servidor confirma en consola). | Alias: DAR_IP_PLAYER, GET_IP_PLAYER, DAR_IP_PERSONAJE, IP_PLAYER, DAR_IP, GET_IP  |  Ej: IP_PERSONAJE 1
+IP_PLAYER  |  Después: [valor]  |  Acción GM (el servidor confirma en consola). | Alias: DAR_IP_PLAYER, GET_IP_PLAYER, DAR_IP_PERSONAJE, IP_PERSONAJE, DAR_IP, GET_IP  |  Ej: IP_PLAYER 1
+IR_DONDE  |  Después: NombrePJ  |  Tú vas al mapa/celda de ese jugador. | Alias: GO_TO_PLAYER, JOIN  |  Ej: IR_DONDE Ruben
+IR_MAPA  |  Después: mapa [celda] [NombrePJ]  |  Teletransporta. Sin PJ = tú. Sin celda usa una por defecto. | Alias: GO_MAP  |  Ej: IR_MAPA 951 156 Ruben
+ITEM  |  Después: idObjeto [cantidad] [NombrePJ] [MIN|MAX]  |  Crea el ítem por ID de modelo en el inventario. Sin nombre = a ti. MIN/MAX = jets. | Alias: !GETITEM, OBJETO  |  Ej: ITEM 26126 1 Ruben MAX
+ITEM_FOR_ONLINE  |  Después: número número  |  Acción GM (el servidor confirma en consola). | Alias: OBJETO_PARA_JUGADORES_ONLINE, OBJETO_PARA_ONLINE, ITEM_PLAYERS_ONLINE, GIVE_ITEM_TO_ONLINE, OBJETO_PARA_PLAYERS_ONLINE  |  Ej: ITEM_FOR_ONLINE 1 1
+ITEM_SET  |  Después: número [valor] [MIN|MAX]  |  Acción GM (el servidor confirma en consola). | Alias: SET_ITEM, SET_OBJETO, OBJETO_SET  |  Ej: ITEM_SET 1 1 MAX
+JAIL  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: CARCEL  |  Ej: JAIL 1
+JOIN  |  Después: NombrePJ  |  Tú vas al mapa/celda de ese jugador. | Alias: GO_TO_PLAYER, IR_DONDE  |  Ej: JOIN Ruben
+JOIN_FIGHT  |  Después: [valor]  |  Acción GM (el servidor confirma en consola). | Alias: UNIRSE_PELEA, ESPECTATE_FIGHT, ESPECTATOR_FIGHT, ESPECTAR_A, ESPECTAR_PELEA  |  Ej: JOIN_FIGHT 1
+JOIN_ME  |  Después: NombrePJ  |  Trae a ese jugador a tu mapa y celda. | Alias: TRAER  |  Ej: JOIN_ME Ruben
+JOUERS  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: ONLINE, EN_LINEA, WHOIS, PLAYERS, QUIENES, JUGADORES  |  Ej: JOUERS 1
+JUGADORES  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: JOUERS, ONLINE, EN_LINEA, WHOIS, PLAYERS, QUIENES  |  Ej: JUGADORES 1
+KAMAS  |  Después: cantidad [NombrePJ]  |  SUMA kamas. Negativo RESTA. No pone el total, añade. Sin nombre = tú.  |  Ej: KAMAS -50000 Ruben
+KAMAS_OBJETO_MODELO  |  Después: número número  |  Acción GM (el servidor confirma en consola).  |  Ej: KAMAS_OBJETO_MODELO 1 1
+KICK  |  Después: valor [valor]  |  Acción GM (el servidor confirma en consola). | Alias: EXPULSAR  |  Ej: KICK 1 1
+KICK_CLIENTS_BUG  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: EXPULSAR_INACTIVOS, CLEAN_SERVER, EXPULSAR_CLIENTES_BUG, LIMPIAR_SERVIDOR, VOTAR_CLIENTES_BUG, EXPULSAR_AFKS, LIMPIAR_SOCKETS  |  Ej: KICK_CLIENTS_BUG 1
+LADDER  |  Después: true|false  |  Acción GM (el servidor confirma en consola). | Alias: PARAM_LADDER  |  Ej: LADDER true
+LEADER_PVP  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: LEADER_PVP
+LEARN_JOB  |  Después: número [valor]  |  Acción GM (el servidor confirma en consola). | Alias: APRENDER_OFICIO  |  Ej: LEARN_JOB 1 1
+LEARN_SPELL  |  Después: [número] [valor]  |  Acción GM (el servidor confirma en consola). | Alias: APRENDER_HECHIZO  |  Ej: LEARN_SPELL 1 1
+LEVEL  |  Después: nivel [NombrePJ]  |  Pone ESE nivel (no suma). También baja. Sin nombre = tú. | Alias: UP_LEVEL, NIVEL  |  Ej: LEVEL 200 Ruben
+LIBERAR  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: UNJAIL, UN_JAIL  |  Ej: LIBERAR 1
+LIDER_PVP  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: LIDER_PVP
+LIMITE_LADDER  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: LIMIT_LADDER  |  Ej: LIMITE_LADDER 1
+LIMITE_PA  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: LIMITE_PA
+LIMITE_PM  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: LIMITE_PM
+LIMIT_LADDER  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: LIMITE_LADDER  |  Ej: LIMIT_LADDER 1
+LIMPIAR_CACERIA  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola).  |  Ej: LIMPIAR_CACERIA
+LIMPIAR_SERVIDOR  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: EXPULSAR_INACTIVOS, CLEAN_SERVER, EXPULSAR_CLIENTES_BUG, VOTAR_CLIENTES_BUG, KICK_CLIENTS_BUG, EXPULSAR_AFKS, LIMPIAR_SOCKETS  |  Ej: LIMPIAR_SERVIDOR 1
+LISTA_ACCIONES_RESPUESTA  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: LISTA_ACCIONES_RESPUESTA
+LISTA_BOLETOS_COMPRADOS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola).  |  Ej: LISTA_BOLETOS_COMPRADOS
+LISTA_CELDAS_ACCION  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: LIST_TRIGGERS, LISTA_TRIGGERS  |  Ej: LISTA_CELDAS_ACCION
+LISTA_DROP  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: LISTA_DROPS, LIST_DROPS  |  Ej: LISTA_DROP 1
+LISTA_DROPS  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: LISTA_DROP, LIST_DROPS  |  Ej: LISTA_DROPS 1
+LISTA_MOBS  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: LIST_MOBS  |  Ej: LISTA_MOBS 1
+LISTA_POS_PELEA  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: MOSTRAR_POSICIONES, SHOW_POSITIONS, MOSTRAR_POS_PELEA, MOSTRAR_POSICIONES_PELEA, SHOW_FIGHT_POS  |  Ej: LISTA_POS_PELEA
+LISTA_RASTREOS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola).  |  Ej: LISTA_RASTREOS
+LISTA_RESPUESTAS  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: SHOW_REPONSES, SHOW_ANSWERS, LISTAR_RESPUESTAS, SHOW_ANSWER, MOSTRAR_RESPUESTAS  |  Ej: LISTA_RESPUESTAS 1
+LISTA_TIPO_CRIATURAS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: LIST_CREATURES_TYPE, LIST_TYPE_CREATURES, LISTA_TIPO_MOBS, LIST_TYPE_MOBS, LIST_TYPE_CRIATURES  |  Ej: LISTA_TIPO_CRIATURAS
+LISTA_TRIGGERS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: LISTA_CELDAS_ACCION, LIST_TRIGGERS  |  Ej: LISTA_TRIGGERS
+LIST_DROPS  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: LISTA_DROPS, LISTA_DROP  |  Ej: LIST_DROPS 1
+LOTERIA_OGRINAS  |  Después: true|false  |  Acción GM (el servidor confirma en consola).  |  Ej: LOTERIA_OGRINAS true
+MAPAS  |  Después: número número  |  Acción GM (el servidor confirma en consola). | Alias: GET_MAPS_BY_COORDS, MAPS, MAPAS_COORDENADAS  |  Ej: MAPAS 1 1
+MAPAS_COORDENADAS  |  Después: número número  |  Acción GM (el servidor confirma en consola). | Alias: GET_MAPS_BY_COORDS, MAPS, MAPAS  |  Ej: MAPAS_COORDENADAS 1 1
+MAPAS_KOLISEO  |  Después: valor  |  Acción GM (el servidor confirma en consola).  |  Ej: MAPAS_KOLISEO 1
+MAPA_ABAJO  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: MAP_DOWN  |  Ej: MAPA_ABAJO
+MAPA_ARRIBA  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: MAP_UP  |  Ej: MAPA_ARRIBA
+MAPA_DENTRO_CASA  |  Después: mapaDentro celdaDentro  |  Fija el interior de la CASA donde estás parado (no lleva nombre). Tú tienes que estar en la puerta. | Alias: UPDATE_HOUSE, ACTUALIZAR_CASA, MODIFY_HOUSE, MODIFICAR_CASA, UPDATE_CASA  |  Ej: MAPA_DENTRO_CASA 1030 255
+MAPA_DERECHA  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: MAP_RIGHT  |  Ej: MAPA_DERECHA
+MAPA_DESCRIPCION  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: PARAMETERS_MAPA, MAPA_PARAMETROS, DESCRIPCION_MAPA  |  Ej: MAPA_DESCRIPCION 1
+MAPA_INFO  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: MAPA_INFOS, INFOS_MAP, INFO_MAPA, INFOS_MAPA, MAP_INFOS, INFO_MAP, MAP_INFO  |  Ej: MAPA_INFO
+MAPA_IZQUIERDA  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: MAP_LEFT  |  Ej: MAPA_IZQUIERDA
+MAPA_PARAMETROS  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: PARAMETERS_MAPA, MAPA_DESCRIPCION, DESCRIPCION_MAPA  |  Ej: MAPA_PARAMETROS 1
+MAPA_VIEJO  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: REFRESCAR_MAPA, RELOAD_DATE_KEY_MAPDATA_MAP, RECARGAR_MAPA, RELOAD_MAP, CHANGE_MAP_OLD, REFRESH_MAP, CAMBIAR_MAPA_VIEJO, MAP_OLD  |  Ej: MAPA_VIEJO 1
+MAPPEAR_IDS  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: CARGAR_MAPAS_IDS, LOAD_MAPS_IDS, CARGAR_MAPAS  |  Ej: MAPPEAR_IDS 1
+MAPPEAR_SUBAREAS  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: LOAD_SUBAREAS, CARGAR_SUBAREAS  |  Ej: MAPPEAR_SUBAREAS 1
+MAPS  |  Después: número número  |  Acción GM (el servidor confirma en consola). | Alias: GET_MAPS_BY_COORDS, MAPAS, MAPAS_COORDENADAS  |  Ej: MAPS 1 1
+MAP_INFOS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: MAPA_INFOS, INFOS_MAP, INFO_MAPA, MAPA_INFO, INFOS_MAPA, INFO_MAP, MAP_INFO  |  Ej: MAP_INFOS
+MAP_MOBS_STARS  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: MAPA_ESTRELLAS_MOB, MAPA_MOBS_ESTRELLAS, MOB_ESTRELLAS_MAPA, ESTRELLAS_MOBS_MAPA, SUBIR_ESTRELLAS_MOBS_MAPA, MAPA_ESTRELLAS_MOBS, ESTRELLAS_MAPA_MOBS, MAPA_STARS_MOBS, MAP_STARS_MOBS, MOBS_ESTRELLAS_MAPA, MAPA_MOBS_STARS, ESTRELLAS_MOB_MAPA, UP_STARS_MOBS_MAP, MOB_MAP_STARS, STARS_MOBS_MAP, MAPA_MOB_ESTRELLAS  |  Ej: MAP_MOBS_STARS 1
+MAP_OLD  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: REFRESCAR_MAPA, RELOAD_DATE_KEY_MAPDATA_MAP, MAPA_VIEJO, RECARGAR_MAPA, RELOAD_MAP, CHANGE_MAP_OLD, REFRESH_MAP, CAMBIAR_MAPA_VIEJO  |  Ej: MAP_OLD 1
+MAP_STARS_MOBS  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: MAPA_ESTRELLAS_MOB, MAPA_MOBS_ESTRELLAS, MOB_ESTRELLAS_MAPA, ESTRELLAS_MOBS_MAPA, SUBIR_ESTRELLAS_MOBS_MAPA, MAPA_ESTRELLAS_MOBS, ESTRELLAS_MAPA_MOBS, MAPA_STARS_MOBS, MOBS_ESTRELLAS_MAPA, MAPA_MOBS_STARS, ESTRELLAS_MOB_MAPA, MAP_MOBS_STARS, UP_STARS_MOBS_MAP, MOB_MAP_STARS, STARS_MOBS_MAP, MAPA_MOB_ESTRELLAS  |  Ej: MAP_STARS_MOBS 1
+MAX_ESTRELLAS_MOBS  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: MAX_STARS_MOBS  |  Ej: MAX_ESTRELLAS_MOBS 1
+MAX_ESTRELLAS_RECURSOS  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: MAX_STARS_RECURSOS, MAX_BONUS_ESTRELLAS_RECURSOS, MAX_STARS_RESSOURCES  |  Ej: MAX_ESTRELLAS_RECURSOS 1
+MAX_GROUP_MOBS  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: GRUPO_MOBS_POR_MAPA, MAX_GRUPO_MOBS  |  Ej: MAX_GROUP_MOBS 1
+MAX_GRUPO_MOBS  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: MAX_GROUP_MOBS, GRUPO_MOBS_POR_MAPA  |  Ej: MAX_GRUPO_MOBS 1
+MAX_MERCANTES  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: MAX_MERCHANTS  |  Ej: MAX_MERCANTES 1
+MAX_MERCHANTS  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: MAX_MERCANTES  |  Ej: MAX_MERCHANTS 1
+MAX_MISIONES_ALMANAX  |  Después: número  |  Acción GM (el servidor confirma en consola).  |  Ej: MAX_MISIONES_ALMANAX 1
+MAX_MOBS_POR_GRUPO  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: MOBS_FOR_GROUP, MOBS_POR_GRUPO  |  Ej: MAX_MOBS_POR_GRUPO 1
+MAX_STARS_MOBS  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: MAX_ESTRELLAS_MOBS  |  Ej: MAX_STARS_MOBS 1
+MAX_STARS_RECURSOS  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: MAX_ESTRELLAS_RECURSOS, MAX_BONUS_ESTRELLAS_RECURSOS, MAX_STARS_RESSOURCES  |  Ej: MAX_STARS_RECURSOS 1
+MENSAJE_BIENVENIDA  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: MESSAGE_WELCOME  |  Ej: MENSAJE_BIENVENIDA
+MENSAJE_COMANDOS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola).  |  Ej: MENSAJE_COMANDOS
+MINUTOS_SIG_VOTO  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: MINUTOS_SIGUIENTE_VOTO, MINUTOS_VALIDAR_VOTO  |  Ej: MINUTOS_SIG_VOTO 1
+MIN_NIVEL_KOLISEO  |  Después: número  |  Acción GM (el servidor confirma en consola).  |  Ej: MIN_NIVEL_KOLISEO 1
+MISION_ALMANAX  |  Después: número valor número número  |  Acción GM (el servidor confirma en consola). | Alias: ADD_ALMANAX, AGREGAR_MISION_DIARIA, UPDATE_ALMANAX  |  Ej: MISION_ALMANAX 1 1 1 1
+MOBS_ESTRELLAS  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: MOBS_ESTRELLAS
+MOBS_EVENTO  |  Después: número  |  Acción GM (el servidor confirma en consola).  |  Ej: MOBS_EVENTO 1
+MOBS_FOR_GROUP  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: MAX_MOBS_POR_GRUPO, MOBS_POR_GRUPO  |  Ej: MOBS_FOR_GROUP 1
+MOBS_POR_GRUPO  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: MOBS_FOR_GROUP, MAX_MOBS_POR_GRUPO  |  Ej: MOBS_POR_GRUPO 1
+MOBS_STARS  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: MOBS_STARS
+MOB_AGRESION  |  Después: número número  |  Acción GM (el servidor confirma en consola). | Alias: DISTANCIA_AGRESION_MOB, DISTANCIA_AGRESION, MOB_DISTANCIA_AGRESION  |  Ej: MOB_AGRESION 1 1
+MOB_COLORES  |  Después: número valor  |  Acción GM (el servidor confirma en consola).  |  Ej: MOB_COLORES 1 1
+MOB_MAP_STARS  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: MAPA_ESTRELLAS_MOB, MAPA_MOBS_ESTRELLAS, MOB_ESTRELLAS_MAPA, ESTRELLAS_MOBS_MAPA, SUBIR_ESTRELLAS_MOBS_MAPA, MAPA_ESTRELLAS_MOBS, ESTRELLAS_MAPA_MOBS, MAPA_STARS_MOBS, MAP_STARS_MOBS, MOBS_ESTRELLAS_MAPA, MAPA_MOBS_STARS, ESTRELLAS_MOB_MAPA, MAP_MOBS_STARS, UP_STARS_MOBS_MAP, STARS_MOBS_MAP, MAPA_MOB_ESTRELLAS  |  Ej: MOB_MAP_STARS 1
+MODIFICAR_A  |  Después: número número [valor]  |  Acción GM (el servidor confirma en consola). | Alias: RESTRICCION_A, SET_RESTRICCIONES_A, RESTRICCIONES_A  |  Ej: MODIFICAR_A 1 1 1
+MODIFICAR_B  |  Después: número número [valor]  |  Acción GM (el servidor confirma en consola). | Alias: RESTRICCION_B, SET_RESTRICCIONES_B, RESTRICCIONES_B  |  Ej: MODIFICAR_B 1 1 1
+MODIFICAR_ETAPA  |  Después: número valor  |  Acción GM (el servidor confirma en consola). | Alias: MODIFY_STEP, MODIFICA_ETAPA  |  Ej: MODIFICAR_ETAPA 1 1
+MODIFICAR_MISION  |  Después: número valor valor valor valor  |  Acción GM (el servidor confirma en consola). | Alias: MODIFY_QUEST, MODIFICA_MISION, MODIFY_MISSION, MODIFICA_QUEST, MODIFICAR_QUEST  |  Ej: MODIFICAR_MISION 1 1 1 1 1
+MODIFICAR_NPC  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: MODIFICAR_NPC
+MODIFICAR_PARAM  |  Después: texto  |  Acción GM (el servidor confirma en consola).  |  Ej: MODIFICAR_PARAM mensaje
+MODIFICAR_RECOMPENSA  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: MODIFICAR_RECOMPENSA
+MODIFICAR_STATS_MOB  |  Después: número número valor  |  Acción GM (el servidor confirma en consola). | Alias: SET_STATS_MOB, FIJAR_DA\u00d1O, FIJAR_DA\u00d1OS, FIJAR_STATS, FIJAR_STATS_MOB  |  Ej: MODIFICAR_STATS_MOB 1 1 1
+MODO_DEBUG  |  Después: true|false  |  Acción GM (el servidor confirma en consola). | Alias: DEBUG  |  Ej: MODO_DEBUG true
+MORPH  |  Después: idGfx [NombrePJ]  |  Cambia la apariencia al gfx. Sin nombre = tú. | Alias: FORMA, GFXID  |  Ej: MORPH 1046 Ruben
+MOSTRAR_A  |  Después: [valor]  |  Acción GM (el servidor confirma en consola). | Alias: SHOW_A, MOSTRAR_RESTRICCIONES_A, SHOW_RESTRICTIONS_A  |  Ej: MOSTRAR_A 1
+MOSTRAR_ACCIONES_RESPUESTA  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: MOSTRAR_ACCIONES_RESPUESTA
+MOSTRAR_B  |  Después: [valor]  |  Acción GM (el servidor confirma en consola). | Alias: SHOW_B, MOSTRAR_RESTRICCIONES_B, SHOW_RESTRICTIONS_B  |  Ej: MOSTRAR_B 1
+MOSTRAR_BAN_IP  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: SHOW_BAN_IPS, SHOW_LIST_BAN_IPS, MOSTRAR_BAN_IPS  |  Ej: MOSTRAR_BAN_IP
+MOSTRAR_OBJETOS_INTERACTIVOS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: MOSTRAR_OIS, SHOW_OIS  |  Ej: MOSTRAR_OBJETOS_INTERACTIVOS
+MOSTRAR_OIS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: MOSTRAR_OBJETOS_INTERACTIVOS, SHOW_OIS  |  Ej: MOSTRAR_OIS
+MOSTRAR_OTROS_INTERACTIVOS  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: LISTAR_OTROS_OIS, LISTAR_OTROS_INTERACTIVOS, LISTA_OTROS_OIS, MOSTRAR_OTROS_OIS, SHOW_OTHER_INTERACTIVES, LIST_OTROS_INTERACTIVOS  |  Ej: MOSTRAR_OTROS_INTERACTIVOS 1
+MOSTRAR_PELEAS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: SHOW_FIGHTS  |  Ej: MOSTRAR_PELEAS
+MOSTRAR_POSICIONES  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: LISTA_POS_PELEA, SHOW_POSITIONS, MOSTRAR_POS_PELEA, MOSTRAR_POSICIONES_PELEA, SHOW_FIGHT_POS  |  Ej: MOSTRAR_POSICIONES
+MOSTRAR_POSICIONES_PELEA  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: MOSTRAR_POSICIONES, LISTA_POS_PELEA, SHOW_POSITIONS, MOSTRAR_POS_PELEA, SHOW_FIGHT_POS  |  Ej: MOSTRAR_POSICIONES_PELEA
+MOSTRAR_POS_PELEA  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: MOSTRAR_POSICIONES, LISTA_POS_PELEA, SHOW_POSITIONS, MOSTRAR_POSICIONES_PELEA, SHOW_FIGHT_POS  |  Ej: MOSTRAR_POS_PELEA
+MOSTRAR_RESPUESTAS  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: SHOW_REPONSES, SHOW_ANSWERS, LISTAR_RESPUESTAS, SHOW_ANSWER, LISTA_RESPUESTAS  |  Ej: MOSTRAR_RESPUESTAS 1
+MOVER_MOB  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: MOVE_MOBS, MOVER_MOBS, MOVE_MOB  |  Ej: MOVER_MOB 1
+MOVER_MOBS  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: MOVER_MOB, MOVE_MOBS, MOVE_MOB  |  Ej: MOVER_MOBS 1
+MOVER_NPC  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: MOVE_NPC  |  Ej: MOVER_NPC 1
+MOVER_PERCO  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: MOVER_RECAU, MOVER_RECAUDADOR, MOVE_PERCO  |  Ej: MOVER_PERCO
+MOVER_RECAU  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: MOVER_PERCO, MOVER_RECAUDADOR, MOVE_PERCO  |  Ej: MOVER_RECAU
+MOVER_RECAUDADOR  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: MOVER_PERCO, MOVER_RECAU, MOVE_PERCO  |  Ej: MOVER_RECAUDADOR
+MOVE_MOB  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: MOVER_MOB, MOVE_MOBS, MOVER_MOBS  |  Ej: MOVE_MOB 1
+MOVE_MOBS  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: MOVER_MOB, MOVER_MOBS, MOVE_MOB  |  Ej: MOVE_MOBS 1
+MOVE_NPC  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: MOVER_NPC  |  Ej: MOVE_NPC 1
+MOVE_PERCO  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: MOVER_PERCO, MOVER_RECAU, MOVER_RECAUDADOR  |  Ej: MOVE_PERCO
+MUTE  |  Después: valor [número] [valor]  |  Acción GM (el servidor confirma en consola). | Alias: MUTEAR, SILENCIAR, MUTE_SECONDS, MUTE_SEGUNDOS  |  Ej: MUTE 1 1 1
+MUTE_CANAL_COMERCIO  |  Después: true|false  |  Acción GM (el servidor confirma en consola). | Alias: MUTE_CANAL_COMMERCE  |  Ej: MUTE_CANAL_COMERCIO true
+MUTE_CANAL_COMMERCE  |  Después: true|false  |  Acción GM (el servidor confirma en consola). | Alias: MUTE_CANAL_COMERCIO  |  Ej: MUTE_CANAL_COMMERCE true
+MUTE_CANAL_RECLUTAMIENTO  |  Después: true|false  |  Acción GM (el servidor confirma en consola). | Alias: MUTE_CANAL_RECRUTEMENT  |  Ej: MUTE_CANAL_RECLUTAMIENTO true
+MUTE_CANAL_RECRUTEMENT  |  Después: true|false  |  Acción GM (el servidor confirma en consola). | Alias: MUTE_CANAL_RECLUTAMIENTO  |  Ej: MUTE_CANAL_RECRUTEMENT true
+MUTE_MAP  |  Después: [número]  |  Acción GM (el servidor confirma en consola). | Alias: MUTEAR_MAPA, MUTE_MAPA  |  Ej: MUTE_MAP 1
+NIVEL  |  Después: nivel [NombrePJ]  |  Pone ESE nivel (no suma). También baja. Sin nombre = tú. | Alias: UP_LEVEL, LEVEL  |  Ej: NIVEL 200 Ruben
+NIVEL_OBJETO_MODELO  |  Después: número número  |  Acción GM (el servidor confirma en consola).  |  Ej: NIVEL_OBJETO_MODELO 1 1
+NOMBRE_CACERIA  |  Después: valor  |  Acción GM (el servidor confirma en consola).  |  Ej: NOMBRE_CACERIA 1
+OBJETO  |  Después: idObjeto [cantidad] [NombrePJ] [MIN|MAX]  |  Crea el ítem por ID de modelo en el inventario. Sin nombre = a ti. MIN/MAX = jets. | Alias: !GETITEM, ITEM  |  Ej: OBJETO 26126 1 Ruben MAX
+OBJETO_PARA_ONLINE  |  Después: número número  |  Acción GM (el servidor confirma en consola). | Alias: OBJETO_PARA_JUGADORES_ONLINE, ITEM_FOR_ONLINE, ITEM_PLAYERS_ONLINE, GIVE_ITEM_TO_ONLINE, OBJETO_PARA_PLAYERS_ONLINE  |  Ej: OBJETO_PARA_ONLINE 1 1
+OBJETO_SET  |  Después: número [valor] [MIN|MAX]  |  Acción GM (el servidor confirma en consola). | Alias: SET_ITEM, SET_OBJETO, ITEM_SET  |  Ej: OBJETO_SET 1 1 MAX
+OCULTAR_POSICIONES  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: ESCONDER_POSICIONES, HIDE_POSITIONS  |  Ej: OCULTAR_POSICIONES
+OCULTAR_TRIGGERS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: ESCONDER_TRIGGERS, HIDE_TRIGGERS  |  Ej: OCULTAR_TRIGGERS
+OGRINAS_OBJETO_MODELO  |  Después: número número  |  Acción GM (el servidor confirma en consola). | Alias: SET_ITEM_POINTS  |  Ej: OGRINAS_OBJETO_MODELO 1 1
+OGRINAS_POR_VOTO  |  Después: número  |  Acción GM (el servidor confirma en consola).  |  Ej: OGRINAS_POR_VOTO 1
+OLVIDAR_HECHIZO  |  Después: [número] [valor]  |  Acción GM (el servidor confirma en consola). | Alias: FORGET_SPELL  |  Ej: OLVIDAR_HECHIZO 1 1
+ONLINE  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: JOUERS, EN_LINEA, WHOIS, PLAYERS, QUIENES, JUGADORES  |  Ej: ONLINE 1
+ORNAMENTO  |  Después: número [valor]  |  Acción GM (el servidor confirma en consola). | Alias: ORNEMENT  |  Ej: ORNAMENTO 1 1
+ORNEMENT  |  Después: número [valor]  |  Acción GM (el servidor confirma en consola). | Alias: ORNAMENTO  |  Ej: ORNEMENT 1 1
+PANEL  |  Después: texto  |  Acción GM (el servidor confirma en consola). | Alias: PANEL_ALONE, PANEL_SOLO  |  Ej: PANEL mensaje
+PANEL_ADMIN  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola).  |  Ej: PANEL_ADMIN
+PANEL_BIENVENIDA  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola).  |  Ej: PANEL_BIENVENIDA
+PANEL_CREAR_PJ  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: PANEL_DESPUES_CREAR_PJ  |  Ej: PANEL_CREAR_PJ
+PANEL_SOLO  |  Después: texto  |  Acción GM (el servidor confirma en consola). | Alias: PANEL, PANEL_ALONE  |  Ej: PANEL_SOLO mensaje
+PANEL_TODOS  |  Después: texto  |  Acción GM (el servidor confirma en consola). | Alias: PANEL_ONLINE, PANEL_ALL  |  Ej: PANEL_TODOS mensaje
+PARAMETERS_MAPA  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: MAPA_DESCRIPCION, MAPA_PARAMETROS, DESCRIPCION_MAPA  |  Ej: PARAMETERS_MAPA 1
+PARAM_AGRESION_MULTICUENTA  |  Después: true|false  |  Acción GM (el servidor confirma en consola).  |  Ej: PARAM_AGRESION_MULTICUENTA true
+PARAM_ALBUM  |  Después: true|false  |  Acción GM (el servidor confirma en consola). | Alias: ACTIVAR_ALBUM, ALBUM_MOBS  |  Ej: PARAM_ALBUM true
+PARAM_ANTI_DDOS  |  Después: true|false  |  Acción GM (el servidor confirma en consola). | Alias: CONTRA_DDOS, ANTI_DDOS  |  Ej: PARAM_ANTI_DDOS true
+PARAM_AURA  |  Después: true|false  |  Activa/desactiva las AURAS en TODO el servidor, no de un personaje. | Alias: AURA, ACTIVAR_AURA  |  Ej: PARAM_AURA true
+PARAM_CAMBIAR_CLASE  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: PARAM_CAMBIAR_CLASE
+PARAM_CAMBIAR_COLOR  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: PARAM_CAMBIAR_COLOR
+PARAM_CAMBIAR_NOMBRE  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: PARAM_CAMBIAR_NOMBRE
+PARAM_CAMBIAR_SEXO  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: PARAM_CAMBIAR_SEXO
+PARAM_COMANDOS_JUGADOR  |  Después: true|false  |  Acción GM (el servidor confirma en consola). | Alias: COMANDOS_JUGADOR, COMMANDS_PLAYERS, COMMANDES_JOUERS  |  Ej: PARAM_COMANDOS_JUGADOR true
+PARAM_CREAR_ITEM  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: PARAM_CREAR_ITEM
+PARAM_CREA_TU_ITEM  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: PARAM_CREA_TU_ITEM
+PARAM_DEVOLVER_OGRINAS  |  Después: true|false  |  Acción GM (el servidor confirma en consola). | Alias: DEVOLVER_OGRINAS  |  Ej: PARAM_DEVOLVER_OGRINAS true
+PARAM_LADDER  |  Después: true|false  |  Acción GM (el servidor confirma en consola). | Alias: LADDER  |  Ej: PARAM_LADDER true
+PARAM_LOTERIA  |  Después: true|false  |  Acción GM (el servidor confirma en consola).  |  Ej: PARAM_LOTERIA true
+PARAM_PERDER_ENERGIA  |  Después: true|false  |  Acción GM (el servidor confirma en consola).  |  Ej: PARAM_PERDER_ENERGIA true
+PDV  |  Después: número valor  |  Acción GM (el servidor confirma en consola). | Alias: PDVPER  |  Ej: PDV 1 1
+PDVPER  |  Después: número valor  |  Acción GM (el servidor confirma en consola). | Alias: PDV  |  Ej: PDVPER 1 1
+PERRA  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: PERRA
+PERSONAJES_CUENTA  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: PERSONAJES_CUENTA
+PLAYERS  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: JOUERS, ONLINE, EN_LINEA, WHOIS, QUIENES, JUGADORES  |  Ej: PLAYERS 1
+PODER_PRISMA  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: PODER_PRISMA
+POINTS_CAPITAL  |  Después: [número] [valor]  |  Acción GM (el servidor confirma en consola). | Alias: PUNTOS_STATS, STATS_POINTS, PUNTOS_CAPITAL, CAPITAL  |  Ej: POINTS_CAPITAL 1 1
+POS_CELDA  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: CELDA_COORD, CELDA_POS, COORD_CELDA, CELL_COORD, EJES_CELDA  |  Ej: POS_CELDA 1
+PRECIO_LOTERIA  |  Después: número true|false  |  Acción GM (el servidor confirma en consola).  |  Ej: PRECIO_LOTERIA 1 true
+PRECIO_RECURSO  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: PRECIO_SISTEMA_RECURSO  |  Ej: PRECIO_RECURSO 1
+PREMIO_CACERIA  |  Después: valor  |  Acción GM (el servidor confirma en consola).  |  Ej: PREMIO_CACERIA 1
+PREMIO_LOTERIA  |  Después: número  |  Acción GM (el servidor confirma en consola).  |  Ej: PREMIO_LOTERIA 1
+PREPARAR_LISTA_GFX  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola).  |  Ej: PREPARAR_LISTA_GFX
+PREPARAR_LISTA_NIVEL  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola).  |  Ej: PREPARAR_LISTA_NIVEL
+PROBABILIDAD_OBJ_ESPECIAL  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: PROBABILIDAD_RECURSO_ESPECIAL  |  Ej: PROBABILIDAD_OBJ_ESPECIAL 1
+PUNTOS_CAPITAL  |  Después: [número] [valor]  |  Acción GM (el servidor confirma en consola). | Alias: PUNTOS_STATS, POINTS_CAPITAL, STATS_POINTS, CAPITAL  |  Ej: PUNTOS_CAPITAL 1 1
+PUNTOS_HECHIZO  |  Después: [número] [valor]  |  Acción GM (el servidor confirma en consola). | Alias: SPELL_POINTS  |  Ej: PUNTOS_HECHIZO 1 1
+PUNTOS_STATS  |  Después: [número] [valor]  |  Acción GM (el servidor confirma en consola). | Alias: POINTS_CAPITAL, STATS_POINTS, PUNTOS_CAPITAL, CAPITAL  |  Ej: PUNTOS_STATS 1 1
+QUIENES  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: JOUERS, ONLINE, EN_LINEA, WHOIS, PLAYERS, JUGADORES  |  Ej: QUIENES 1
+RASTREAR_CUENTA  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: SPY_ACCOUNT, SPY_COMPTE  |  Ej: RASTREAR_CUENTA 1
+RASTREAR_PJ  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: SPY_PJ, SPY_PERSO, ESPIAR_PJ, SPY_PLAYER, ESPIAR_JUGADOR  |  Ej: RASTREAR_PJ 1
+RATES  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola).  |  Ej: RATES
+RATE_CAPTURA_PAVOS  |  Después: número  |  Acción GM (el servidor confirma en consola).  |  Ej: RATE_CAPTURA_PAVOS 1
+RATE_CRIANZA  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: RATE_CRIANZA_PAVOS, RATE_ELEVAGE, RATE_CRIANZA_MONTURA  |  Ej: RATE_CRIANZA 1
+RATE_DROP  |  Después: número  |  Acción GM (el servidor confirma en consola).  |  Ej: RATE_DROP 1
+RATE_ELEVAGE  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: RATE_CRIANZA_PAVOS, RATE_CRIANZA_MONTURA, RATE_CRIANZA  |  Ej: RATE_ELEVAGE 1
+RATE_HONOR  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: RATE_HONOUR  |  Ej: RATE_HONOR 1
+RATE_HONOUR  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: RATE_HONOR  |  Ej: RATE_HONOUR 1
+RATE_KAMAS  |  Después: número  |  Acción GM (el servidor confirma en consola).  |  Ej: RATE_KAMAS 1
+RATE_METIER  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: RATE_OFICIO, RATE_XP_OFICIO, RATE_EXP_OFICIO  |  Ej: RATE_METIER 1
+RATE_OFICIO  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: RATE_METIER, RATE_XP_OFICIO, RATE_EXP_OFICIO  |  Ej: RATE_OFICIO 1
+RATE_PVM  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: RATE_XP_PVM, RATE_EXP_PVM  |  Ej: RATE_PVM 1
+RATE_PVP  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: RATE_XP_PVP, RATE_EXP_PVP  |  Ej: RATE_PVP 1
+RATE_TIEMPO_ALIMENTACION  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: TIEMPO_ALIMENTACION, MINUTOS_ALIMENTACION_MASCOTA  |  Ej: RATE_TIEMPO_ALIMENTACION 1
+RATE_TIEMPO_MOV_PAVO  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: SEGUNDOS_MOVERSE_MONTURAS, TIEMPO_MOVERSE_PAVOS  |  Ej: RATE_TIEMPO_MOV_PAVO 1
+RATE_TIEMPO_PARIR  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: TIEMPO_PARIR, MINUTOS_PARIR_MONTURA  |  Ej: RATE_TIEMPO_PARIR 1
+RATE_TIEMPO_PELEA  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: SEGUNDOS_TURNO_PELEA, TIEMPO_TURNO_PELEA  |  Ej: RATE_TIEMPO_PELEA 1
+RATE_XP_OFICIO  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: RATE_METIER, RATE_OFICIO, RATE_EXP_OFICIO  |  Ej: RATE_XP_OFICIO 1
+RATE_XP_PVM  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: RATE_EXP_PVM, RATE_PVM  |  Ej: RATE_XP_PVM 1
+RATE_XP_PVP  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: RATE_EXP_PVP, RATE_PVP  |  Ej: RATE_XP_PVP 1
+REBOOTEN  |  Después: número valor  |  Acción GM (el servidor confirma en consola). | Alias: REBOOT_EN, REBOOT_IN, RESET_EN, RESET_IN, REINICIAR_EN, RESETEN  |  Ej: REBOOTEN 1 1
+REBOOT_EN  |  Después: número valor  |  Acción GM (el servidor confirma en consola). | Alias: REBOOT_IN, REBOOTEN, RESET_EN, RESET_IN, REINICIAR_EN, RESETEN  |  Ej: REBOOT_EN 1 1
+RECIBIDOS  |  Después: true|false  |  Acción GM (el servidor confirma en consola). | Alias: MOSTRAR_RECIBIDOS  |  Ej: RECIBIDOS true
+RECIBIR  |  Después: texto  |  Acción GM (el servidor confirma en consola). | Alias: RECIVED  |  Ej: RECIBIR mensaje
+RECIBIRNOS  |  Después: valor valor  |  Acción GM (el servidor confirma en consola).  |  Ej: RECIBIRNOS 1 1
+RECIBIR_MAPA  |  Después: texto  |  Acción GM (el servidor confirma en consola).  |  Ej: RECIBIR_MAPA mensaje
+RECIBIR_TODOS  |  Después: número valor  |  Acción GM (el servidor confirma en consola).  |  Ej: RECIBIR_TODOS 1 1
+RECIVED  |  Después: texto  |  Acción GM (el servidor confirma en consola). | Alias: RECIBIR  |  Ej: RECIVED mensaje
+RECURSOS_EN_OGRINAS  |  Después: true|false  |  Acción GM (el servidor confirma en consola). | Alias: PARAM_PRECIO_RECURSOS_EN_OGRINAS  |  Ej: RECURSOS_EN_OGRINAS true
+REFRESCAR_CUENTA  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: REFRESCAR_CUENTA
+REFRESCAR_MOBS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: REFRESH_MOBS  |  Ej: REFRESCAR_MOBS
+REFRESCAR_OIS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: RESETEAR_OBJETOS_INTERACTIVOS, RESETEAR_OIS, RESET_OBJETOS_INTERACTIVOS, REINICIAR_OIS  |  Ej: REFRESCAR_OIS
+REFRESH_ACCOUNT  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: REFRESH_ACCOUNT
+REFRESH_MOBS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: REFRESCAR_MOBS  |  Ej: REFRESH_MOBS
+REGALAR_OGRINAS  |  Después: número [valor]  |  Acción GM (el servidor confirma en consola). | Alias: AGREGAR_OGRINAS, ADD_POINTS, DAR_OGRINAS  |  Ej: REGALAR_OGRINAS 1 1
+REGALO  |  Después: idObjeto [cantidad] [NombrePJ] [MIN|MAX]  |  Crea el ítem por ID de modelo en el inventario. Sin nombre = a ti. MIN/MAX = jets. | Alias: GIFT  |  Ej: REGALO 26126 1 Ruben MAX
+REGALO_ONLINE  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: GIFT_ONLINE, REGALO_PARA_ONLINE  |  Ej: REGALO_ONLINE 1
+REGALO_PARA_ONLINE  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: GIFT_ONLINE, REGALO_ONLINE  |  Ej: REGALO_PARA_ONLINE 1
+REGALO_PARA_TODOS  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: GIFT_FOR_ALL  |  Ej: REGALO_PARA_TODOS 1
+REINICIAR_OIS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: RESETEAR_OBJETOS_INTERACTIVOS, RESETEAR_OIS, RESET_OBJETOS_INTERACTIVOS, REFRESCAR_OIS  |  Ej: REINICIAR_OIS
+REMOVE_ACTONS_REPONSE  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: DELETE_ACTIONS_ANSWER, BORRAR_ACCIONES_RESPUESTA, DEL_ACTIONS_REPONSE, DELETE_ACTIONS_REPONSE, DEL_ACTIONS_ANSWER, BORRAR_ACCION_RESPUESTA  |  Ej: REMOVE_ACTONS_REPONSE 1
+REMOVE_MOBS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: BORRAR_MOBS, DELETE_MOBS, DEL_MOBS, ELIMINAR_MOBS  |  Ej: REMOVE_MOBS
+REMOVE_MOBS_FIX  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: BORRAR_MOBS_FIJOS, DEL_MOBS_FIX, BORRAR_MOBS_FIX, ELIMINAR_MOBS_FIJOS, DELETE_MOBS_FIX  |  Ej: REMOVE_MOBS_FIX
+RESET  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: REBOOT, EXIT, SALIR, RESETEAR  |  Ej: RESET
+RESETEAR  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: REBOOT, EXIT, RESET, SALIR  |  Ej: RESETEAR
+RESETEAR_OBJETOS_INTERACTIVOS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: RESETEAR_OIS, RESET_OBJETOS_INTERACTIVOS, REINICIAR_OIS, REFRESCAR_OIS  |  Ej: RESETEAR_OBJETOS_INTERACTIVOS
+RESETEAR_OIS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: RESETEAR_OBJETOS_INTERACTIVOS, RESET_OBJETOS_INTERACTIVOS, REINICIAR_OIS, REFRESCAR_OIS  |  Ej: RESETEAR_OIS
+RESETEN  |  Después: número valor  |  Acción GM (el servidor confirma en consola). | Alias: REBOOT_EN, REBOOT_IN, REBOOTEN, RESET_EN, RESET_IN, REINICIAR_EN  |  Ej: RESETEN 1 1
+RESET_OBJETOS_INTERACTIVOS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: RESETEAR_OBJETOS_INTERACTIVOS, RESETEAR_OIS, REINICIAR_OIS, REFRESCAR_OIS  |  Ej: RESET_OBJETOS_INTERACTIVOS
+RESET_OTROS_INTERACTIVOS  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: RESET_OTROS_INTERACTIVOS
+RESET_RATES  |  Después: número  |  Acción GM (el servidor confirma en consola).  |  Ej: RESET_RATES 1
+RESSOURCES_MAP_STARS  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: ESTRELLAS_RECURSOS_MAPA, SUBIR_ESTRELLAS_RECURSOS_MAPA, STARS_RESSOURCES_MAP  |  Ej: RESSOURCES_MAP_STARS 1
+RESSOURCES_STARS  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: STARS_RESSOURCES, ESTRELLAS_RECURSOS, SUBIR_ESTRELLAS_RECURSOS  |  Ej: RESSOURCES_STARS 1
+RESTRICCIONES_A  |  Después: número número [valor]  |  Acción GM (el servidor confirma en consola). | Alias: MODIFICAR_A, RESTRICCION_A, SET_RESTRICCIONES_A  |  Ej: RESTRICCIONES_A 1 1 1
+RESTRICCIONES_B  |  Después: número número [valor]  |  Acción GM (el servidor confirma en consola). | Alias: MODIFICAR_B, RESTRICCION_B, SET_RESTRICCIONES_B  |  Ej: RESTRICCIONES_B 1 1 1
+RESTRICCION_A  |  Después: número número [valor]  |  Acción GM (el servidor confirma en consola). | Alias: MODIFICAR_A, SET_RESTRICCIONES_A, RESTRICCIONES_A  |  Ej: RESTRICCION_A 1 1 1
+RESTRICCION_B  |  Después: número número [valor]  |  Acción GM (el servidor confirma en consola). | Alias: MODIFICAR_B, SET_RESTRICCIONES_B, RESTRICCIONES_B  |  Ej: RESTRICCION_B 1 1 1
+SALIR  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: REBOOT, EXIT, RESET, RESETEAR  |  Ej: SALIR
+SALVAR  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: SAVE, GUARDAR  |  Ej: SALVAR
+SAVE  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: SALVAR, GUARDAR  |  Ej: SAVE
+SAVE_TIMES  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: CANT_SALVANDO  |  Ej: SAVE_TIMES
+SCROLL  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: SCROLL
+SEGUNDOS_ON  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: SECONDS_ONLINE, SECONDS_ON  |  Ej: SEGUNDOS_ON
+SEND  |  Después: texto  |  Acción GM (el servidor confirma en consola). | Alias: ENVIAR  |  Ej: SEND mensaje
+SEND_PLAYER  |  Después: [valor] valor  |  Acción GM (el servidor confirma en consola). | Alias: ENVIAR_PJ  |  Ej: SEND_PLAYER 1 1
+SETSTATSOBJETO  |  Después: número valor  |  Acción GM (el servidor confirma en consola). | Alias: SET_STATS_OBJETO, SET_STATS_ITEM  |  Ej: SETSTATSOBJETO 1 1
+SET_ALIGN  |  Después: número [valor]  |  Acción GM (el servidor confirma en consola). | Alias: CAMBIAR_ALINEACION, ALIGN, ALINEACION  |  Ej: SET_ALIGN 1 1
+SET_BONUS_ITEM_SET  |  Después: número valor número  |  Acción GM (el servidor confirma en consola). | Alias: SET_STATS_ITEM_SET, SET_STATS_SET_ITEM, SET_BONUS_SET_OBJETO, SET_BONUS_OBJETO_SET, SET_BONUS_SET_ITEM, SET_STATS_SET_OBJETO, SET_STATS_OBJETO_SET  |  Ej: SET_BONUS_ITEM_SET 1 1 1
+SET_BONUS_OBJETO_SET  |  Después: número valor número  |  Acción GM (el servidor confirma en consola). | Alias: SET_STATS_ITEM_SET, SET_STATS_SET_ITEM, SET_BONUS_SET_OBJETO, SET_BONUS_ITEM_SET, SET_BONUS_SET_ITEM, SET_STATS_SET_OBJETO, SET_STATS_OBJETO_SET  |  Ej: SET_BONUS_OBJETO_SET 1 1 1
+SET_BONUS_SET_ITEM  |  Después: número valor número  |  Acción GM (el servidor confirma en consola). | Alias: SET_STATS_ITEM_SET, SET_STATS_SET_ITEM, SET_BONUS_SET_OBJETO, SET_BONUS_OBJETO_SET, SET_BONUS_ITEM_SET, SET_STATS_SET_OBJETO, SET_STATS_OBJETO_SET  |  Ej: SET_BONUS_SET_ITEM 1 1 1
+SET_BONUS_SET_OBJETO  |  Después: número valor número  |  Acción GM (el servidor confirma en consola). | Alias: SET_STATS_ITEM_SET, SET_STATS_SET_ITEM, SET_BONUS_OBJETO_SET, SET_BONUS_ITEM_SET, SET_BONUS_SET_ITEM, SET_STATS_SET_OBJETO, SET_STATS_OBJETO_SET  |  Ej: SET_BONUS_SET_OBJETO 1 1 1
+SET_ENERGY  |  Después: número [valor]  |  Acción GM (el servidor confirma en consola). | Alias: ENERGIA, AGREGAR_ENERGIA, ADD_ENERGIA, ENERGY  |  Ej: SET_ENERGY 1 1
+SET_FECHA  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: SET_FECHA
+SET_IA  |  Después: número número  |  Acción GM (el servidor confirma en consola). | Alias: CAMBIAR_IA_MOB, SET_TIPO_IA, SET_IA_MOB, SET_MOB_IA  |  Ej: SET_IA 1 1
+SET_ITEM  |  Después: número [valor] [MIN|MAX]  |  Acción GM (el servidor confirma en consola). | Alias: SET_OBJETO, ITEM_SET, OBJETO_SET  |  Ej: SET_ITEM 1 1 MAX
+SET_ITEM_POINTS  |  Después: número número  |  Acción GM (el servidor confirma en consola). | Alias: OGRINAS_OBJETO_MODELO  |  Ej: SET_ITEM_POINTS 1 1
+SET_OBJETO  |  Después: número [valor] [MIN|MAX]  |  Acción GM (el servidor confirma en consola). | Alias: SET_ITEM, ITEM_SET, OBJETO_SET  |  Ej: SET_OBJETO 1 1 MAX
+SET_STATS_ITEM_SET  |  Después: número valor número  |  Acción GM (el servidor confirma en consola). | Alias: SET_STATS_SET_ITEM, SET_BONUS_SET_OBJETO, SET_BONUS_OBJETO_SET, SET_BONUS_ITEM_SET, SET_BONUS_SET_ITEM, SET_STATS_SET_OBJETO, SET_STATS_OBJETO_SET  |  Ej: SET_STATS_ITEM_SET 1 1 1
+SET_STATS_MOB  |  Después: número número valor  |  Acción GM (el servidor confirma en consola). | Alias: FIJAR_DA\u00d1O, MODIFICAR_STATS_MOB, FIJAR_DA\u00d1OS, FIJAR_STATS, FIJAR_STATS_MOB  |  Ej: SET_STATS_MOB 1 1 1
+SET_STATS_MODELO  |  Después: número valor  |  Acción GM (el servidor confirma en consola). | Alias: SET_STATS_OBJ_MODELO, SET_STATS_ITEM_TEMPLATE, SET_STATS_OBJETO_MODELO  |  Ej: SET_STATS_MODELO 1 1
+SET_STATS_OBJETO  |  Después: número valor  |  Acción GM (el servidor confirma en consola). | Alias: SETSTATSOBJETO, SET_STATS_ITEM  |  Ej: SET_STATS_OBJETO 1 1
+SET_STATS_OBJETO_SET  |  Después: número valor número  |  Acción GM (el servidor confirma en consola). | Alias: SET_STATS_ITEM_SET, SET_STATS_SET_ITEM, SET_BONUS_SET_OBJETO, SET_BONUS_OBJETO_SET, SET_BONUS_ITEM_SET, SET_BONUS_SET_ITEM, SET_STATS_SET_OBJETO  |  Ej: SET_STATS_OBJETO_SET 1 1 1
+SET_STATS_SET_ITEM  |  Después: número valor número  |  Acción GM (el servidor confirma en consola). | Alias: SET_STATS_ITEM_SET, SET_BONUS_SET_OBJETO, SET_BONUS_OBJETO_SET, SET_BONUS_ITEM_SET, SET_BONUS_SET_ITEM, SET_STATS_SET_OBJETO, SET_STATS_OBJETO_SET  |  Ej: SET_STATS_SET_ITEM 1 1 1
+SET_STATS_SET_OBJETO  |  Después: número valor número  |  Acción GM (el servidor confirma en consola). | Alias: SET_STATS_ITEM_SET, SET_STATS_SET_ITEM, SET_BONUS_SET_OBJETO, SET_BONUS_OBJETO_SET, SET_BONUS_ITEM_SET, SET_BONUS_SET_ITEM, SET_STATS_OBJETO_SET  |  Ej: SET_STATS_SET_OBJETO 1 1 1
+SET_TEMP  |  Después: valor  |  Acción GM (el servidor confirma en consola).  |  Ej: SET_TEMP 1
+SHOW_A  |  Después: [valor]  |  Acción GM (el servidor confirma en consola). | Alias: MOSTRAR_RESTRICCIONES_A, MOSTRAR_A, SHOW_RESTRICTIONS_A  |  Ej: SHOW_A 1
+SHOW_ACTIONS_ANSWER  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: SHOW_ACTIONS_ANSWER
+SHOW_ACTIONS_REPONSE  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: SHOW_ACTIONS_REPONSE
+SHOW_ANSWERS  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: SHOW_REPONSES, LISTAR_RESPUESTAS, SHOW_ANSWER, MOSTRAR_RESPUESTAS, LISTA_RESPUESTAS  |  Ej: SHOW_ANSWERS 1
+SHOW_B  |  Después: [valor]  |  Acción GM (el servidor confirma en consola). | Alias: MOSTRAR_RESTRICCIONES_B, MOSTRAR_B, SHOW_RESTRICTIONS_B  |  Ej: SHOW_B 1
+SHOW_CELLS_ACTION  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: SHOW_TRIGGERS, MOSTRAR_TRIGGERS  |  Ej: SHOW_CELLS_ACTION
+SHOW_FIGHTS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: MOSTRAR_PELEAS  |  Ej: SHOW_FIGHTS
+SHOW_FIGHT_POS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: MOSTRAR_POSICIONES, LISTA_POS_PELEA, SHOW_POSITIONS, MOSTRAR_POS_PELEA, MOSTRAR_POSICIONES_PELEA  |  Ej: SHOW_FIGHT_POS
+SHOW_OIS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: MOSTRAR_OIS, MOSTRAR_OBJETOS_INTERACTIVOS  |  Ej: SHOW_OIS
+SHOW_POSITIONS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: MOSTRAR_POSICIONES, LISTA_POS_PELEA, MOSTRAR_POS_PELEA, MOSTRAR_POSICIONES_PELEA, SHOW_FIGHT_POS  |  Ej: SHOW_POSITIONS
+SHOW_REPONSES  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: SHOW_ANSWERS, LISTAR_RESPUESTAS, SHOW_ANSWER, MOSTRAR_RESPUESTAS, LISTA_RESPUESTAS  |  Ej: SHOW_REPONSES 1
+SHOW_TRIGGERS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: SHOW_CELLS_ACTION, MOSTRAR_TRIGGERS  |  Ej: SHOW_TRIGGERS
+SILENCIAR  |  Después: valor [número] [valor]  |  Acción GM (el servidor confirma en consola). | Alias: MUTEAR, MUTE, MUTE_SECONDS, MUTE_SEGUNDOS  |  Ej: SILENCIAR 1 1 1
+SIZE  |  Después: porcentaje [NombrePJ]  |  Tamaño del sprite. 100 = normal. Sin nombre = tú. | Alias: TAMA\u00d1O, TALLA  |  Ej: SIZE 100 Ruben
+SPAWN  |  Después: valor número valor valor número  |  Acción GM (el servidor confirma en consola). | Alias: SPAWN_MOB, AGREGAR_GRUPO_MOB, AGREGAR_MOB_GRUPO, ADD_GROUP_MOB, SPAWN_GROUP_MOB, ADD_GRUPO_MOB, SPAWN_MOBS  |  Ej: SPAWN 1 1 1 1 1
+SPAWN_FIX  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: SPAWN_SQL, AGREGAR_GRUPO_MOB_SQL, AGREGAR_GRUPOMOB_FIJO, AGREGAR_MOB_FIJO, AGREGAR_MOB_GRUPO_SQL, ADD_GRUPO_MOB_SQL, ADD_GRUPOMOB_FIJO, ADD_MOB_FIJO  |  Ej: SPAWN_FIX
+SPELL_POINTS  |  Después: [número] [valor]  |  Acción GM (el servidor confirma en consola). | Alias: PUNTOS_HECHIZO  |  Ej: SPELL_POINTS 1 1
+SPRITE_ID  |  Después: número número  |  Acción GM (el servidor confirma en consola). | Alias: HECHIZO_SPRITE_ID, SPELL_SPRITE_ID, SPRITE_ID_SPELL, SPRITE_ID_HECHIZO  |  Ej: SPRITE_ID 1 1
+SPRITE_INFOS  |  Después: número valor  |  Acción GM (el servidor confirma en consola). | Alias: SPELL_SPRITE_INFOS, SPRITE_INFOS_HECHIZO, SPRITE_INFOS_SPELL, HECHIZO_SPRITE_INFOS  |  Ej: SPRITE_INFOS 1 1
+STARS_MOBS  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: STARS_MOBS
+STARS_MOBS_MAP  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: MAPA_ESTRELLAS_MOB, MAPA_MOBS_ESTRELLAS, MOB_ESTRELLAS_MAPA, ESTRELLAS_MOBS_MAPA, SUBIR_ESTRELLAS_MOBS_MAPA, MAPA_ESTRELLAS_MOBS, ESTRELLAS_MAPA_MOBS, MAPA_STARS_MOBS, MAP_STARS_MOBS, MOBS_ESTRELLAS_MAPA, MAPA_MOBS_STARS, ESTRELLAS_MOB_MAPA, MAP_MOBS_STARS, UP_STARS_MOBS_MAP, MOB_MAP_STARS, MAPA_MOB_ESTRELLAS  |  Ej: STARS_MOBS_MAP 1
+STARS_RESSOURCES  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: RESSOURCES_STARS, ESTRELLAS_RECURSOS, SUBIR_ESTRELLAS_RECURSOS  |  Ej: STARS_RESSOURCES 1
+STARS_RESSOURCES_MAP  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: ESTRELLAS_RECURSOS_MAPA, RESSOURCES_MAP_STARS, SUBIR_ESTRELLAS_RECURSOS_MAPA  |  Ej: STARS_RESSOURCES_MAP 1
+STATS_DEFECTO_MOB  |  Después: número  |  Acción GM (el servidor confirma en consola).  |  Ej: STATS_DEFECTO_MOB 1
+STATS_POINTS  |  Después: [número] [valor]  |  Acción GM (el servidor confirma en consola). | Alias: PUNTOS_STATS, POINTS_CAPITAL, PUNTOS_CAPITAL, CAPITAL  |  Ej: STATS_POINTS 1 1
+STR_ACCIONES_PELEA  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola).  |  Ej: STR_ACCIONES_PELEA
+STUFF_NPC  |  Después: idNPC [NombrePJ]  |  Copia gfx, colores y accesorios de un PJ al NPC modelo (tienda/look del NPC). Sin nombre = tu look. | Alias: ACTUALIZAR_NPC, ACCESSORIES_NPC  |  Ej: STUFF_NPC 801 Ruben
+SUBIR_ESTRELLAS_MOBS_MAPA  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: MAPA_ESTRELLAS_MOB, MAPA_MOBS_ESTRELLAS, MOB_ESTRELLAS_MAPA, ESTRELLAS_MOBS_MAPA, MAPA_ESTRELLAS_MOBS, ESTRELLAS_MAPA_MOBS, MAPA_STARS_MOBS, MAP_STARS_MOBS, MOBS_ESTRELLAS_MAPA, MAPA_MOBS_STARS, ESTRELLAS_MOB_MAPA, MAP_MOBS_STARS, UP_STARS_MOBS_MAP, MOB_MAP_STARS, STARS_MOBS_MAP, MAPA_MOB_ESTRELLAS  |  Ej: SUBIR_ESTRELLAS_MOBS_MAPA 1
+SUBIR_ESTRELLAS_MOB_TODOS  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: ALL_MOBS_STARS, MOBS_ESTRELLAS_TODOS, TODOS_STARS_MOBS, TODOS_MOBS_STARS, MOB_ESTRELLAS_TODOS, UP_ALL_STARS_MOBS, TODOS_MOBS_ESTRELLAS, ESTRELLAS_MOBS_TODOS, MOBS_STARS_TODOS, ALL_MOBS_ESTRELLAS, TODOS_ESTRELLAS_MOBS, ALL_STARS_MOBS  |  Ej: SUBIR_ESTRELLAS_MOB_TODOS 1
+SUBIR_ESTRELLAS_RECURSOS  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: RESSOURCES_STARS, STARS_RESSOURCES, ESTRELLAS_RECURSOS  |  Ej: SUBIR_ESTRELLAS_RECURSOS 1
+SUBIR_ESTRELLAS_RECURSOS_MAPA  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: ESTRELLAS_RECURSOS_MAPA, RESSOURCES_MAP_STARS, STARS_RESSOURCES_MAP  |  Ej: SUBIR_ESTRELLAS_RECURSOS_MAPA 1
+TALLA  |  Después: porcentaje [NombrePJ]  |  Tamaño del sprite. 100 = normal. Sin nombre = tú. | Alias: TAMA\u00d1O, SIZE  |  Ej: TALLA 100 Ruben
+TALLA_MOB  |  Después: número número  |  Acción GM (el servidor confirma en consola). | Alias: MOB_TALLA, MOB_SIZE, SIZE_MOB  |  Ej: TALLA_MOB 1 1
+TELEPORT  |  Después: mapa [celda] [NombrePJ]  |  Teletransporta. Sin PJ = tú. Sin celda usa una por defecto.  |  Ej: TELEPORT 951 156 Ruben
+TEST_CELDAS  |  Después: número  |  Acción GM (el servidor confirma en consola).  |  Ej: TEST_CELDAS 1
+TEST_DAÑO  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: TEST_DAÑO
+TICKETS_ACHETES  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: BOLETOS_COMPRADOS, GET_BOUGHT_TICKETS  |  Ej: TICKETS_ACHETES
+TIEMPO_ANTI_FLOOD  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: MILISEGUNDOS_ANTI_FLOOD  |  Ej: TIEMPO_ANTI_FLOOD 1
+TIEMPO_ESTRELLAS_MOBS  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: TIEMPO_MOB_ESTRELLAS, SEGUNDOS_ESTRELLAS_MOBS  |  Ej: TIEMPO_ESTRELLAS_MOBS 1
+TIEMPO_ESTRELLAS_RECURSOS  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: TIEMPO_RECURSOS_ESTRELLAS, SEGUNDOS_ESTRELLAS_RECURSOS  |  Ej: TIEMPO_ESTRELLAS_RECURSOS 1
+TIEMPO_KOLISEO  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: SEGUNDOS_INICIAR_KOLISEO  |  Ej: TIEMPO_KOLISEO 1
+TIEMPO_MOB_ESTRELLAS  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: TIEMPO_ESTRELLAS_MOBS, SEGUNDOS_ESTRELLAS_MOBS  |  Ej: TIEMPO_MOB_ESTRELLAS 1
+TIEMPO_RECURSOS_ESTRELLAS  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: SEGUNDOS_ESTRELLAS_RECURSOS, TIEMPO_ESTRELLAS_RECURSOS  |  Ej: TIEMPO_RECURSOS_ESTRELLAS 1
+TIPO_IA  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: TIPO_IA
+TITLE  |  Después: número número [valor]  |  Acción GM (el servidor confirma en consola). | Alias: TITULO, ADD_TITLE, TITRE, SET_TITLE, ADD_TITULO  |  Ej: TITLE 1 1 1
+TITRE  |  Después: número número [valor]  |  Acción GM (el servidor confirma en consola). | Alias: TITULO, ADD_TITLE, TITLE, SET_TITLE, ADD_TITULO  |  Ej: TITRE 1 1 1
+TITRE_VIP  |  Después: [texto] valor  |  Acción GM (el servidor confirma en consola). | Alias: TITULO_VIP  |  Ej: TITRE_VIP mensaje 1
+TITULO  |  Después: número número [valor]  |  Acción GM (el servidor confirma en consola). | Alias: ADD_TITLE, TITLE, TITRE, SET_TITLE, ADD_TITULO  |  Ej: TITULO 1 1 1
+TITULO_VIP  |  Después: [texto] valor  |  Acción GM (el servidor confirma en consola). | Alias: TITRE_VIP  |  Ej: TITULO_VIP mensaje 1
+TNT  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: TNT
+TOLERANCIA_NORMAL  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: TOLERANCIA_NORMAL
+TOLERANCIA_VIP  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: TOLERANCIA_VIP
+TRAER  |  Después: NombrePJ  |  Trae a ese jugador a tu mapa y celda. | Alias: JOIN_ME  |  Ej: TRAER Ruben
+TUTORIAL_ES  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola).  |  Ej: TUTORIAL_ES
+TUTORIAL_FR  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola).  |  Ej: TUTORIAL_FR
+UNBAN  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: DES_BAN, UN_BAN, DESBANEAR  |  Ej: UNBAN 1
+UNBAN_IP_NUMERO  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: DESBANEAR_IP_NUMERO  |  Ej: UNBAN_IP_NUMERO 1
+UNFREEZE  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: DESCONGELAR, UN_FREEZE  |  Ej: UNFREEZE 1
+UNFREEZE_MAP  |  Después: [número]  |  Acción GM (el servidor confirma en consola). | Alias: UN_FREEZE_MAP, DESCONGELAR_MAPA  |  Ej: UNFREEZE_MAP 1
+UNIRSE_PELEA  |  Después: [valor]  |  Acción GM (el servidor confirma en consola). | Alias: JOIN_FIGHT, ESPECTATE_FIGHT, ESPECTATOR_FIGHT, ESPECTAR_A, ESPECTAR_PELEA  |  Ej: UNIRSE_PELEA 1
+UNJAIL  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: UN_JAIL, LIBERAR  |  Ej: UNJAIL 1
+UNMUTE  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: DESMUTE, UN_MUTE  |  Ej: UNMUTE 1
+UN_BAN  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: DES_BAN, DESBANEAR, UNBAN  |  Ej: UN_BAN 1
+UN_FREEZE  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: DESCONGELAR, UNFREEZE  |  Ej: UN_FREEZE 1
+UN_FREEZE_MAP  |  Después: [número]  |  Acción GM (el servidor confirma en consola). | Alias: UNFREEZE_MAP, DESCONGELAR_MAPA  |  Ej: UN_FREEZE_MAP 1
+UN_JAIL  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: UNJAIL, LIBERAR  |  Ej: UN_JAIL 1
+UN_MUTE  |  Después: valor  |  Acción GM (el servidor confirma en consola). | Alias: DESMUTE, UNMUTE  |  Ej: UN_MUTE 1
+UN_MUTE_MAP  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: DES_MUTE_MAP, DESMUTE_MAP, DESMUTEAR_MAPA, DES_MUTEAR_MAPA  |  Ej: UN_MUTE_MAP 1
+UPDATE_ALMANAX  |  Después: número valor número número  |  Acción GM (el servidor confirma en consola). | Alias: ADD_ALMANAX, AGREGAR_MISION_DIARIA, MISION_ALMANAX  |  Ej: UPDATE_ALMANAX 1 1 1 1
+UPDATE_CASA  |  Después: mapaDentro celdaDentro  |  Fija el interior de la CASA donde estás parado (no lleva nombre). Tú tienes que estar en la puerta. | Alias: UPDATE_HOUSE, MAPA_DENTRO_CASA, ACTUALIZAR_CASA, MODIFY_HOUSE, MODIFICAR_CASA  |  Ej: UPDATE_CASA 1030 255
+UP_STARS_MOBS  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: UP_STARS_MOBS
+UP_STARS_MOBS_MAP  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: MAPA_ESTRELLAS_MOB, MAPA_MOBS_ESTRELLAS, MOB_ESTRELLAS_MAPA, ESTRELLAS_MOBS_MAPA, SUBIR_ESTRELLAS_MOBS_MAPA, MAPA_ESTRELLAS_MOBS, ESTRELLAS_MAPA_MOBS, MAPA_STARS_MOBS, MAP_STARS_MOBS, MOBS_ESTRELLAS_MAPA, MAPA_MOBS_STARS, ESTRELLAS_MOB_MAPA, MAP_MOBS_STARS, MOB_MAP_STARS, STARS_MOBS_MAP, MAPA_MOB_ESTRELLAS  |  Ej: UP_STARS_MOBS_MAP 1
+VISIBLE  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: DETECTABLE  |  Ej: VISIBLE
+VOTAR_CLIENTES_BUG  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: EXPULSAR_INACTIVOS, CLEAN_SERVER, EXPULSAR_CLIENTES_BUG, LIMPIAR_SERVIDOR, KICK_CLIENTS_BUG, EXPULSAR_AFKS, LIMPIAR_SOCKETS  |  Ej: VOTAR_CLIENTES_BUG 1
+W  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: W
+WHOIS  |  Después: número  |  Acción GM (el servidor confirma en consola). | Alias: JOUERS, ONLINE, EN_LINEA, PLAYERS, QUIENES, JUGADORES  |  Ej: WHOIS 1
+WINNER  |  Después: número [valor]  |  Acción GM (el servidor confirma en consola). | Alias: GANADOR_PELEA, TEAM_WINNER, EQUIPO_GANADOR, WINNER_FIGHT, GANADOR_EQUIPO, GANAR_PELEA  |  Ej: WINNER 1 1
+WRITE_ANSWERS  |  Después: número valor valor  |  Acción GM (el servidor confirma en consola). | Alias: FIJAR_RESPUESTAS_PREGUNTA, ADD_ANSWERS, FIX_REPONSES, FIX_ANSWERS, FIJAR_RESPUESTAS, SET_ANSWERS, SET_RESPUESTAS  |  Ej: WRITE_ANSWERS 1 1 1
+XP_OFICIO  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: XP_OFICIO
+ACCION  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: ACCION
+INVENTARIO  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: INVENTARIO
+REGALO_ON  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: REGALO_ON
+REGALO_DB  |  (la tabla lo lista; si no responde, alias muerto o descomentado)  |  No hay `case` activo en el JAR o el nombre no coincide.  |  Ej: REGALO_DB
+CANCELAR_PELEA  |  Después: [valor]  |  Acción GM (el servidor confirma en consola). | Alias: ANULATE_FIGHT, FIGHT_CANCEL, CANCEL_FIGHT, ANULAR_PELEA  |  Ej: CANCELAR_PELEA 1
+ADD_GRUPO_MOB_SQL  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: SPAWN_FIX, SPAWN_SQL, AGREGAR_GRUPO_MOB_SQL, AGREGAR_GRUPOMOB_FIJO, AGREGAR_MOB_FIJO, AGREGAR_MOB_GRUPO_SQL, ADD_GRUPOMOB_FIJO, ADD_MOB_FIJO  |  Ej: ADD_GRUPO_MOB_SQL
+FINALIZAR_PELEAS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: FINISH_FIGHTS, FINISH_ALL_FIGHTS, FINISH_COMBATS  |  Ej: FINALIZAR_PELEAS
+RELOAD_CONFIG  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola). | Alias: REFRESH_CONFIG, LOAD_CONFIG, CARGAR_CONFIGURACION  |  Ej: RELOAD_CONFIG
+INVASION_MOBS  |  Después: (nada: solo el comando, sobre TI o el mapa donde estás)  |  Acción GM (el servidor confirma en consola).  |  Ej: INVASION_MOBS
+CAMBIAR_NOMBRE  |  Después: [valor] [valor]  |  Acción GM (el servidor confirma en consola). | Alias: CHANGE_NAME  |  Ej: CAMBIAR_NOMBRE 1 1
+INVENTARIO_PJ  |  Después: [valor]  |  Acción GM (el servidor confirma en consola). | Alias: INVENTARIO_PLAYER, INVENTORY_PJ, INVENTARIO_PERSO, INVENTARIO_JUGADOR, INVENTORY_PERSO, INVENTORY_PLAYER  |  Ej: INVENTARIO_PJ 1
+DAR_CREDITOS  |  Después: número [valor]  |  Acción GM (el servidor confirma en consola). | Alias: REGALAR_CREDITOS, AGREGAR_CREDITOS, ADD_CREDITS  |  Ej: DAR_CREDITOS 1 1
+DEL_MOB  |  Después: número  |  Acción GM (el servidor confirma en consola).  |  Ej: DEL_MOB 1
+MIGRAR  |  Después: valor valor  |  Acción GM (el servidor confirma en consola).  |  Ej: MIGRAR 1 1
+INFO_PJ  |  Después: [valor]  |  Acción GM (el servidor confirma en consola). | Alias: INFO_PERSONAJE, INFO_PLAYER, STATS_PLAYER, STATS_PERSO, STATS_PERSONAJE, STATS_PJ  |  Ej: INFO_PJ 1
+OMEGA  |  Después: número [valor]  |  Acción GM (el servidor confirma en consola).  |  Ej: OMEGA 1 1

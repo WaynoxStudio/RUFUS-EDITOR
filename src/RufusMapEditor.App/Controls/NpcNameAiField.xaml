@@ -28,7 +28,7 @@
             Margin="0,0,4,0"
             VerticalAlignment="Center"
             Padding="0"
-            ClickMode="Press"
+            ClickMode="Release"
             Background="Transparent"
             BorderThickness="0"
             ToolTip="Perfil IA del NPC"

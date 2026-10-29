@@ -1214,6 +1214,11 @@
                   Panel.ZIndex="2"
                   ToolTip="Datos del mapa abierto">
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+              <Button Content="Publicar en BD" Padding="8,4" Margin="0,0,10,0"
+                      Command="{Binding PublishToDatabaseCommand}"
+                      Style="{StaticResource PrimaryButton}"
+                      VerticalAlignment="Center"
+                      ToolTip="Si el mapa no existe en estaticos.mapas, pregunta y crea la fila. Si ya existe, UPDATE de esa misma id (mapData, fondo, X/Y, revisión). No duplica líneas. Distinto de Cargar BD."/>
               <TextBlock Text="ID" FontSize="10" VerticalAlignment="Center" Margin="0,0,4,0"
                          Foreground="{DynamicResource TextMuted}"/>
               <TextBlock Text="{Binding InfoMapId}" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"

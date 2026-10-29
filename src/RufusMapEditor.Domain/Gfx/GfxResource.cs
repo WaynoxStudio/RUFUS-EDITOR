@@ -34,9 +34,25 @@ public sealed class GfxResource
     /// </summary>
     public bool AnchorAmbiguous { get; init; }
 
-    /// <summary>Optional pixel size; not required for catalog indexing.</summary>
+    /// <summary>Optional pixel size of the source file (may be HD).</summary>
     public int? PixelWidth { get; init; }
 
-    /// <summary>Optional pixel size; not required for catalog indexing.</summary>
+    /// <summary>Optional pixel size of the source file (may be HD).</summary>
     public int? PixelHeight { get; init; }
+
+    /// <summary>
+    /// Visible size in game/editor placement units. When unset, <see cref="PixelWidth"/> is used (1:1).
+    /// </summary>
+    public int? LogicalWidth { get; init; }
+
+    /// <summary>
+    /// Visible size in game/editor placement units. When unset, <see cref="PixelHeight"/> is used (1:1).
+    /// </summary>
+    public int? LogicalHeight { get; init; }
+
+    /// <summary>Width used for cell placement and anchors — never the HD pixel width.</summary>
+    public int PlacementWidth => LogicalWidth is int lw && lw > 0 ? lw : PixelWidth ?? 0;
+
+    /// <summary>Height used for cell placement and anchors — never the HD pixel height.</summary>
+    public int PlacementHeight => LogicalHeight is int lh && lh > 0 ? lh : PixelHeight ?? 0;
 }

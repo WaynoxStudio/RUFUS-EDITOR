@@ -205,6 +205,8 @@ public static class AstriaGfxCatalogBuilder
                 };
             }
 
+            GfxHdSidecarBinder.Apply(ref resource);
+
             if (map.TryGetValue(id, out var previous))
             {
                 duplicateCount++;
@@ -255,6 +257,8 @@ public static class AstriaGfxCatalogBuilder
                     AnchorAmbiguous = ambiguous.ContainsKey(id),
                     PixelWidth = existing.PixelWidth,
                     PixelHeight = existing.PixelHeight,
+                    LogicalWidth = existing.LogicalWidth,
+                    LogicalHeight = existing.LogicalHeight,
                 };
             }
             else

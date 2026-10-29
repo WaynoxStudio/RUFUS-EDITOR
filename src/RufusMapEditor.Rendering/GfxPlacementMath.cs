@@ -119,11 +119,25 @@ public static class GfxPlacementMath
         int rotation,
         bool isObject,
         int sizeCell,
+        out PlacementRect logicalSize) =>
+        TransformBitmap(
+            source, source.Width, source.Height, anchorX, anchorY, flip, rotation, isObject, sizeCell, out logicalSize);
+
+    public static Bitmap TransformBitmap(
+        Bitmap source,
+        int logicalWidth,
+        int logicalHeight,
+        int anchorX,
+        int anchorY,
+        bool flip,
+        int rotation,
+        bool isObject,
+        int sizeCell,
         out PlacementRect logicalSize)
     {
         var scale = sizeCell / (double)IsoGeometry.SizeBaseCell;
         var (_, _, sizeImage) = ComputePlacementOffsets(
-            source.Width, source.Height, anchorX, anchorY, flip, rotation, isObject, scale);
+            logicalWidth, logicalHeight, anchorX, anchorY, flip, rotation, isObject, scale);
 
         var aImage = (Bitmap)source.Clone();
 
@@ -136,14 +150,12 @@ public static class GfxPlacementMath
             {
                 case 1:
                     aImage.RotateFlip(RotateFlipType.Rotate90FlipNone);
-                    aImage = ResizeImg(aImage, sizeImage.Height, sizeImage.Width);
                     break;
                 case 2:
                     aImage.RotateFlip(RotateFlipType.Rotate180FlipNone);
                     break;
                 case 3:
                     aImage.RotateFlip(RotateFlipType.Rotate270FlipNone);
-                    aImage = ResizeImg(aImage, sizeImage.Height, sizeImage.Width);
                     break;
             }
         }
@@ -209,19 +221,6 @@ public static class GfxPlacementMath
         }
 
         return (posX, posY, sizeImage);
-    }
-
-    private static Bitmap ResizeImg(Bitmap source, int newWidth, int newHeight)
-    {
-        var thumb = new Bitmap(newWidth, newHeight);
-        using (var gra = Graphics.FromImage(thumb))
-        {
-            gra.DrawImage(source, new Rectangle(0, 0, newWidth, newHeight),
-                new Rectangle(0, 0, source.Width, source.Height), GraphicsUnit.Pixel);
-        }
-
-        source.Dispose();
-        return thumb;
     }
 
     private static int VbInt(double value) => Convert.ToInt32(value);

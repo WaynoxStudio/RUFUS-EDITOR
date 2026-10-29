@@ -1,19 +1,19 @@
 {
   "formatVersion": 1,
-  "documentId": "5ed54ac1-dd02-48b2-996a-28eb1aecc792",
-  "createdUtc": "2026-10-18T10:13:20.024387+00:00",
-  "modifiedUtc": "2026-10-18T10:13:20.024468+00:00",
+  "documentId": "d31837ea-4719-4c23-9acd-aa9d7a9c9172",
+  "createdUtc": "2026-10-29T18:27:59.8090967+00:00",
+  "modifiedUtc": "2026-10-29T18:27:59.8091737+00:00",
   "projectName": "30108",
   "source": {
-    "kind": "NewMap",
+    "kind": "LegacyAstria",
     "originalMapId": 30108,
-    "libraryPathHint": "C:\\Users\\alex_\\Desktop\\RUFUS-EDITOR\\Library"
+    "libraryPathHint": "C:\\Users\\alex_\\Desktop\\RUFUS\\RUFUS-EDITOR\\Library"
   },
   "map": {
     "id": 30108,
     "width": 15,
     "height": 17,
-    "dateMap": "AME",
+    "dateMap": "Torre desafio sala 5",
     "key": "",
     "fightPlaces": "f-f_gagbgcgmgngogpgqgr|babbbcbdbebobpbqbrbs",
     "backgroundId": 1731,

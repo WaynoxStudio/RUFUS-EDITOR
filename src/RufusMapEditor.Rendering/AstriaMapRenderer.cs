@@ -114,7 +114,7 @@ public sealed class AstriaMapRenderer
             // Explicit defaults matching typical WinForms/GDI+ DrawAll (Astria sets none).
             g.CompositingMode = System.Drawing.Drawing2D.CompositingMode.SourceOver;
             g.CompositingQuality = System.Drawing.Drawing2D.CompositingQuality.Default;
-            g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.Bilinear;
+            g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
             g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Default;
             g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
             g.Clear(Color.Black);
@@ -227,11 +227,14 @@ public sealed class AstriaMapRenderer
 
         using (bmp)
         {
-            g.DrawImage(bmp, new Rectangle(
+            var dest = new Rectangle(
                 sizeCell,
                 sizeCell / 2,
                 fullW - sizeCell * 2,
-                fullH - sizeCell));
+                fullH - sizeCell);
+            g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+            g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+            g.DrawImage(bmp, dest);
         }
     }
 
@@ -250,10 +253,11 @@ public sealed class AstriaMapRenderer
 
         try
         {
+            var layout = GfxHdLayout.FromResource(resource, aImage.Width, aImage.Height);
             var (baseX, baseY) = GfxPlacementMath.ResolveAnchor(
-                resource.Anchor?.X, resource.Anchor?.Y, aImage.Width, aImage.Height);
+                resource.Anchor?.X, resource.Anchor?.Y, layout.LogicalWidth, layout.LogicalHeight);
             var dest = GfxPlacementMath.CalculateDrawPlacement(
-                cell, aImage.Width, aImage.Height, baseX, baseY, flip, rotation, isObject, sizeCell);
+                cell, layout.LogicalWidth, layout.LogicalHeight, baseX, baseY, flip, rotation, isObject, sizeCell);
 
             if (flip)
                 aImage.RotateFlip(RotateFlipType.RotateNoneFlipX);
@@ -264,36 +268,24 @@ public sealed class AstriaMapRenderer
                 {
                     case 1:
                         aImage.RotateFlip(RotateFlipType.Rotate90FlipNone);
-                        aImage = ResizeImg(aImage, dest.Height, dest.Width);
                         break;
                     case 2:
                         aImage.RotateFlip(RotateFlipType.Rotate180FlipNone);
                         break;
                     case 3:
                         aImage.RotateFlip(RotateFlipType.Rotate270FlipNone);
-                        aImage = ResizeImg(aImage, dest.Height, dest.Width);
                         break;
                 }
             }
 
+            g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+            g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
             g.DrawImage(aImage, new Rectangle(dest.X, dest.Y, dest.Width, dest.Height));
         }
         finally
         {
             aImage.Dispose();
         }
-    }
-
-    private static Bitmap ResizeImg(Bitmap source, int newWidth, int newHeight)
-    {
-        var thumb = new Bitmap(newWidth, newHeight);
-        using (var gra = Graphics.FromImage(thumb))
-        {
-            gra.DrawImage(source, new Rectangle(0, 0, newWidth, newHeight), new Rectangle(0, 0, source.Width, source.Height), GraphicsUnit.Pixel);
-        }
-
-        source.Dispose();
-        return thumb;
     }
 
     private static Bitmap Crop(Bitmap source, int x, int y, int width, int height)

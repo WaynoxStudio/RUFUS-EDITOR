@@ -129,7 +129,7 @@ public static class MapBatchPublishPlanner
                     QueueItem = queue,
                     IsInsert = true,
                     InsertPlan = plan,
-                    NewFecha = MapCreateLogic.InitialRevision,
+                    NewFecha = plan.EditorValues.Fecha,
                 });
                 continue;
             }

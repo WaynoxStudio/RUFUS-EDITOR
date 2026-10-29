@@ -191,16 +191,17 @@ public sealed class MapPublishService
                 return Fail("Verification failed: los campos del editor no coinciden tras INSERT.");
             }
 
-            map.DateMap = MapCreateLogic.InitialRevision;
+            var createdFecha = plan.EditorValues.Fecha;
+            map.DateMap = createdFecha;
             WritePublishLog(map.Id, "CREATE", "OK");
-            RufusLog.Ok($"Publicación CREATE completada · mapa {map.Id} · revisión {MapCreateLogic.InitialRevision}");
+            RufusLog.Ok($"Publicación CREATE completada · mapa {map.Id} · revisión {createdFecha}");
             RufusLog.Info("Verificación final CREATE correcta");
             return new PublishOutcome
             {
                 Success = true,
                 Created = true,
                 CurrentFecha = null,
-                NewFecha = MapCreateLogic.InitialRevision,
+                NewFecha = createdFecha,
                 BackupPath = backup,
                 InsertPlan = plan,
             };

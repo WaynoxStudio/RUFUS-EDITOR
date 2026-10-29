@@ -11,6 +11,64 @@ namespace RufusMapEditor.LegacyCompatibility.Database;
 public static class MapCreateLogic
 {
     public const string InitialRevision = "0";
+    public const int MaxFechaLength = 80;
+
+    /// <summary>
+    /// CREATE fecha: use the map's revisión/name when set (not empty / AME / "0"); otherwise "0".
+    /// </summary>
+    public static string SuggestedCreateFecha(MapDocument map)
+    {
+        ArgumentNullException.ThrowIfNull(map);
+        return NormalizeCreateFecha(map.DateMap);
+    }
+
+    public static string NormalizeCreateFecha(string? raw)
+    {
+        var t = (raw ?? "").Trim();
+        if (t.Length == 0)
+            return InitialRevision;
+        if (t.Length > MaxFechaLength)
+            t = t[..MaxFechaLength].TrimEnd();
+        if (t.Equals("AME", StringComparison.OrdinalIgnoreCase) || t == InitialRevision)
+            return InitialRevision;
+        return t;
+    }
+
+    public static void ApplyCreateFecha(MapInsertPlan plan, string? fecha)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        var f = NormalizeCreateFecha(fecha);
+        var src = plan.EditorValues;
+        plan.EditorValues = new MapPublishValues
+        {
+            Id = src.Id,
+            Fecha = f,
+            Ancho = src.Ancho,
+            Alto = src.Alto,
+            BgId = src.BgId,
+            MusicId = src.MusicId,
+            AmbienteId = src.AmbienteId,
+            OutDoor = src.OutDoor,
+            Capabilities = src.Capabilities,
+            PosPelea = src.PosPelea,
+            MapData = src.MapData,
+            X = src.X,
+            Y = src.Y,
+            ColumnsToUpdate = src.ColumnsToUpdate,
+        };
+        plan.Columns = plan.Columns
+            .Select(c =>
+                string.Equals(c.ColumnName, MapasColumns.Fecha, StringComparison.OrdinalIgnoreCase)
+                    ? new InsertColumnPlan
+                    {
+                        ColumnName = c.ColumnName,
+                        Source = c.Source,
+                        Value = f,
+                        Display = f,
+                    }
+                    : c)
+            .ToList();
+    }
 
     /// <summary>
     /// For NEW-map INSERT only: if the user left X/Y empty, treat (0,0) as an explicit valid position.
@@ -67,7 +125,7 @@ public static class MapCreateLogic
             };
         }
 
-        var editor = MapPublishLogic.FromDocument(map, InitialRevision);
+        var editor = MapPublishLogic.FromDocument(map, SuggestedCreateFecha(map));
         var columns = new List<InsertColumnPlan>();
         var missing = new List<string>();
 
@@ -155,7 +213,7 @@ public static class MapCreateLogic
         var sb = new System.Text.StringBuilder();
         sb.AppendLine($"CREAR MAPA {map.Id}");
         sb.AppendLine();
-        sb.AppendLine($"Revisión:            {InitialRevision}");
+        sb.AppendLine($"Revisión:            {plan.EditorValues.Fecha}");
         sb.AppendLine($"Tamaño:              {map.Width} × {map.Height}");
         sb.AppendLine($"Background:          {map.BackgroundId}");
         sb.AppendLine($"Música:              {map.MusicId}");
