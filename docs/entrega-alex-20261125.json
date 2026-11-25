@@ -1,0 +1,1510 @@
+{
+  "date": "2026-11-25T20:53:04.257Z",
+  "base": "60eb2c600aa843d98c46827cdfaab80a8c1b1b80",
+  "branch": "alex",
+  "repository": "WaynoxStudio/RUFUS-EDITOR",
+  "gameRepository": "WaynoxStudio/RUFUS-ALEX",
+  "gameDelivery": "manifests/delivery-20261125.json",
+  "files": [
+    {
+      "path": "Library/Maps/30108/30108.png",
+      "bytes": 922298,
+      "sha256": "29ba0003b3cc1dfa536b5a336455addf127abadc1f8c773d8bc00b7a0372ce76",
+      "tracked": true
+    },
+    {
+      "path": "Library/Maps/30108/30108.rufmap",
+      "bytes": 168211,
+      "sha256": "37d3f7cfb1fdfb63595625bda81e9b659fe6cf3a01ea14c36bb43935b6ed02b7",
+      "tracked": true
+    },
+    {
+      "path": "Library/Maps/30108/30108_AME.swf",
+      "bytes": 384,
+      "sha256": "65b399c3bee12fa718b0a2abdaabd9ef1da933696d123e4c26424607ae29fee0",
+      "tracked": true
+    },
+    {
+      "path": "Library/Maps/30108/30108_MapData.txt",
+      "bytes": 4790,
+      "sha256": "953c64eb1e2e4b7dd47e0bc343dcbcfc2190f05b7e66fa0dff628042de5a1e56",
+      "tracked": true
+    },
+    {
+      "path": "Library/Maps/31038/31038.png",
+      "bytes": 898856,
+      "sha256": "2790ba782222fd27f5e0b2145c33de0acdeff2589971d7a4cdd4c78a0ede9dea",
+      "tracked": true
+    },
+    {
+      "path": "Library/Maps/31038/31038.rufmap",
+      "bytes": 167899,
+      "sha256": "0862897aff16733748da2f6d9fd1a56c3fad3c9df6daf87ca64c1b735a790378",
+      "tracked": true
+    },
+    {
+      "path": "Library/Maps/31038/31038_AME.swf",
+      "bytes": 310,
+      "sha256": "b2efa01dc958bc65a1127dc4ec87472119a4555675c524174cf5e1c3d119d3a3",
+      "tracked": true
+    },
+    {
+      "path": "Library/Maps/31038/31038_MapData.txt",
+      "bytes": 4790,
+      "sha256": "9029ef14d02358ce73751471b2a108fb518525530c4084f7f493f7396d9a2538",
+      "tracked": true
+    },
+    {
+      "path": "Library/XML/objects.xml",
+      "bytes": 456151,
+      "sha256": "fbf7144e278b88035f07080b94a3a90979e14100ea941eb071f89983feb6edfa",
+      "tracked": true
+    },
+    {
+      "path": "AGENTS.md",
+      "bytes": 1267,
+      "sha256": "54426112a4573f95bb9c64d4fb9e097924698fc17df1cbe0bc42e0369e7c0028",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/backgrounds/1753.png",
+      "bytes": 2923408,
+      "sha256": "5faff1a19228dd1ad4dc4e2868032d814c44278924946b2f2f5947b3464c8c73",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/backgrounds/Nueva carpeta/1003.png",
+      "bytes": 564001,
+      "sha256": "761d117cbc2c3540926321426f7cfad794b1329258123188c84e4c1258a30d6d",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/backgrounds/Nueva carpeta/1719.png",
+      "bytes": 3084019,
+      "sha256": "ab884a32907fd1c2618de23f1f1a90af083a9a3b9dd0db0bf704ad9d4bb46e3f",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/backgrounds/Nueva carpeta/1720.png",
+      "bytes": 2782705,
+      "sha256": "dedcb0329fdfefd6f5a4a535b160a3580d8863ad8aa0c506617f71195e93771a",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/backgrounds/Nueva carpeta/1721.png",
+      "bytes": 2807872,
+      "sha256": "52ac7165a7550ed43a0180eeb39547ec12178855d40061bc16e1f125f4477217",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/backgrounds/Nueva carpeta/1722.png",
+      "bytes": 3037810,
+      "sha256": "ba20ec3a1eac3eb659d84033c10fd6965e566e0570974935573eed350cde88d9",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/backgrounds/Nueva carpeta/1723.png",
+      "bytes": 624550,
+      "sha256": "412e3905a34ab78e07d85eedfadbcc27ff3ffc7b6918955d29e7f1413d1bcd81",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/backgrounds/Nueva carpeta/1724.png",
+      "bytes": 2868972,
+      "sha256": "f6c593b00031176b113413193c07ba3c254cb121d7579b29414ca82e1ed35493",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/backgrounds/Nueva carpeta/1725.png",
+      "bytes": 2987554,
+      "sha256": "73d0e288fe77f9170825108c46fd7e981f3859cb8dee5599801611843bca1f01",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/backgrounds/Nueva carpeta/1726.png",
+      "bytes": 3014649,
+      "sha256": "e68c155c58e1f43056f7e0a287af734144873643dad6d1499301bff18a1c585a",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/backgrounds/Nueva carpeta/1727.png",
+      "bytes": 3019341,
+      "sha256": "1a53e3b8dbe133f3240bec456aae004c0607a424503e3046a47b7a9215540cc8",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/backgrounds/Nueva carpeta/1728.png",
+      "bytes": 2978882,
+      "sha256": "0fbb1fb7acfbe71be92a86a94563ad9c9b84296019164c0e5eb22188937c9ece",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/backgrounds/Nueva carpeta/1729.png",
+      "bytes": 3136006,
+      "sha256": "8b72e40553e6bf43981d5285de2146ca5318650a31f74c628aa441510d6326c7",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/backgrounds/VECTORES/1750 VECTOR.svg",
+      "bytes": 2355755,
+      "sha256": "71b3df36eb65fb037c9f0aa16cecebdd279920a1b9bc8a9c2392305cf69d96da",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/backgrounds/_plantilla_rejilla_15x17/fondo_1718_con_rejilla_728x416.png",
+      "bytes": 828379,
+      "sha256": "a599caac16b9a189a333468470f02166b4d0d5d5621dbcd0b2e9edf5a98c7a08",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/backgrounds/_plantilla_rejilla_15x17/mapa_30103_con_rejilla_728x416.png",
+      "bytes": 852948,
+      "sha256": "12ef641679cb9f6b25095d04a11ca6ca272f255ea71f766db0d12a80f5148b84",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/backgrounds/_plantilla_rejilla_15x17/rejilla_15x17_728x416.png",
+      "bytes": 26840,
+      "sha256": "e89eedf04d9b94e83c94ef3cb537af87baf0f092cb971aa49193493f463b0c40",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/backgrounds/_plantilla_rejilla_15x17/rejilla_15x17_canvas_780x442.png",
+      "bytes": 33220,
+      "sha256": "9a29a44607f1699ccf37ce504a4262dc1ab2dde54f3f04a6511bb364b671eb92",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/backgrounds/_plantilla_rejilla_15x17/rejilla_15x17_overlay_1456x832.png",
+      "bytes": 60072,
+      "sha256": "64316310dc8d87a97e39285e4bf33aa0dcf7e78ea8f87f4aa3d63ec9da5effb5",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/backgrounds/_plantilla_rejilla_15x17/rejilla_15x17_overlay_728x416.png",
+      "bytes": 25802,
+      "sha256": "a6123180b1c1395fb8f1c0b385974b4833cefcb0de05a0153235dbebe7bc7a6a",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Casas/8219.png",
+      "bytes": 179484,
+      "sha256": "86c69b9422d9ab5e887257894e9428325f9315ea38b7bd6b23f126de1f949a21",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Casas/8220.png",
+      "bytes": 207096,
+      "sha256": "d2dac60decbe21272fb079c81a61470d18377d24ceaf8612c7c827ac2d1ec376",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8230.hd.json",
+      "bytes": 148,
+      "sha256": "4acefc4ce935ef73e865b044f701ed7df56aa1612f344b6f979e80c932c67cfb",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8230.png",
+      "bytes": 240269,
+      "sha256": "836fe5352b01d277420746e62020aa3b62d6e5b61fa1b5b89f0c85c47cd94b0f",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8231.hd.json",
+      "bytes": 145,
+      "sha256": "9488f53e25a2a70977d3786ed3ec1c26060038a5b02c9d61f34f1113389ad600",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8231.png",
+      "bytes": 516971,
+      "sha256": "dce67127686ce30d81ad9d6abd3df638d26feda1478ed8ba16f20c434f4c26b2",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8232.hd.json",
+      "bytes": 148,
+      "sha256": "330e2c6001bd839cb288a519d85442a9e23330b9f4b5aee82e2f1e35615dab84",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8232.png",
+      "bytes": 255315,
+      "sha256": "5076e399b09db9ae47ee1d93633d8c964e40bcc06ae86b64161c17c2d13a5ae9",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8233.hd.json",
+      "bytes": 148,
+      "sha256": "4acefc4ce935ef73e865b044f701ed7df56aa1612f344b6f979e80c932c67cfb",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8233.png",
+      "bytes": 207984,
+      "sha256": "4aecacb89c98a802cb3c2fc7b33c11d594ff2f7c38db34a99cad0939cf43ae9d",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8234.hd.json",
+      "bytes": 148,
+      "sha256": "4acefc4ce935ef73e865b044f701ed7df56aa1612f344b6f979e80c932c67cfb",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8234.png",
+      "bytes": 250598,
+      "sha256": "e44f77d687aef12e52978ed7a859919f5523f1352f6c0dd721e07db51b8a68e3",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8235.hd.json",
+      "bytes": 145,
+      "sha256": "327eb8f8ea3191142775e7f47120efa78fce94c8dbf5ac3d8cb3fa8f05872aba",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8235.png",
+      "bytes": 553324,
+      "sha256": "5c2e54f150877c7bfaf84321a2d7ab3e58176437988f5e30390d5ea388b94e80",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8236.hd.json",
+      "bytes": 145,
+      "sha256": "9488f53e25a2a70977d3786ed3ec1c26060038a5b02c9d61f34f1113389ad600",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8236.png",
+      "bytes": 579868,
+      "sha256": "f8d4de1457a2eab5d6a1c6c8fcb2788f25fb6c6a00b23066c641ffc3a491944d",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8237.hd.json",
+      "bytes": 145,
+      "sha256": "327eb8f8ea3191142775e7f47120efa78fce94c8dbf5ac3d8cb3fa8f05872aba",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8237.png",
+      "bytes": 449616,
+      "sha256": "457a2739b5726a52d6c0d9a48f974b60085c12018c6e9f4811cc5d7d7c5a9aa8",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8238.hd.json",
+      "bytes": 145,
+      "sha256": "327eb8f8ea3191142775e7f47120efa78fce94c8dbf5ac3d8cb3fa8f05872aba",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8238.png",
+      "bytes": 475734,
+      "sha256": "9f727d1de3bc5569be4c018c25553e775d5313156c258a27317b11821ad5d3a8",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8239.hd.json",
+      "bytes": 145,
+      "sha256": "8b959702afa1d49bd952b2856815476ab46916bc2748fceeb7e72702fdba60cf",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8239.png",
+      "bytes": 740943,
+      "sha256": "c40c000831c5068fdbc69028745fd6ccdc8a9b002f4330cdb2f6f2edd59e9aad",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8240.hd.json",
+      "bytes": 148,
+      "sha256": "82936dbab41d680687f11b801923348c0c1c16b7960bb77c7562f7f30c49ec70",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8240.png",
+      "bytes": 1860597,
+      "sha256": "8b594025a87b9df6009f3bf0a5ce8e94b2ba5b5e0f8dd3967af07fe227ba2a56",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8241.hd.json",
+      "bytes": 145,
+      "sha256": "8b959702afa1d49bd952b2856815476ab46916bc2748fceeb7e72702fdba60cf",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8241.png",
+      "bytes": 779685,
+      "sha256": "71f7b4524bad163c554dbb3ccc857eaaabfd046ce79e246fdebe58fc47c82db4",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8242.hd.json",
+      "bytes": 146,
+      "sha256": "13a280241025c9461f524cba671b46ca2d9addc3aa7b71d513f4b563da424434",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8242.png",
+      "bytes": 748847,
+      "sha256": "6654091ffbac8b2cc51b7c6f2edd3f89a3102a45105c19de56153b8ae9a61f78",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8243.hd.json",
+      "bytes": 148,
+      "sha256": "82936dbab41d680687f11b801923348c0c1c16b7960bb77c7562f7f30c49ec70",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8243.png",
+      "bytes": 1109571,
+      "sha256": "5176ebc29e536c6818f9b5d59e032e886f8039093c7796c0745a1825f5e413e9",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8244.hd.json",
+      "bytes": 146,
+      "sha256": "9bd62e5970823d5619a11afc0f4cfbdfd300c8bb1d3a3b7039b0b36baef0d283",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8244.png",
+      "bytes": 1245173,
+      "sha256": "b8e36faab40db0ea42f9d4f9bebbc0b085447d5a31c7ea8595c59f18f2019125",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8245.hd.json",
+      "bytes": 145,
+      "sha256": "8b959702afa1d49bd952b2856815476ab46916bc2748fceeb7e72702fdba60cf",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8245.png",
+      "bytes": 688328,
+      "sha256": "4b6c55d4a326470f78c7ff0cd90355766eb194b2479b3af4adc1d89799020521",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8246.hd.json",
+      "bytes": 150,
+      "sha256": "1044fe4c4f5951624590ac7a8f32a2aa49d2e26040ff57bcfd5b7dd0c6225872",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8246.png",
+      "bytes": 1595828,
+      "sha256": "77b7c555ba585c4d5ae0888a931194fcbb90f2ed729c06a6f9be17bb5eea1ecb",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8247.hd.json",
+      "bytes": 150,
+      "sha256": "1044fe4c4f5951624590ac7a8f32a2aa49d2e26040ff57bcfd5b7dd0c6225872",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8247.png",
+      "bytes": 1322578,
+      "sha256": "ebcc227e3bf05420fd2851e16f1e291bd6c6c9e1f4037b9bc6cb740a21b7c490",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8248.hd.json",
+      "bytes": 150,
+      "sha256": "ce0ffeba7c7bfb8dfc1dde3b73bc59aa41697613121856898775b512858b3143",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8248.png",
+      "bytes": 984692,
+      "sha256": "eb19d29324fe61c092d644aa0d459f36dc8069c11a422413833357ab9fc56943",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8249.hd.json",
+      "bytes": 150,
+      "sha256": "1044fe4c4f5951624590ac7a8f32a2aa49d2e26040ff57bcfd5b7dd0c6225872",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8249.png",
+      "bytes": 905665,
+      "sha256": "7c4653d8cf0810d2240724e543402850393c435350d41ab534b60645f482c0c3",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8250.hd.json",
+      "bytes": 151,
+      "sha256": "9edc69f6ce8b33286279602ffeba08d89cb5127deb54971e96c68c8cf2a5e2ff",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8250.png",
+      "bytes": 1603170,
+      "sha256": "67a292148b07dd388196cef36e68831eea8405605b51cd543f2621f7bf3a83c7",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8251.hd.json",
+      "bytes": 151,
+      "sha256": "9edc69f6ce8b33286279602ffeba08d89cb5127deb54971e96c68c8cf2a5e2ff",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8251.png",
+      "bytes": 1622646,
+      "sha256": "fb2143da111871f24e837488a922afdd20de5deab85abece217d7060a79493b3",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8252.hd.json",
+      "bytes": 151,
+      "sha256": "9edc69f6ce8b33286279602ffeba08d89cb5127deb54971e96c68c8cf2a5e2ff",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8252.png",
+      "bytes": 1168723,
+      "sha256": "76cef730f18be469c83bb5b05a331c5703e302b386540f68bce3d5cc210422f2",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8253.hd.json",
+      "bytes": 145,
+      "sha256": "e8015be0e980eaeb0c856db126c7b0f7baa9269bd3855263f4bf81432845a59b",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8253.png",
+      "bytes": 168606,
+      "sha256": "d1152fc14def2597daf25d06a57441d9652f70be3a165804b0d1f8ebfa5efe36",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8254.hd.json",
+      "bytes": 151,
+      "sha256": "9edc69f6ce8b33286279602ffeba08d89cb5127deb54971e96c68c8cf2a5e2ff",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8254.png",
+      "bytes": 2205704,
+      "sha256": "74bc97ef771cda4994c0fb3bc3172eed96529cd9fbe547d4bda0e5f285c0c242",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8255.hd.json",
+      "bytes": 151,
+      "sha256": "9edc69f6ce8b33286279602ffeba08d89cb5127deb54971e96c68c8cf2a5e2ff",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8255.png",
+      "bytes": 1869602,
+      "sha256": "dc98ef5c4e46372446a4c316d17ca6fa38b1918f748aed25277c61f335ca019e",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8256.hd.json",
+      "bytes": 151,
+      "sha256": "9edc69f6ce8b33286279602ffeba08d89cb5127deb54971e96c68c8cf2a5e2ff",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8256.png",
+      "bytes": 1935535,
+      "sha256": "ce345cca691f166c6637ec32206474618cb77696e2217c8bc870be833bb71a43",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8257.hd.json",
+      "bytes": 151,
+      "sha256": "9edc69f6ce8b33286279602ffeba08d89cb5127deb54971e96c68c8cf2a5e2ff",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8257.png",
+      "bytes": 2208707,
+      "sha256": "d515f44691567e5bfc4b8dacb9c096fc2d82b48260d905072386ef4f9812ef00",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8258.hd.json",
+      "bytes": 151,
+      "sha256": "9edc69f6ce8b33286279602ffeba08d89cb5127deb54971e96c68c8cf2a5e2ff",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8258.png",
+      "bytes": 2242690,
+      "sha256": "a4d34923484b274f6dd422a028bf63cdcffca6655a767444d473b735e8b04341",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8259.hd.json",
+      "bytes": 147,
+      "sha256": "e97b79169bf60136aba3d7f46012518761df62c3e4bd08de85168e983a2dfbb0",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8259.png",
+      "bytes": 298931,
+      "sha256": "51dcdb119a28f397fbc868ef6f0659a0e81c89f8207115dd4870c43034b71d3a",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8260.hd.json",
+      "bytes": 146,
+      "sha256": "9bd62e5970823d5619a11afc0f4cfbdfd300c8bb1d3a3b7039b0b36baef0d283",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8260.png",
+      "bytes": 581316,
+      "sha256": "297aa72075b4a7b078370591757fb0e50401ddcbd852d65828b23b6bec79f5f5",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8261.hd.json",
+      "bytes": 147,
+      "sha256": "e97b79169bf60136aba3d7f46012518761df62c3e4bd08de85168e983a2dfbb0",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8261.png",
+      "bytes": 177298,
+      "sha256": "7369b8698f173d555c04e671649d637f040615ab8aa13a5ada376a84844e1688",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8262.hd.json",
+      "bytes": 146,
+      "sha256": "9bd62e5970823d5619a11afc0f4cfbdfd300c8bb1d3a3b7039b0b36baef0d283",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8262.png",
+      "bytes": 1252830,
+      "sha256": "76291aae57bf29c75a58dd1ad9963339b1dc8fa4bb0a5b17fb743660562c90b0",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8263.hd.json",
+      "bytes": 148,
+      "sha256": "82936dbab41d680687f11b801923348c0c1c16b7960bb77c7562f7f30c49ec70",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8263.png",
+      "bytes": 1610991,
+      "sha256": "41ab49a71297cb7ca2a4b3b42d45464078dcef90ab784e0095b1e62419daad4c",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8264.hd.json",
+      "bytes": 149,
+      "sha256": "80eca8a5e0308478edb0ceec9fcdcd2fb1a3e1540ebe63aed0c393856069100d",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8264.png",
+      "bytes": 1205688,
+      "sha256": "8a3a0502fbb7197aac8392cb5bffd652a84474762d83cde6a5caf6f9a98b06bf",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8265.hd.json",
+      "bytes": 149,
+      "sha256": "c439d2b702f065963ec546de4be61ca9b3faa1c5e94bcf225064b7e4770ab12b",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8265.png",
+      "bytes": 1519132,
+      "sha256": "49d41a8af05361527beded0da008e8d542b3aeca558d5d8365146c70dd81f860",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8266.hd.json",
+      "bytes": 148,
+      "sha256": "b6ecd3c18df6ea89bb7683b6203004c18641fdc16e397925e0eba8d1f221a024",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8266.png",
+      "bytes": 217251,
+      "sha256": "72c8c2b43643adb57093a8e2d951e031b599fec7afbd94120298664ce8cfa55a",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8267.hd.json",
+      "bytes": 145,
+      "sha256": "e8015be0e980eaeb0c856db126c7b0f7baa9269bd3855263f4bf81432845a59b",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8267.png",
+      "bytes": 167936,
+      "sha256": "4f1c09497b3289898b47aef141774562af875c5bc040989b1afa2f8e7a2b8747",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8268.hd.json",
+      "bytes": 148,
+      "sha256": "82936dbab41d680687f11b801923348c0c1c16b7960bb77c7562f7f30c49ec70",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8268.png",
+      "bytes": 1876609,
+      "sha256": "0e1de1b5bf234555ff1a80f36924c95475f29e7cbc7fa4ba99ac8eb60ffe630d",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8269.hd.json",
+      "bytes": 148,
+      "sha256": "82936dbab41d680687f11b801923348c0c1c16b7960bb77c7562f7f30c49ec70",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8269.png",
+      "bytes": 1496862,
+      "sha256": "578e603bab32c5beedb6042f7ba741a004456f0bfda224c2088a05c7004be12e",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8270.hd.json",
+      "bytes": 149,
+      "sha256": "80eca8a5e0308478edb0ceec9fcdcd2fb1a3e1540ebe63aed0c393856069100d",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8270.png",
+      "bytes": 1500473,
+      "sha256": "6c841278d5670331613931f493fb6a08b93c0ec164685821736412a9e198b797",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8271.hd.json",
+      "bytes": 150,
+      "sha256": "1044fe4c4f5951624590ac7a8f32a2aa49d2e26040ff57bcfd5b7dd0c6225872",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8271.png",
+      "bytes": 1167979,
+      "sha256": "d3c09afb4d1ee16607721d498363e955bdad24c9d7002962f76c8ba04bba4fb6",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8272.hd.json",
+      "bytes": 149,
+      "sha256": "80eca8a5e0308478edb0ceec9fcdcd2fb1a3e1540ebe63aed0c393856069100d",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8272.png",
+      "bytes": 1532638,
+      "sha256": "ec5bc26fc48e1603987ad59beeef0a683ae23d660b793269c3ff880a034d814e",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8273.hd.json",
+      "bytes": 148,
+      "sha256": "82936dbab41d680687f11b801923348c0c1c16b7960bb77c7562f7f30c49ec70",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8273.png",
+      "bytes": 1529453,
+      "sha256": "677e5eaddd6e7038beca50e8d6019b7a209c47f96eadc4f5171d5429f7fc3b1d",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8274.hd.json",
+      "bytes": 147,
+      "sha256": "e97b79169bf60136aba3d7f46012518761df62c3e4bd08de85168e983a2dfbb0",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8274.png",
+      "bytes": 232742,
+      "sha256": "6cd428a6f2f48ed5de51ba150aa972b9f056ac1fff4767196fd21204337a3e2d",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8275.hd.json",
+      "bytes": 145,
+      "sha256": "e8015be0e980eaeb0c856db126c7b0f7baa9269bd3855263f4bf81432845a59b",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8275.png",
+      "bytes": 235609,
+      "sha256": "754e1c298a0df5741a92ac3db365486349bf81f1adb5005b8f3e25d07f187607",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8276.hd.json",
+      "bytes": 146,
+      "sha256": "9bd62e5970823d5619a11afc0f4cfbdfd300c8bb1d3a3b7039b0b36baef0d283",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8276.png",
+      "bytes": 1051760,
+      "sha256": "c4aac61c0fc138a89c6a95f726e0f58661289962bd2f2abccc542f0ef74c1c85",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8277.hd.json",
+      "bytes": 148,
+      "sha256": "82936dbab41d680687f11b801923348c0c1c16b7960bb77c7562f7f30c49ec70",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8277.png",
+      "bytes": 1084306,
+      "sha256": "6d88df147bf8083a3b6f2407c0acdc36567eea9446464757b2f148d14fde75a1",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8278.hd.json",
+      "bytes": 146,
+      "sha256": "13a280241025c9461f524cba671b46ca2d9addc3aa7b71d513f4b563da424434",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8278.png",
+      "bytes": 959997,
+      "sha256": "7a6be29d7bc398f99ac91d2f4f98b725ede6d9b3114c0c78522b831914c0eecb",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8279.hd.json",
+      "bytes": 148,
+      "sha256": "b6ecd3c18df6ea89bb7683b6203004c18641fdc16e397925e0eba8d1f221a024",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8279.png",
+      "bytes": 253729,
+      "sha256": "be5df100e79313232f4ba977059cf45f36f2044789c5532ecd4ddeb93af41eff",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8280.hd.json",
+      "bytes": 149,
+      "sha256": "80eca8a5e0308478edb0ceec9fcdcd2fb1a3e1540ebe63aed0c393856069100d",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8280.png",
+      "bytes": 1772579,
+      "sha256": "84be8e68290def6ef3692695d1a737915e152e04d066fd197e0a7db64e7144da",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8281.hd.json",
+      "bytes": 145,
+      "sha256": "8b959702afa1d49bd952b2856815476ab46916bc2748fceeb7e72702fdba60cf",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8281.png",
+      "bytes": 877820,
+      "sha256": "b4ca3f99622f2ab650ab2854c4e0ddba10a71af3e7d9e6db472c0b235b078e70",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8282.hd.json",
+      "bytes": 149,
+      "sha256": "80eca8a5e0308478edb0ceec9fcdcd2fb1a3e1540ebe63aed0c393856069100d",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8282.png",
+      "bytes": 1526353,
+      "sha256": "c8292b492497539ca3436665acea4de52416fde175acf48b29f2ea783738fd46",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8283.hd.json",
+      "bytes": 149,
+      "sha256": "c439d2b702f065963ec546de4be61ca9b3faa1c5e94bcf225064b7e4770ab12b",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8283.png",
+      "bytes": 1484353,
+      "sha256": "86af1a9c2c395acd4ad716fa5f153a6accef7edbfd2478a50282ba3ce11301c6",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8284.hd.json",
+      "bytes": 147,
+      "sha256": "e97b79169bf60136aba3d7f46012518761df62c3e4bd08de85168e983a2dfbb0",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8284.png",
+      "bytes": 232862,
+      "sha256": "85b3726c1a10329ac9a11043dfd5cc4e1b74a57134ef81e1318b9313eb8682e2",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8285.hd.json",
+      "bytes": 145,
+      "sha256": "e8015be0e980eaeb0c856db126c7b0f7baa9269bd3855263f4bf81432845a59b",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8285.png",
+      "bytes": 246967,
+      "sha256": "ade4a8e441fbeb6acb6d53fb827ea4dc36024bf6b174f9b287e0581e16f91212",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8286.hd.json",
+      "bytes": 149,
+      "sha256": "80eca8a5e0308478edb0ceec9fcdcd2fb1a3e1540ebe63aed0c393856069100d",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8286.png",
+      "bytes": 1300464,
+      "sha256": "1f57ecec37e5af9ac200ad4e8776286a42ee0a777d7b47eb7efd779193296152",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8287.hd.json",
+      "bytes": 147,
+      "sha256": "e97b79169bf60136aba3d7f46012518761df62c3e4bd08de85168e983a2dfbb0",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8287.png",
+      "bytes": 237572,
+      "sha256": "61b58c7b1afc2dbe1e08d3db5e2df1f365c11f4f83da4df19184b4e0886255d0",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8288.hd.json",
+      "bytes": 147,
+      "sha256": "e97b79169bf60136aba3d7f46012518761df62c3e4bd08de85168e983a2dfbb0",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8288.png",
+      "bytes": 286150,
+      "sha256": "120cfa01fa412d5eb31419edc4b2af2c864fdb167d674b47f602d2a832441320",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8289.hd.json",
+      "bytes": 149,
+      "sha256": "80eca8a5e0308478edb0ceec9fcdcd2fb1a3e1540ebe63aed0c393856069100d",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8289.png",
+      "bytes": 1343201,
+      "sha256": "b08b3324ddff2f19dff33daad3d5a5c40e73d47cd5f318edcc97615e7b975a48",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8290.hd.json",
+      "bytes": 148,
+      "sha256": "82936dbab41d680687f11b801923348c0c1c16b7960bb77c7562f7f30c49ec70",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8290.png",
+      "bytes": 1132370,
+      "sha256": "e19cb17e3f963be91e1e6b10bda861ff77b1c61fc51824fefa74e43f4b6afb2b",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8291.hd.json",
+      "bytes": 147,
+      "sha256": "e97b79169bf60136aba3d7f46012518761df62c3e4bd08de85168e983a2dfbb0",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8291.png",
+      "bytes": 506893,
+      "sha256": "8ea0cabe92f77f35ec6e001e48b8aacb7ebd9b178030ce19a0809b07ed3972da",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8292.hd.json",
+      "bytes": 149,
+      "sha256": "80eca8a5e0308478edb0ceec9fcdcd2fb1a3e1540ebe63aed0c393856069100d",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8292.png",
+      "bytes": 1674633,
+      "sha256": "9ecf1bd325086a310574029d058031467e0ed6f685b10d1a6503139f32084b67",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8293.hd.json",
+      "bytes": 148,
+      "sha256": "b6ecd3c18df6ea89bb7683b6203004c18641fdc16e397925e0eba8d1f221a024",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8293.png",
+      "bytes": 212634,
+      "sha256": "c89b9965a6c5239068b6493242c94e3624c010981924c1165e3ff8f92038a96e",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8294.hd.json",
+      "bytes": 149,
+      "sha256": "c439d2b702f065963ec546de4be61ca9b3faa1c5e94bcf225064b7e4770ab12b",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8294.png",
+      "bytes": 1440825,
+      "sha256": "5d1bfab3a6e57f9b8fcf516d2a3030eb439d836bb4e5441c2ea5dfd4bf44c228",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8295.hd.json",
+      "bytes": 149,
+      "sha256": "c439d2b702f065963ec546de4be61ca9b3faa1c5e94bcf225064b7e4770ab12b",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8295.png",
+      "bytes": 1579154,
+      "sha256": "247212767e16e51c0858d446b723c48dee548fd01c236ef2329415931182d9cb",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8296.hd.json",
+      "bytes": 149,
+      "sha256": "80eca8a5e0308478edb0ceec9fcdcd2fb1a3e1540ebe63aed0c393856069100d",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8296.png",
+      "bytes": 1577869,
+      "sha256": "a909243635a06c1ca252e47e72506674a4ce1409ca5db6ec7c75170fd335401e",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8297.hd.json",
+      "bytes": 145,
+      "sha256": "8b959702afa1d49bd952b2856815476ab46916bc2748fceeb7e72702fdba60cf",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8297.png",
+      "bytes": 849544,
+      "sha256": "de1ed2e84126d87b54879fd77e049cc4c11f04682d5901789d8f710917d8a16c",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8298.hd.json",
+      "bytes": 148,
+      "sha256": "82936dbab41d680687f11b801923348c0c1c16b7960bb77c7562f7f30c49ec70",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8298.png",
+      "bytes": 1527366,
+      "sha256": "1a51dc5adcb6d865133bcd9ce2409a17f6c26850755b4aef002e5b15e30d266d",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8299.hd.json",
+      "bytes": 148,
+      "sha256": "b6ecd3c18df6ea89bb7683b6203004c18641fdc16e397925e0eba8d1f221a024",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8299.png",
+      "bytes": 221690,
+      "sha256": "532d6cffc06e873ed8073f9463e91e338b1d1780d89aded6064f0aa074a1d1f4",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8300.hd.json",
+      "bytes": 147,
+      "sha256": "8ecd98afef5af5011154c209d63644012dc3016e42e24965d9726d7930c91fe2",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8300.png",
+      "bytes": 946862,
+      "sha256": "e87c92d3762bbe2bff5262b55e51b0e428241a18089febd3b80541377e4329d9",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8301.hd.json",
+      "bytes": 149,
+      "sha256": "80eca8a5e0308478edb0ceec9fcdcd2fb1a3e1540ebe63aed0c393856069100d",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8301.png",
+      "bytes": 1495387,
+      "sha256": "25fa4d31782cbf6a7eb8e73f48a6b73c7112abccebc5cfe28e21c720b3b6c838",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8302.hd.json",
+      "bytes": 149,
+      "sha256": "c439d2b702f065963ec546de4be61ca9b3faa1c5e94bcf225064b7e4770ab12b",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8302.png",
+      "bytes": 1407811,
+      "sha256": "130509b7e7a7243b727feee80258bd1bf56747bebb24f777d29b694a6cd9ca86",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8303.hd.json",
+      "bytes": 149,
+      "sha256": "80eca8a5e0308478edb0ceec9fcdcd2fb1a3e1540ebe63aed0c393856069100d",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8303.png",
+      "bytes": 1377777,
+      "sha256": "a8e7c1281cded82ba26eb1369fd8f219ba13669ab65ca31cfc666615008c672c",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8304.hd.json",
+      "bytes": 149,
+      "sha256": "80eca8a5e0308478edb0ceec9fcdcd2fb1a3e1540ebe63aed0c393856069100d",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8304.png",
+      "bytes": 1535798,
+      "sha256": "903a5bede01a7543e447e068929f64947c556f7a8fd9e684d2b6baf09b2c7ea7",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8305.hd.json",
+      "bytes": 149,
+      "sha256": "80eca8a5e0308478edb0ceec9fcdcd2fb1a3e1540ebe63aed0c393856069100d",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8305.png",
+      "bytes": 1359151,
+      "sha256": "c196df740758caf41c205f08be7e059bdcd2bdfaba03835d2ec5af32cac1c66e",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8306.hd.json",
+      "bytes": 147,
+      "sha256": "e97b79169bf60136aba3d7f46012518761df62c3e4bd08de85168e983a2dfbb0",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8306.png",
+      "bytes": 476534,
+      "sha256": "604da5f165c7f459b685b83aa5f2105f9aaaf670057da795e7b3467313234760",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8307.hd.json",
+      "bytes": 148,
+      "sha256": "82936dbab41d680687f11b801923348c0c1c16b7960bb77c7562f7f30c49ec70",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8307.png",
+      "bytes": 1288700,
+      "sha256": "64421f05c7500ba4e215c665fb403a71ac6d3b89dbbc036708d9a4fce79789e1",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8308.hd.json",
+      "bytes": 149,
+      "sha256": "80eca8a5e0308478edb0ceec9fcdcd2fb1a3e1540ebe63aed0c393856069100d",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8308.png",
+      "bytes": 1238395,
+      "sha256": "6fea45e25e0db144ff9290583457df5507226d1a82e2f66be60a4b013d675334",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8309.hd.json",
+      "bytes": 149,
+      "sha256": "80eca8a5e0308478edb0ceec9fcdcd2fb1a3e1540ebe63aed0c393856069100d",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8309.png",
+      "bytes": 1786244,
+      "sha256": "ba93872a6635324c28a5e24a6a9319fc265c4a4020a258da7ef4211822054cee",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8310.hd.json",
+      "bytes": 147,
+      "sha256": "8ecd98afef5af5011154c209d63644012dc3016e42e24965d9726d7930c91fe2",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8310.png",
+      "bytes": 641299,
+      "sha256": "77a0a0475b3234166040ef6bbf717f2189032951999ebc15a1fb4cfe0de0f959",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8311.hd.json",
+      "bytes": 150,
+      "sha256": "1044fe4c4f5951624590ac7a8f32a2aa49d2e26040ff57bcfd5b7dd0c6225872",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8311.png",
+      "bytes": 1152472,
+      "sha256": "54f2022fe3ecba0f7639dbe44b1723ebc18a06e5413931951935be4f5afda9d8",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8312.hd.json",
+      "bytes": 150,
+      "sha256": "ce0ffeba7c7bfb8dfc1dde3b73bc59aa41697613121856898775b512858b3143",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8312.png",
+      "bytes": 1413039,
+      "sha256": "7f1e4021c33fcfcd39a5e7e3fe5edf3345d0d178f12955536c05a2a89c375d6d",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8313.hd.json",
+      "bytes": 149,
+      "sha256": "80eca8a5e0308478edb0ceec9fcdcd2fb1a3e1540ebe63aed0c393856069100d",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8313.png",
+      "bytes": 1349250,
+      "sha256": "79ebe8c1c86ff9bce985643719500ab570c74c40fc4ad946fee89968c0a672f3",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8314.hd.json",
+      "bytes": 145,
+      "sha256": "8b959702afa1d49bd952b2856815476ab46916bc2748fceeb7e72702fdba60cf",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8314.png",
+      "bytes": 747516,
+      "sha256": "4a5249dbd381f7bf41334d2cafc5949b7a1d8285447cd6f4b48a52578a8265bc",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8315.hd.json",
+      "bytes": 151,
+      "sha256": "9edc69f6ce8b33286279602ffeba08d89cb5127deb54971e96c68c8cf2a5e2ff",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8315.png",
+      "bytes": 1827160,
+      "sha256": "aa132f154c67681eaef40d10cd6456dc1f8756ced72d2a677fe530a15986fd49",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8316.hd.json",
+      "bytes": 149,
+      "sha256": "c439d2b702f065963ec546de4be61ca9b3faa1c5e94bcf225064b7e4770ab12b",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8316.png",
+      "bytes": 1572444,
+      "sha256": "43fbb77ec05822f11f5667917a24a8ba1dc5f748cd6b5a35136107b63f2b5061",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8317.hd.json",
+      "bytes": 148,
+      "sha256": "82936dbab41d680687f11b801923348c0c1c16b7960bb77c7562f7f30c49ec70",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8317.png",
+      "bytes": 1054105,
+      "sha256": "ca79d93dc093f47c783e2d7aa40f7171a7dde8c9d9d46cf2eb96f6466367ccd3",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8318.hd.json",
+      "bytes": 149,
+      "sha256": "c439d2b702f065963ec546de4be61ca9b3faa1c5e94bcf225064b7e4770ab12b",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8318.png",
+      "bytes": 1868267,
+      "sha256": "54008dded1e413ed95ed3cd4279594257632048b6761c8d7c1d415ccf5dac8e2",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8319.hd.json",
+      "bytes": 147,
+      "sha256": "e97b79169bf60136aba3d7f46012518761df62c3e4bd08de85168e983a2dfbb0",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8319.png",
+      "bytes": 295865,
+      "sha256": "5f488f7da7571f2c5ad16aae0de3603c60c19278ed8f812bdbf0de7a0a9b718f",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8320.hd.json",
+      "bytes": 149,
+      "sha256": "80eca8a5e0308478edb0ceec9fcdcd2fb1a3e1540ebe63aed0c393856069100d",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8320.png",
+      "bytes": 2079176,
+      "sha256": "8da7de8c2b02b9d7f6bcc901e28187c839631db4f846e44da834ebee581531a8",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8321.hd.json",
+      "bytes": 150,
+      "sha256": "ce0ffeba7c7bfb8dfc1dde3b73bc59aa41697613121856898775b512858b3143",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8321.png",
+      "bytes": 913076,
+      "sha256": "19a0865b80a69168f8ce9cb3470b9b317c1ea3425563b7244e0cb41e0aab72fb",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8322.hd.json",
+      "bytes": 147,
+      "sha256": "e97b79169bf60136aba3d7f46012518761df62c3e4bd08de85168e983a2dfbb0",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8322.png",
+      "bytes": 263049,
+      "sha256": "87189c726b720524f2f8d2c0a9005192098d95d0def9abe3f09d77df721f24cf",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8323.hd.json",
+      "bytes": 148,
+      "sha256": "b6ecd3c18df6ea89bb7683b6203004c18641fdc16e397925e0eba8d1f221a024",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8323.png",
+      "bytes": 257463,
+      "sha256": "01a57c4aaf6c5566a1643d298f487ed10015751c0faac44307a5be14cf3d77e3",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8324.hd.json",
+      "bytes": 149,
+      "sha256": "c439d2b702f065963ec546de4be61ca9b3faa1c5e94bcf225064b7e4770ab12b",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8324.png",
+      "bytes": 1841641,
+      "sha256": "de980d2155fc22b17eba46a3ed585cf9a9083465a52188c61a733dba894bd2ec",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8325.hd.json",
+      "bytes": 148,
+      "sha256": "82936dbab41d680687f11b801923348c0c1c16b7960bb77c7562f7f30c49ec70",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Mo Tao/8325.png",
+      "bytes": 1349342,
+      "sha256": "992af068b786fefae21232ace8fad16448d8e14c1ba0ade84de02d8c8500f408",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Torre Desafio/Columna arcana de cristal púrpura.png",
+      "bytes": 898718,
+      "sha256": "3257e2d7928c217fbf0411c3e9d908d337b2f8ccbcf3e37cfbfb4eb1df4c42ca",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Torre Desafio/Imagen de ChatGPT 27 oct 2026, 22_07_50.png",
+      "bytes": 2447449,
+      "sha256": "a7b1e1523f61e4acad2d190b18567135957ea65956e8bd0c19dd6f0cf0e54c54",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Torre Desafio/Imagen de ChatGPT 27 oct 2026, 22_08_30.png",
+      "bytes": 537637,
+      "sha256": "a5beb1f5859a06ce40ad3abbd91f8a79eac078f03a3c1674ab6b51bf053ec0a9",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Torre Desafio/Imagen de ChatGPT 27 oct 2026, 22_08_35.png",
+      "bytes": 934055,
+      "sha256": "4acb7243a6256e028bf1c4ab0c17f9762083f7798e9b49ffe5f124bbda05c872",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Torre Desafio/Imagen de ChatGPT 27 oct 2026, 22_08_39.png",
+      "bytes": 585946,
+      "sha256": "01cb5e6411a4dffa5a450a08be8f0027b8a4b2a14506784163a109265273279d",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Torre Desafio/Imagen de ChatGPT 27 oct 2026, 22_46_31.png",
+      "bytes": 2447449,
+      "sha256": "a7b1e1523f61e4acad2d190b18567135957ea65956e8bd0c19dd6f0cf0e54c54",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Torre Desafio/Obelisco Mágico de Cristal Violeta.png",
+      "bytes": 858502,
+      "sha256": "199b3e215fbcee18672105362927bdadc1c8b52a6a94f2093eef04366356b910",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Torre Desafio/Obelisco místico de cristal púrpura.png",
+      "bytes": 1081992,
+      "sha256": "717548ad0270f643450471deb719ffa7ca6d8df628a4f7dc0dce8611dd992678",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Torre Desafio/VECTORES/5042 VECTOR.svg",
+      "bytes": 2986621,
+      "sha256": "d3297e4359bdeed9d92948be97038bcf4bebc51f611d27b8414308ab4f78e48c",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Torre Desafio/VECTORES/5057 VECTOR.svg",
+      "bytes": 52458,
+      "sha256": "7b01bbef530f177574e698b3619c1b37cfc945d4460b9f7754ec7b2b22a551a4",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Torre Desafio/VECTORES/5058 VECTOR.svg",
+      "bytes": 54592,
+      "sha256": "df6ba6f316733a1d76b8176e2d271e4086347f696f06bba9a126f2ce1b2a33c7",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Torre Desafio/VECTORES/5059 VECTOR.svg",
+      "bytes": 68683,
+      "sha256": "edbe1a77aa358b5a5dbf837a0aeeac3ed29ee39538e77427b61c11725582c0fe",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Torre Desafio/VECTORES/5298 VECTOR.svg",
+      "bytes": 52851,
+      "sha256": "ceb107c28852ab1d5e90a4f8b2f7e763a679e84d8828f0b514a1db20262700cf",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Torre Desafio/VECTORES/5299 VECTOR.svg",
+      "bytes": 46973,
+      "sha256": "0c5aea708da75ef0f42b1f1f3ae4f161605a2e1bad9ff1037734cd4210436007",
+      "tracked": false
+    },
+    {
+      "path": "Library/Images/objects/Torre Desafio/VECTORES/5302 VECTOR.svg",
+      "bytes": 44995,
+      "sha256": "42e799287feeda87d97b38cddeff0af25fee4e4a93754fe287e2cdc15d1c9fbd",
+      "tracked": false
+    },
+    {
+      "path": "Library/Maps/7411/7411.png",
+      "bytes": 891080,
+      "sha256": "37c20c747bfc637f54fca18cbe9c2c915902a0063735722a1781105334f6f63e",
+      "tracked": false
+    },
+    {
+      "path": "Library/Maps/7411/7411.rufmap",
+      "bytes": 168300,
+      "sha256": "f01be0e61345151d87dd51620fc2676cc19f2cc25d375156d2516d7ca7cd25dc",
+      "tracked": false
+    },
+    {
+      "path": "Library/Maps/7411/7411_AME.swf",
+      "bytes": 664,
+      "sha256": "30da489fcf2e23be28518a433c4a314f68defc1cc3138d4c32942adb1e47cbf3",
+      "tracked": false
+    },
+    {
+      "path": "Library/Maps/7411/7411_MapData.txt",
+      "bytes": 4790,
+      "sha256": "dcbbc0554e4ed090c4bfb410b74c440f5816d398bdd6babebd1a65b53adea0f7",
+      "tracked": false
+    },
+    {
+      "path": "Library/Maps/952/952.png",
+      "bytes": 690941,
+      "sha256": "4546d2b2fc21211cbdab8cc465aff8bef48c7f0559f6c504d0a9a46bd6c6fdba",
+      "tracked": false
+    },
+    {
+      "path": "Library/Maps/952/952.rufmap",
+      "bytes": 168404,
+      "sha256": "7483dac6a47d4f901fea3eaa0a25444eaf55df70fe1fbafbdc426b0b3b18e558",
+      "tracked": false
+    },
+    {
+      "path": "Library/Maps/952/952_AME.swf",
+      "bytes": 790,
+      "sha256": "541b2ca9232f43ec9ba722a505b07f66ed2a892865550e64786996e6afa590a0",
+      "tracked": false
+    },
+    {
+      "path": "Library/Maps/952/952_MapData.txt",
+      "bytes": 4790,
+      "sha256": "012a1951312ef060a9218648a0a487c9c82b4bf32b2ae484764bda7f3ac76b48",
+      "tracked": false
+    }
+  ],
+  "excludedCount": 96,
+  "xml": {
+    "ids": 6672,
+    "newIds": 98,
+    "removedIds": 0,
+    "priorAnchorsChanged": 0,
+    "addedIds": "8219,8220,8230..8325"
+  },
+  "structuralReview": {
+    "pngValidated": 129,
+    "jsonParsed": 100,
+    "svgReviewed": 8,
+    "mapCellCounts": 479
+  },
+  "installedInLocalAdmin": true,
+  "gamePublished": false,
+  "gameplayVerified": false,
+  "sourceSnapshot": true
+}

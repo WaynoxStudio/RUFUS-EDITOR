@@ -78,3 +78,12 @@ openai*.key
 *.db-wal
 **/data/rufus-licenses.db
 
+
+# Local-only preparation, backups and personal assistant rules
+/_backups*/
+/_reverted*/
+/_upload_dofus/
+/.cursor/
+**/__pycache__/
+*.pyc
+/Library/Images/backgrounds/*.before-*
